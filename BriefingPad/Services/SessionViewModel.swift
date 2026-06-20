@@ -9,7 +9,13 @@ class SessionViewModel: ObservableObject {
 
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
-    private var chunkQueue: [String] = []
+
+    private struct QueuedChunk {
+        let text: String
+        let sessionId: String
+        let partIndex: Int
+    }
+    private var chunkQueue: [QueuedChunk] = []
 
     init(
         llmService: LLMServiceProtocol = MockLLMService(),
@@ -36,23 +42,27 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func processTranscriptChunk(_ chunk: String) async {
-        chunkQueue.append(chunk)
+        let queuedChunk = QueuedChunk(
+            text: chunk,
+            sessionId: selectedSessionId,
+            partIndex: currentPartIndex
+        )
+        chunkQueue.append(queuedChunk)
         guard !isProcessing else { return }
 
         isProcessing = true
         while !chunkQueue.isEmpty {
-            let currentChunk = chunkQueue.removeFirst()
-            await performProcessChunk(currentChunk)
+            let next = chunkQueue.removeFirst()
+            await performProcessChunk(next)
         }
         isProcessing = false
     }
 
     @MainActor
-    private func performProcessChunk(_ chunk: String) async {
-        // Capture context to ensure updates are applied to the correct part
-        // even if selection changes during await.
-        let sessionId = selectedSessionId
-        let partIndex = currentPartIndex
+    private func performProcessChunk(_ queuedChunk: QueuedChunk) async {
+        let sessionId = queuedChunk.sessionId
+        let partIndex = queuedChunk.partIndex
+        let text = queuedChunk.text
 
         guard let sessionIndex = sessions.firstIndex(where: { $0.id == sessionId }),
               partIndex < sessions[sessionIndex].parts.count else { return }
@@ -63,7 +73,7 @@ class SessionViewModel: ObservableObject {
             // 1. LLM Update
             let updatedMemo = try await llmService.updateAIMemo(
                 existingMemo: part.aiMemo,
-                newTranscriptChunk: chunk,
+                newTranscriptChunk: text,
                 partInfo: part
             )
 
