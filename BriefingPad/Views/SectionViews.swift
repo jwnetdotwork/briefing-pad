@@ -144,9 +144,10 @@ struct CommentMaterialView: View {
     let aiMemo: String
 
     var body: some View {
-        SectionContainer("短評素材 / AIメモ") {
-            Text(aiMemo.isEmpty ? "なし" : aiMemo)
+        SectionContainer("🤖 AIメモ") {
+            Text(aiMemo.isEmpty ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
                 .font(.body)
+                .lineSpacing(4)
         }
     }
 }
