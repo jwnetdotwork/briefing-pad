@@ -166,7 +166,7 @@ class MicrophoneService: ObservableObject {
                 self.processAudioBuffer(buffer)
 
                 objc_sync_enter(self)
-                let continuations = self.audioBufferContinuations.values
+                let continuations = Array(self.audioBufferContinuations.values)
                 objc_sync_exit(self)
 
                 for continuation in continuations {

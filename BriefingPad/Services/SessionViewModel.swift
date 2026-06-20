@@ -48,11 +48,15 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func processTranscriptChunk(_ chunk: String) async {
+    func processTranscriptChunk(
+        _ chunk: String,
+        sessionId: String? = nil,
+        partIndex: Int? = nil
+    ) async {
         let queuedChunk = QueuedChunk(
             text: chunk,
-            sessionId: selectedSessionId,
-            partIndex: currentPartIndex
+            sessionId: sessionId ?? selectedSessionId,
+            partIndex: partIndex ?? currentPartIndex
         )
         chunkQueue.append(queuedChunk)
         guard !isProcessing else { return }
@@ -145,6 +149,9 @@ class SessionViewModel: ObservableObject {
     @MainActor
     func stopTranscription() {
         let partId = currentPart?.id
+        let sessionId = selectedSessionId
+        let partIndex = currentPartIndex
+
         Task {
             await transcriptionService.stopTranscription()
             // Finalize remaining provisional segments as final
@@ -164,7 +171,11 @@ class SessionViewModel: ObservableObject {
                         )
                         updatedSegments[i] = finalSegment
                         hasChanges = true
-                        await processTranscriptChunk(finalSegment.text)
+                        await processTranscriptChunk(
+                            finalSegment.text,
+                            sessionId: sessionId,
+                            partIndex: partIndex
+                        )
                     }
                 }
                 if hasChanges {

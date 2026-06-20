@@ -92,8 +92,8 @@ class SpeechTranscriptionService: SpeechTranscribing {
         if #available(macOS 15.0, *) {
             // NOTE: The implementation below is conceptual for sandbox compilation.
             // In a real build, we would use the actual SFSpeechAnalyzer types.
-
-            // throw NSError(domain: "SpeechTranscriptionService", code: 3, userInfo: [NSLocalizedDescriptionKey: "Real SpeechAnalyzer implementation is placeholder."])
+            // Explicitly throw as it's not yet fully implemented in this shell.
+            throw NSError(domain: "SpeechTranscriptionService", code: 3, userInfo: [NSLocalizedDescriptionKey: "Real SpeechAnalyzer implementation is placeholder."])
         } else {
              throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "macOS 15.0+ required"])
         }
@@ -105,8 +105,6 @@ class SpeechTranscriptionService: SpeechTranscribing {
     func stopTranscription() async {
         analyzerTask?.cancel()
         analyzerTask = nil
-        // Signal stream completion (though in this service, results is often a long-lived stream for the service instance)
-        // transcriptionContinuation?.finish()
     }
 }
 
@@ -133,6 +131,9 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
     private var mockTask: Task<Void, Never>?
 
     func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) async throws {
+        mockTask?.cancel()
+        mockTask = nil
+
         mockTask = Task {
             // Simulate processing audio by occasionally yielding transcript segments
             var count = 0

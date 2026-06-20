@@ -59,4 +59,37 @@ final class TranscriptionTests: XCTestCase {
         XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.first?.text, "確定したテキスト")
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.transcript.first?.isFinal ?? false)
     }
+
+    @MainActor
+    func testStopTranscriptionContextSafety() async {
+        let viewModel = SessionViewModel()
+        let part1Id = "p1"
+        let part2Id = "p2"
+
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: []),
+            PartDefinition(id: part2Id, number: 2, title: "P2", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0 // Part 1
+
+        // 1. Add provisional to Part 1
+        let segmentId = UUID()
+        await viewModel.handleTranscriptSegment(TranscriptSegment(id: segmentId, text: "認識中...", isFinal: false))
+
+        // 2. Simulate switching to Part 2 while transcription is "active"
+        viewModel.currentPartIndex = 1
+
+        // 3. Stop transcription
+        // It should finalize Part 1 even though we are now on Part 2
+        viewModel.stopTranscription()
+
+        // Wait a bit for the Task in stopTranscription to finish
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count, 1)
+        XCTAssertTrue(viewModel.sessionState.partStates[part1Id]?.transcript.first?.isFinal ?? false, "Part 1 should be finalized")
+        XCTAssertEqual(viewModel.sessionState.partStates[part2Id]?.transcript.count ?? 0, 0, "Part 2 should be empty")
+    }
 }
