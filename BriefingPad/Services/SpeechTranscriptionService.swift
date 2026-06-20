@@ -144,12 +144,28 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     let id = UUID()
                     // Yield provisional
                     let provText = "（認識中...）発話チャンク \(count/20)"
-                    transcriptionContinuation?.yield(TranscriptSegment(id: id, text: provText, isFinal: false))
+                    transcriptionContinuation?.yield(TranscriptSegment(
+                        id: id,
+                        sessionId: "",
+                        partId: "",
+                        text: provText,
+                        isFinal: false,
+                        startTime: Double(count) / 10.0,
+                        endTime: Double(count) / 10.0
+                    ))
 
                     // Shortly after yield final
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     if Task.isCancelled { return }
-                    transcriptionContinuation?.yield(TranscriptSegment(id: id, text: "確定した発話 \(count/20)", isFinal: true))
+                    transcriptionContinuation?.yield(TranscriptSegment(
+                        id: id,
+                        sessionId: "",
+                        partId: "",
+                        text: "確定した発話 \(count/20)",
+                        isFinal: true,
+                        startTime: Double(count) / 10.0,
+                        endTime: Double(count) / 10.0 + 1.0
+                    ))
                 }
             }
         }
