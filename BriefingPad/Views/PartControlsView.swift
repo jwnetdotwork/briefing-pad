@@ -3,7 +3,7 @@ import SwiftUI
 struct PartControlsView: View {
     @Binding var currentPartIndex: Int
     let totalParts: Int
-    @Binding var isRecording: Bool
+    @ObservedObject var micService: MicrophoneService
 
     private var lastPartIndex: Int {
         max(totalParts - 1, 0)
@@ -24,15 +24,8 @@ struct PartControlsView: View {
                 VStack {
                     Text("00:02:31") // Dummy timer
                         .font(.system(.title2, design: .monospaced))
-                    if isRecording {
-                        Text("● 計測中")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                    } else {
-                        Text("待機中")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+
+                    statusView
                 }
 
                 Button(action: {
@@ -46,20 +39,51 @@ struct PartControlsView: View {
             }
 
             HStack(spacing: 60) {
-                Button(action: { isRecording = true }) {
+                Button(action: { micService.startRecording() }) {
                     Text("[開始]")
                         .frame(width: 80)
                 }
-                .disabled(isRecording)
+                .disabled(micService.status == .recording || micService.status == .starting)
 
-                Button(action: { isRecording = false }) {
+                Button(action: { micService.stopRecording() }) {
                     Text("[終了]")
                         .frame(width: 80)
                 }
-                .disabled(!isRecording)
+                .disabled(micService.status != .recording)
             }
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch micService.status {
+        case .idle:
+            if micService.permissionStatus == .denied {
+                Text("マイク許可なし")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            } else {
+                Text("待機中")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        case .starting:
+            Text("準備中...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        case .recording:
+            HStack(spacing: 4) {
+                Text("● 録音中")
+                Text("/ 音量: \(micService.audioLevel.rawValue)")
+            }
+            .font(.caption)
+            .foregroundColor(.red)
+        case .error(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundColor(.red)
+        }
     }
 }
 
@@ -68,7 +92,7 @@ struct PartControlsView_Previews: PreviewProvider {
         PartControlsView(
             currentPartIndex: .constant(1),
             totalParts: 5,
-            isRecording: .constant(false)
+            micService: MicrophoneService()
         )
     }
 }

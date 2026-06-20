@@ -4,7 +4,7 @@ struct ContentView: View {
     @State private var sessions: [BriefingSession]
     @State private var selectedSessionId: String
     @State private var currentPartIndex: Int = 0
-    @State private var isRecording: Bool = false
+    @StateObject private var micService = MicrophoneService()
 
     init() {
         let loadedSessions = LocalBriefingDataStore.loadSessions()
@@ -50,7 +50,7 @@ struct ContentView: View {
                             PartControlsView(
                                 currentPartIndex: $currentPartIndex,
                                 totalParts: session.parts.count,
-                                isRecording: $isRecording
+                                micService: micService
                             )
 
                             Divider()
@@ -85,7 +85,7 @@ struct ContentView: View {
         .frame(minWidth: 500, minHeight: 600)
         .onChange(of: selectedSessionId) {
             currentPartIndex = 0
-            isRecording = false
+            micService.cancelPendingOperationsAndStop()
         }
     }
 }
