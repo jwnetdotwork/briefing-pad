@@ -19,7 +19,25 @@ class MockAudioEngineProvider: AudioEngineProvider {
         removeTapCalled = true
     }
     var inputNodeFormat: AVAudioFormat {
-        return AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1) else {
+            fatalError("Failed to create AVAudioFormat in MockAudioEngineProvider")
+        }
+        return format
+    }
+}
+
+class MockPermissionProvider: PermissionProvider {
+    var status: AVAuthorizationStatus = .notDetermined
+    var requestAccessCalled = false
+    var requestAccessResult = true
+
+    func authorizationStatus() -> AVAuthorizationStatus {
+        return status
+    }
+
+    func requestAccess(completion: @escaping (Bool) -> Void) {
+        requestAccessCalled = true
+        completion(requestAccessResult)
     }
 }
 
@@ -27,11 +45,13 @@ class MicrophoneServiceTests: XCTestCase {
 
     var service: MicrophoneService!
     var mockEngine: MockAudioEngineProvider!
+    var mockPermission: MockPermissionProvider!
 
     override func setUp() {
         super.setUp()
         mockEngine = MockAudioEngineProvider()
-        service = MicrophoneService(audioEngine: mockEngine)
+        mockPermission = MockPermissionProvider()
+        service = MicrophoneService(audioEngine: mockEngine, permissionProvider: mockPermission)
     }
 
     override func tearDown() {
@@ -55,6 +75,7 @@ class MicrophoneServiceTests: XCTestCase {
                     expectation.fulfill()
                 }
             }
+        addTeardownBlock { cancellable.cancel() }
 
         service.stopRecording()
 
@@ -62,11 +83,11 @@ class MicrophoneServiceTests: XCTestCase {
         XCTAssertTrue(mockEngine.stopCalled)
         XCTAssertTrue(mockEngine.removeTapCalled)
         XCTAssertEqual(service.status, .idle)
-        cancellable.cancel()
     }
 
     func testStartRecordingRequiresPermission() {
-        service.permissionStatus = .denied
+        mockPermission.status = .denied
+        service.checkPermission() // Update service state
 
         let expectation = XCTestExpectation(description: "Status updates to .error")
         let cancellable = service.$status
@@ -76,16 +97,39 @@ class MicrophoneServiceTests: XCTestCase {
                     expectation.fulfill()
                 }
             }
+        addTeardownBlock { cancellable.cancel() }
 
         service.startRecording()
 
         wait(for: [expectation], timeout: 1.0)
         XCTAssertFalse(mockEngine.startCalled)
+        XCTAssertFalse(mockPermission.requestAccessCalled) // Should NOT call requestAccess if already denied
         if case .error(let message) = service.status {
             XCTAssertEqual(message, "マイクの使用が許可されていません")
         } else {
             XCTFail("Status should be .error")
         }
-        cancellable.cancel()
+    }
+
+    func testStartRecordingWithUndeterminedPermission() {
+        mockPermission.status = .notDetermined
+        mockPermission.requestAccessResult = true
+        service.checkPermission()
+
+        let expectation = XCTestExpectation(description: "Status updates to .recording")
+        let cancellable = service.$status
+            .sink { status in
+                if status == .recording {
+                    expectation.fulfill()
+                }
+            }
+        addTeardownBlock { cancellable.cancel() }
+
+        service.startRecording()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertTrue(mockPermission.requestAccessCalled)
+        XCTAssertTrue(mockEngine.startCalled)
+        XCTAssertEqual(service.status, .recording)
     }
 }

@@ -85,7 +85,7 @@ struct ContentView: View {
         .frame(minWidth: 500, minHeight: 600)
         .onChange(of: selectedSessionId) {
             currentPartIndex = 0
-            micService.stopRecording()
+            micService.cancelPendingOperationsAndStop()
         }
     }
 }

@@ -43,7 +43,7 @@ struct PartControlsView: View {
                     Text("[開始]")
                         .frame(width: 80)
                 }
-                .disabled(micService.status == .recording)
+                .disabled(micService.status == .recording || micService.status == .starting)
 
                 Button(action: { micService.stopRecording() }) {
                     Text("[終了]")
@@ -68,6 +68,10 @@ struct PartControlsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        case .starting:
+            Text("準備中...")
+                .font(.caption)
+                .foregroundColor(.secondary)
         case .recording:
             HStack(spacing: 4) {
                 Text("● 録音中")

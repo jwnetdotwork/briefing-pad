@@ -10,6 +10,7 @@ enum MicrophonePermissionStatus {
 
 enum MicrophoneStatus: Equatable {
     case idle
+    case starting
     case recording
     case error(String)
 }
@@ -37,6 +38,20 @@ protocol AudioEngineProvider {
     var inputNodeFormat: AVAudioFormat { get }
 }
 
+protocol PermissionProvider {
+    func authorizationStatus() -> AVAuthorizationStatus
+    func requestAccess(completion: @escaping (Bool) -> Void)
+}
+
+class SystemPermissionProvider: PermissionProvider {
+    func authorizationStatus() -> AVAuthorizationStatus {
+        return AVCaptureDevice.authorizationStatus(for: .audio)
+    }
+    func requestAccess(completion: @escaping (Bool) -> Void) {
+        AVCaptureDevice.requestAccess(for: .audio, completionHandler: completion)
+    }
+}
+
 class SystemAudioEngineProvider: AudioEngineProvider {
     private let audioEngine = AVAudioEngine()
 
@@ -60,16 +75,24 @@ class MicrophoneService: ObservableObject {
     @Published var audioLevel: AudioLevel = .silent
 
     private let audioEngine: AudioEngineProvider
+    private let permissionProvider: PermissionProvider
     private var lastLevelUpdateTime: Date = .distantPast
     private let levelUpdateInterval: TimeInterval = 0.1 // 10Hz
 
-    init(audioEngine: AudioEngineProvider = SystemAudioEngineProvider()) {
+    private var isStartingRecording = false
+    private var currentPermissionRequestID = 0
+
+    init(
+        audioEngine: AudioEngineProvider = SystemAudioEngineProvider(),
+        permissionProvider: PermissionProvider = SystemPermissionProvider()
+    ) {
         self.audioEngine = audioEngine
+        self.permissionProvider = permissionProvider
         checkPermission()
     }
 
     func checkPermission() {
-        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        let status = permissionProvider.authorizationStatus()
         switch status {
         case .authorized:
             self.permissionStatus = .granted
@@ -83,7 +106,7 @@ class MicrophoneService: ObservableObject {
     }
 
     func requestPermission(completion: @escaping (Bool) -> Void) {
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
+        permissionProvider.requestAccess { granted in
             DispatchQueue.main.async {
                 self.permissionStatus = granted ? .granted : .denied
                 completion(granted)
@@ -92,19 +115,31 @@ class MicrophoneService: ObservableObject {
     }
 
     func startRecording() {
-        guard status != .recording else { return }
+        guard status != .recording && !isStartingRecording else { return }
+        isStartingRecording = true
+        status = .starting
 
-        guard permissionStatus == .granted else {
-            requestPermission { granted in
+        switch permissionStatus {
+        case .granted:
+            performStartRecording()
+        case .undetermined:
+            let requestID = currentPermissionRequestID
+            requestPermission { [weak self] granted in
+                guard let self = self, self.currentPermissionRequestID == requestID else { return }
                 if granted {
-                    self.startRecording()
+                    self.performStartRecording()
                 } else {
+                    self.isStartingRecording = false
                     self.status = .error("マイクの使用が許可されていません")
                 }
             }
-            return
+        case .denied:
+            isStartingRecording = false
+            status = .error("マイクの使用が許可されていません")
         }
+    }
 
+    private func performStartRecording() {
         do {
             let recordingFormat = audioEngine.inputNodeFormat
 
@@ -116,16 +151,20 @@ class MicrophoneService: ObservableObject {
             try audioEngine.start()
 
             DispatchQueue.main.async {
+                self.isStartingRecording = false
                 self.status = .recording
             }
         } catch {
+            audioEngine.removeTap(onBus: 0)
             DispatchQueue.main.async {
+                self.isStartingRecording = false
                 self.status = .error("録音の開始に失敗しました: \(error.localizedDescription)")
             }
         }
     }
 
     func stopRecording() {
+        cancelPendingOperations()
         audioEngine.stop()
         audioEngine.removeTap(onBus: 0)
 
@@ -133,6 +172,16 @@ class MicrophoneService: ObservableObject {
             self.status = .idle
             self.audioLevel = .silent
         }
+    }
+
+    func cancelPendingOperations() {
+        currentPermissionRequestID += 1
+        isStartingRecording = false
+    }
+
+    func cancelPendingOperationsAndStop() {
+        cancelPendingOperations()
+        stopRecording()
     }
 
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
