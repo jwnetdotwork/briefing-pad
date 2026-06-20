@@ -16,12 +16,12 @@
 
 最初は仮UIでOK。
 
-- [ ] パート一覧エリア
-- [ ] 現在パート表示
-- [ ] 文字起こし表示エリア
-- [ ] 観察メモ表示エリア
-- [ ] 良かった点候補表示エリア
-- [ ] 開始 / 停止 / パート終了ボタン
+- [x] パート一覧エリア
+- [x] 現在パート表示
+- [X] 文字起こし表示エリア
+- [X] 観察メモ表示エリア
+- [X] 良かった点候補表示エリア
+- [X] 開始 / 停止 / パート終了ボタン
 
 ---
 
@@ -31,11 +31,11 @@ Notion連携前に、まず固定JSONやMarkdownで動かす。
 
 ## 1-1. パート定義モデル作成
 
-- [ ] `PartDefinition`
-- [ ] `LearningPoint`
-- [ ] `ObservationItem`
-- [ ] `PositiveItem`
-- [ ] `PartAnalysisState`
+- [x] `PartDefinition`
+- [x] `LearningPoint`
+- [x] `ObservationItem`
+- [x] `PositiveItem`
+- [x] `PartAnalysisState`
 
 例：
 
@@ -55,17 +55,17 @@ struct PartDefinition {
 
 ## 1-2. サンプルデータ読み込み
 
-- [ ] ローカルJSONを用意
-- [ ] アプリ起動時に読み込む
-- [ ] パート一覧に表示
-- [ ] 現在パートを選択できるようにする
+- [x] ローカルJSONを用意
+- [x] アプリ起動時に読み込む
+- [x] パート一覧に表示
+- [x] 現在パートを選択できるようにする
 
 ## 1-3. 観察メモ・良かった点の状態モデル
 
-- [ ] `confidence`
-- [ ] `shortEvidence`
-- [ ] `status`
-- [ ] `lastUpdatedAt`
+- [x] `confidence`
+- [x] `shortEvidence`
+- [x] `status`
+- [x] `lastUpdatedAt`
 
 ステータスは内部的にこれくらいでOK。
 

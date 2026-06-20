@@ -5,6 +5,10 @@ struct PartControlsView: View {
     let totalParts: Int
     @Binding var isRecording: Bool
 
+    private var lastPartIndex: Int {
+        max(totalParts - 1, 0)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 40) {
@@ -15,7 +19,7 @@ struct PartControlsView: View {
                 }) {
                     Text("[前へ]")
                 }
-                .disabled(currentPartIndex == 0)
+                .disabled(currentPartIndex == 0 || totalParts <= 1)
 
                 VStack {
                     Text("00:02:31") // Dummy timer
@@ -32,13 +36,13 @@ struct PartControlsView: View {
                 }
 
                 Button(action: {
-                    if currentPartIndex < totalParts - 1 {
+                    if currentPartIndex < lastPartIndex {
                         currentPartIndex += 1
                     }
                 }) {
                     Text("[次へ]")
                 }
-                .disabled(currentPartIndex == totalParts - 1)
+                .disabled(currentPartIndex >= lastPartIndex || totalParts <= 1)
             }
 
             HStack(spacing: 60) {
@@ -59,10 +63,12 @@ struct PartControlsView: View {
     }
 }
 
-#Preview {
-    PartControlsView(
-        currentPartIndex: .constant(1),
-        totalParts: 5,
-        isRecording: .constant(false)
-    )
+struct PartControlsView_Previews: PreviewProvider {
+    static var previews: some View {
+        PartControlsView(
+            currentPartIndex: .constant(1),
+            totalParts: 5,
+            isRecording: .constant(false)
+        )
+    }
 }

@@ -1,0 +1,62 @@
+{
+  "sessions": [
+    {
+      "id": "test-session",
+      "name": "Test Session",
+      "parts": [
+        {
+          "id": "part-a",
+          "number": 1,
+          "title": "Test Part A",
+          "durationMinutes": 2,
+          "setting": "Test setting",
+          "rawMarkdown": "### Test Part A",
+          "learningPoints": [
+            { "id": "lp-a", "text": "Learning point A" }
+          ],
+          "observationItems": [
+            { "id": "obs-a", "text": "Observation A" }
+          ],
+          "positiveItems": [
+            { "id": "pos-a", "text": "Positive A" }
+          ],
+          "aiMemo": "Memo A",
+          "analysisState": {
+            "observationItemStates": {
+              "obs-a": {
+                "confidence": 0.4,
+                "shortEvidence": "Evidence A",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            },
+            "positiveItemStates": {
+              "pos-a": {
+                "confidence": 0.9,
+                "shortEvidence": "Evidence B",
+                "status": "strong",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            }
+          }
+        },
+        {
+          "id": "part-b",
+          "number": 2,
+          "title": "Test Part B",
+          "durationMinutes": 3,
+          "setting": "Test setting B",
+          "rawMarkdown": "### Test Part B",
+          "learningPoints": [],
+          "observationItems": [],
+          "positiveItems": [],
+          "aiMemo": "",
+          "analysisState": {
+            "observationItemStates": {},
+            "positiveItemStates": {}
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,20 +1,22 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var sessions = Session.dummySessions
-    @State private var selectedSessionId: UUID?
+    @State private var sessions: [BriefingSession]
+    @State private var selectedSessionId: String
     @State private var currentPartIndex: Int = 0
     @State private var isRecording: Bool = false
 
     init() {
-        _selectedSessionId = State(initialValue: Session.dummySessions.first?.id)
+        let loadedSessions = LocalBriefingDataStore.loadSessions()
+        _sessions = State(initialValue: loadedSessions)
+        _selectedSessionId = State(initialValue: loadedSessions.first?.id ?? "")
     }
 
-    var selectedSession: Session? {
+    var selectedSession: BriefingSession? {
         sessions.first(where: { $0.id == selectedSessionId })
     }
 
-    var currentPart: Part? {
+    var currentPart: PartDefinition? {
         guard let session = selectedSession,
               currentPartIndex < session.parts.count else {
             return nil
@@ -33,30 +35,48 @@ struct ContentView: View {
 
             ScrollView {
                 VStack(spacing: 0) {
-                    if let part = currentPart {
-                        PartHeaderView(part: part)
-
-                        Divider()
-                            .padding(.horizontal)
-
-                        PartControlsView(
-                            currentPartIndex: $currentPartIndex,
-                            totalParts: selectedSession?.parts.count ?? 0,
-                            isRecording: $isRecording
+                    if let session = selectedSession {
+                        PartListView(
+                            parts: session.parts,
+                            selectedPartIndex: $currentPartIndex
                         )
 
-                        Divider()
-                            .padding(.horizontal)
+                        if let part = currentPart {
+                            PartHeaderView(part: part)
 
-                        TranscriptView(text: part.transcription)
+                            Divider()
+                                .padding(.horizontal)
 
-                        ObservationPointsView(points: part.observationPoints)
+                            PartControlsView(
+                                currentPartIndex: $currentPartIndex,
+                                totalParts: session.parts.count,
+                                isRecording: $isRecording
+                            )
 
-                        GoodPointsView(points: part.goodPoints)
+                            Divider()
+                                .padding(.horizontal)
 
-                        CommentMaterialView(aiMemo: part.aiMemo)
+                            TranscriptView(text: part.rawMarkdown)
+
+                            LearningPointsView(points: part.learningPoints)
+
+                            ObservationItemsView(
+                                items: part.observationItems,
+                                state: part.analysisState.observationItemStates
+                            )
+
+                            PositiveItemsView(
+                                items: part.positiveItems,
+                                state: part.analysisState.positiveItemStates
+                            )
+
+                            CommentMaterialView(aiMemo: part.aiMemo)
+                        } else {
+                            Text("現在のパートが見つかりません")
+                                .padding()
+                        }
                     } else {
-                        Text("セッションまたはパートが見つかりません")
+                        Text("セッションが見つかりません")
                             .padding()
                     }
                 }
@@ -70,6 +90,8 @@ struct ContentView: View {
     }
 }
 
-#Preview {
-    ContentView()
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
 }

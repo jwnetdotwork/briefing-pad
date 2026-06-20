@@ -41,28 +41,99 @@ struct TranscriptView: View {
     }
 }
 
-struct ObservationPointsView: View {
-    let points: [String]
+struct LearningPointsView: View {
+    let points: [LearningPoint]
 
     var body: some View {
-        SectionContainer("観察ポイント") {
+        SectionContainer("学習ポイント") {
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(points, id: \.self) { point in
-                    Text("- \(point)")
+                if points.isEmpty {
+                    Text("なし")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(points) { point in
+                        Text("・\(point.text)")
+                    }
                 }
             }
         }
     }
 }
 
-struct GoodPointsView: View {
-    let points: [String]
+struct ObservationItemsView: View {
+    let items: [ObservationItem]
+    let state: [String: AnalysisItemState]
 
     var body: some View {
-        SectionContainer("良かった点") {
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(points, id: \.self) { point in
-                    Text("- \(point)")
+        SectionContainer("観察メモ") {
+            VStack(alignment: .leading, spacing: 12) {
+                if items.isEmpty {
+                    Text("なし")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(items) { item in
+                        let itemState = state[item.id] ?? .hidden()
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("・\(item.text)")
+                                Spacer(minLength: 12)
+                                Text(itemState.status.displayLabel)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if !itemState.shortEvidence.isEmpty {
+                                Text(itemState.shortEvidence)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Text("confidence \(Int(itemState.confidence * 100))% / 更新 \(itemState.lastUpdatedAt.formatted(date: .omitted, time: .shortened))")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct PositiveItemsView: View {
+    let items: [PositiveItem]
+    let state: [String: AnalysisItemState]
+
+    var body: some View {
+        SectionContainer("良かった点候補") {
+            VStack(alignment: .leading, spacing: 12) {
+                if items.isEmpty {
+                    Text("なし")
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(items) { item in
+                        let itemState = state[item.id] ?? .hidden()
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("・\(item.text)")
+                                Spacer(minLength: 12)
+                                Text(itemState.status.displayLabel)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            if !itemState.shortEvidence.isEmpty {
+                                Text(itemState.shortEvidence)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Text("confidence \(Int(itemState.confidence * 100))% / 更新 \(itemState.lastUpdatedAt.formatted(date: .omitted, time: .shortened))")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
         }
@@ -74,17 +145,41 @@ struct CommentMaterialView: View {
 
     var body: some View {
         SectionContainer("短評素材 / AIメモ") {
-            Text(aiMemo)
+            Text(aiMemo.isEmpty ? "なし" : aiMemo)
                 .font(.body)
         }
     }
 }
 
-#Preview {
-    VStack {
-        TranscriptView(text: "テスト文字起こし")
-        ObservationPointsView(points: ["ポイント1", "ポイント2"])
-        GoodPointsView(points: ["良かった点1"])
-        CommentMaterialView(aiMemo: "AIメモ")
+struct SectionViews_Previews: PreviewProvider {
+    static var previews: some View {
+        VStack {
+            TranscriptView(text: "テスト文字起こし")
+            LearningPointsView(points: [
+                LearningPoint(id: "lp-1", text: "テスト1"),
+                LearningPoint(id: "lp-2", text: "テスト2")
+            ])
+            ObservationItemsView(
+                items: [
+                    ObservationItem(id: "obs-1", text: "観察1"),
+                    ObservationItem(id: "obs-2", text: "観察2")
+                ],
+                state: [
+                    "obs-1": AnalysisItemState(
+                        confidence: 0.8,
+                        shortEvidence: "根拠",
+                        status: .strong,
+                        lastUpdatedAt: .now
+                    )
+                ]
+            )
+            PositiveItemsView(
+                items: [
+                    PositiveItem(id: "pos-1", text: "良かった点1")
+                ],
+                state: [:]
+            )
+            CommentMaterialView(aiMemo: "AIメモ")
+        }
     }
 }

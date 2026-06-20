@@ -1,0 +1,161 @@
+{
+  "sessions": [
+    {
+      "id": "2024-06-20-practice",
+      "name": "2024/06/20 実演練習",
+      "parts": [
+        {
+          "id": "part-1-greeting",
+          "number": 1,
+          "title": "挨拶をする",
+          "durationMinutes": 2,
+          "setting": "相手に自然に声をかける導入",
+          "rawMarkdown": "### Part 1. 挨拶をする\n\nこんにちは。今日はいい天気ですね。最近はいかがお過ごしですか？",
+          "learningPoints": [
+            { "id": "lp-1", "text": "笑顔で最初の一言を置く" },
+            { "id": "lp-2", "text": "相手が返しやすい質問を混ぜる" }
+          ],
+          "observationItems": [
+            { "id": "obs-1", "text": "笑顔で挨拶できているか" },
+            { "id": "obs-2", "text": "相手の反応を待てているか" }
+          ],
+          "positiveItems": [
+            { "id": "pos-1", "text": "自然な笑顔で話しかけられていた" },
+            { "id": "pos-2", "text": "最初の一言が落ち着いていた" }
+          ],
+          "aiMemo": "冒頭の挨拶はスムーズで、相手の反応を待つ余裕もあった。",
+          "analysisState": {
+            "observationItemStates": {
+              "obs-1": {
+                "confidence": 0.52,
+                "shortEvidence": "冒頭で笑顔を保てていた",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              },
+              "obs-2": {
+                "confidence": 0.12,
+                "shortEvidence": "",
+                "status": "hidden",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            },
+            "positiveItemStates": {
+              "pos-1": {
+                "confidence": 0.91,
+                "shortEvidence": "最初から柔らかい表情で話しかけていた",
+                "status": "strong",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              },
+              "pos-2": {
+                "confidence": 0.63,
+                "shortEvidence": "言い出しが急ぎすぎていなかった",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            }
+          }
+        },
+        {
+          "id": "part-4-conversation",
+          "number": 4,
+          "title": "会話を始める",
+          "durationMinutes": 4,
+          "setting": "親切な声かけをきっかけに会話へつなげる",
+          "rawMarkdown": "### Part 4. 会話を始める\n\nお手伝いしましょうか？荷物が重そうですね。\nありがとうございます。助かります。\nいいえ、こちらの道はよく通られるんですか？",
+          "learningPoints": [
+            { "id": "lp-3", "text": "助ける一言から会話を開く" },
+            { "id": "lp-4", "text": "相手が安心したあとに話題を広げる" }
+          ],
+          "observationItems": [
+            { "id": "obs-3", "text": "相手の困り事に気づいて声をかけているか" },
+            { "id": "obs-4", "text": "助けた後に自然に会話を広げているか" },
+            { "id": "obs-5", "text": "相手が安心したと感じられる反応があるか" }
+          ],
+          "positiveItems": [
+            { "id": "pos-3", "text": "親切をきっかけにしたので構えさせにくい流れ" },
+            { "id": "pos-4", "text": "助けたい気持ちが先に出て真心が伝わりやすい" }
+          ],
+          "aiMemo": "親切な行動が会話の起点になり、相手の安心感を崩さずに展開できていた。",
+          "analysisState": {
+            "observationItemStates": {
+              "obs-3": {
+                "confidence": 0.74,
+                "shortEvidence": "荷物の様子を見て先に声をかけていた",
+                "status": "strong",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              },
+              "obs-4": {
+                "confidence": 0.66,
+                "shortEvidence": "お礼のあとに道の話へ自然につないでいた",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              },
+              "obs-5": {
+                "confidence": 0.18,
+                "shortEvidence": "",
+                "status": "hidden",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            },
+            "positiveItemStates": {
+              "pos-3": {
+                "confidence": 0.89,
+                "shortEvidence": "会話の最初に親切が立っていた",
+                "status": "strong",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              },
+              "pos-4": {
+                "confidence": 0.71,
+                "shortEvidence": "押しつけがましさのない助け方だった",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "2024-06-21-final",
+      "name": "2024/06/21 本番",
+      "parts": [
+        {
+          "id": "part-1-intro",
+          "number": 1,
+          "title": "導入",
+          "durationMinutes": 3,
+          "setting": "開始直後の空気を整える",
+          "rawMarkdown": "### Part 1. 導入\n\nダミーの文字起こしテキストです。",
+          "learningPoints": [
+            { "id": "lp-5", "text": "相手の様子を見てから入る" }
+          ],
+          "observationItems": [
+            { "id": "obs-6", "text": "冒頭で間を取れているか" }
+          ],
+          "positiveItems": [
+            { "id": "pos-5", "text": "落ち着いた入り方だった" }
+          ],
+          "aiMemo": "導入は落ち着いており、次の会話へつなげる下地はできている。",
+          "analysisState": {
+            "observationItemStates": {
+              "obs-6": {
+                "confidence": 0.61,
+                "shortEvidence": "急がずに相手の反応を見ていた",
+                "status": "candidate",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            },
+            "positiveItemStates": {
+              "pos-5": {
+                "confidence": 0.83,
+                "shortEvidence": "会話の入りが落ち着いていた",
+                "status": "strong",
+                "lastUpdatedAt": "2026-06-20T00:00:00Z"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

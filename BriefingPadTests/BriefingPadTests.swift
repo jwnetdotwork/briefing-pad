@@ -5,15 +5,22 @@
 //  Created by 山下慎平 on 2026/06/20.
 //
 
+import Foundation
 import Testing
 @testable import BriefingPad
 
 struct BriefingPadTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+    @Test func loadsLocalPartDefinitions() async throws {
+        let bundle = Bundle(for: TestBundleToken.self)
+        let sessions = LocalBriefingDataStore.loadSessions(bundle: bundle)
+
+        #expect(sessions.count == 1)
+        #expect(sessions[0].parts.count == 2)
+        #expect(sessions[0].parts[0].learningPoints.count == 1)
+        #expect(sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status == .strong)
     }
 
 }
+
+private final class TestBundleToken {}

@@ -1,14 +1,14 @@
 import SwiftUI
 
 struct SessionToolbarView: View {
-    @Binding var selectedSessionId: UUID?
-    let sessions: [Session]
+    @Binding var selectedSessionId: String
+    let sessions: [BriefingSession]
 
     var body: some View {
         HStack {
             Picker("セッション選択", selection: $selectedSessionId) {
                 ForEach(sessions) { session in
-                    Text(session.name).tag(session.id as UUID?)
+                    Text(session.name).tag(session.id)
                 }
             }
             .labelsHidden()
@@ -31,9 +31,11 @@ struct SessionToolbarView: View {
     }
 }
 
-#Preview {
-    SessionToolbarView(
-        selectedSessionId: .constant(Session.dummySessions[0].id),
-        sessions: Session.dummySessions
-    )
+struct SessionToolbarView_Previews: PreviewProvider {
+    static var previews: some View {
+        SessionToolbarView(
+            selectedSessionId: .constant(LocalBriefingDataStore.fallbackSessions[0].id),
+            sessions: LocalBriefingDataStore.fallbackSessions
+        )
+    }
 }
