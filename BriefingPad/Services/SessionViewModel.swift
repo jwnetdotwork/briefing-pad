@@ -121,7 +121,9 @@ class SessionViewModel: ObservableObject {
 
         guard let sessionIndex = sessions.firstIndex(where: { $0.id == sessionId }),
               partIndex < sessions[sessionIndex].parts.count else {
-            chunkQueue[index].status = .failed("Invalid session or part index")
+            if !chunkQueue.isEmpty {
+                chunkQueue.removeFirst()
+            }
             return
         }
 
