@@ -1,0 +1,10 @@
+language: "ja-JP"
+early_access: true
+reviews:
+  profile: "chill" # "assertive"だとコメントが攻撃的になりすぎた
+  request_changes_workflow: false # AIにPRをブロックさせない
+  high_level_summary: false # 高レベルの要約は不要
+  poem: false # 業務でポエムはいらない
+  auto_review:
+    enabled: true
+    drafts: false # ドラフトPRはレビューしない（ノイズ削減）
