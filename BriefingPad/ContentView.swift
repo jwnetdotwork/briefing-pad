@@ -33,30 +33,22 @@ struct ContentView: View {
                                     totalParts: session.parts.count,
                                     micService: micService
                                 )
-
+                            }
+                            .onChange(of: micService.status) {
                                 if micService.status == .recording {
-                                    Button(action: {
-                                        Task {
-                                            await viewModel.processTranscriptChunk("新しい発言のチャンク \(Date().formatted(date: .omitted, time: .standard))")
-                                        }
-                                    }) {
-                                        HStack {
-                                            if viewModel.isProcessing {
-                                                ProgressView()
-                                                    .controlSize(.small)
-                                            }
-                                            Text("デバッグ: 確定チャンクをエミュレート")
-                                        }
-                                    }
-                                    .disabled(viewModel.isProcessing)
-                                    .padding(.bottom, 8)
+                                    viewModel.startTranscription(audioStream: micService.createAudioBufferStream())
+                                } else if micService.status == .idle {
+                                    viewModel.stopTranscription()
                                 }
                             }
 
                             Divider()
                                 .padding(.horizontal)
 
-                            TranscriptView(text: part.rawMarkdown)
+                            TranscriptView(
+                                segments: viewModel.sessionState.partStates[part.id]?.transcript ?? [],
+                                errorMessage: viewModel.transcriptionError
+                            )
 
                             LearningPointsView(points: part.learningPoints)
 
