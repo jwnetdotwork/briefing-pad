@@ -1,43 +1,50 @@
-//
-//  BriefingPadUITests.swift
-//  BriefingPadUITests
-//
-//  Created by 山下慎平 on 2026/06/20.
-//
-
 import XCTest
 
 final class BriefingPadUITests: XCTestCase {
 
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testMainSectionsExist() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        // Check for Session Toolbar
+        XCTAssertTrue(app.staticTexts["セッション選択"].exists || app.popUpButtons.firstMatch.exists)
+
+        // Check for Part Header (at least one part title from dummy data)
+        XCTAssertTrue(app.staticTexts["Part 1. 挨拶をする"].exists)
+
+        // Check for Controls
+        XCTAssertTrue(app.buttons["[前へ]"].exists)
+        XCTAssertTrue(app.buttons["[次へ]"].exists)
+        XCTAssertTrue(app.buttons["[開始]"].exists)
+        XCTAssertTrue(app.buttons["[終了]"].exists)
+
+        // Check for Section Titles
+        XCTAssertTrue(app.staticTexts["文字起こし"].exists)
+        XCTAssertTrue(app.staticTexts["観察ポイント"].exists)
+        XCTAssertTrue(app.staticTexts["良かった点"].exists)
+        XCTAssertTrue(app.staticTexts["短評素材 / AIメモ"].exists)
     }
 
     @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    func testNavigation() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let nextButton = app.buttons["[次へ]"]
+        XCTAssertTrue(nextButton.isEnabled)
+        nextButton.click()
+
+        XCTAssertTrue(app.staticTexts["Part 4. 会話を始める"].exists)
+
+        let prevButton = app.buttons["[前へ]"]
+        XCTAssertTrue(prevButton.isEnabled)
+        prevButton.click()
+
+        XCTAssertTrue(app.staticTexts["Part 1. 挨拶をする"].exists)
     }
 }
