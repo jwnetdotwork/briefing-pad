@@ -129,26 +129,54 @@ struct LocalBriefingCatalog: Codable {
 
 struct TranscriptSegment: Identifiable, Codable, Hashable {
     let id: UUID
+    let sessionId: String
+    let partId: String
     let text: String
     let isFinal: Bool
-    let startTime: Double?
-    let endTime: Double?
+    let startTime: Double
+    let endTime: Double
     let receivedAt: Date
 
     init(
         id: UUID = UUID(),
+        sessionId: String,
+        partId: String,
         text: String,
         isFinal: Bool,
-        startTime: Double? = nil,
-        endTime: Double? = nil,
+        startTime: Double,
+        endTime: Double,
         receivedAt: Date = Date()
     ) {
         self.id = id
+        self.sessionId = sessionId
+        self.partId = partId
         self.text = text
         self.isFinal = isFinal
         self.startTime = startTime
         self.endTime = endTime
         self.receivedAt = receivedAt
+    }
+}
+
+struct TranscriptChunk: Identifiable, Codable, Hashable {
+    let id: UUID
+    let partId: String
+    let text: String
+    let startTime: Double
+    let endTime: Double
+
+    init(
+        id: UUID = UUID(),
+        partId: String,
+        text: String,
+        startTime: Double,
+        endTime: Double
+    ) {
+        self.id = id
+        self.partId = partId
+        self.text = text
+        self.startTime = startTime
+        self.endTime = endTime
     }
 }
 

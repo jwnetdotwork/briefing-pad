@@ -12,20 +12,34 @@ class SessionViewModel: ObservableObject {
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
     private let transcriptionService: SpeechTranscribing
+    private let clock: Clock
 
     private var transcriptionTask: Task<Void, Never>?
 
-    private struct QueuedChunk {
-        let text: String
+    enum ChunkStatus: Equatable {
+        case pending
+        case sending
+        case success
+        case failed(String)
+    }
+
+    private struct QueuedChunk: Identifiable {
+        let id: UUID
+        let chunk: TranscriptChunk
         let sessionId: String
         let partIndex: Int
+        var status: ChunkStatus
     }
     private var chunkQueue: [QueuedChunk] = []
+
+    private var chunker: TranscriptChunker?
 
     init(
         llmService: LLMServiceProtocol = MockLLMService(),
         notionService: NotionServiceProtocol = MockNotionService(),
-        transcriptionService: SpeechTranscribing = MockSpeechTranscriptionService()
+        transcriptionService: SpeechTranscribing = MockSpeechTranscriptionService(),
+        clock: Clock = RealClock(),
+        scheduler: Scheduler = RealScheduler()
     ) {
         let loadedSessions = LocalBriefingDataStore.loadSessions()
         self.sessions = loadedSessions
@@ -33,6 +47,14 @@ class SessionViewModel: ObservableObject {
         self.llmService = llmService
         self.notionService = notionService
         self.transcriptionService = transcriptionService
+        self.clock = clock
+
+        self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler) { [weak self] chunk in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.enqueueChunk(chunk)
+            }
+        }
     }
 
     var selectedSession: BriefingSession? {
@@ -48,35 +70,62 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func processTranscriptChunk(
-        _ chunk: String,
+    private func enqueueChunk(
+        _ chunk: TranscriptChunk,
         sessionId: String? = nil,
         partIndex: Int? = nil
     ) async {
+        let targetSessionId = sessionId ?? selectedSessionId
+        let targetPartIndex: Int
+        if let partIndex = partIndex {
+            targetPartIndex = partIndex
+        } else if let session = sessions.first(where: { $0.id == targetSessionId }),
+                  let index = session.parts.firstIndex(where: { $0.id == chunk.partId }) {
+            targetPartIndex = index
+        } else {
+            targetPartIndex = currentPartIndex
+        }
+
         let queuedChunk = QueuedChunk(
-            text: chunk,
-            sessionId: sessionId ?? selectedSessionId,
-            partIndex: partIndex ?? currentPartIndex
+            id: UUID(),
+            chunk: chunk,
+            sessionId: targetSessionId,
+            partIndex: targetPartIndex,
+            status: .pending
         )
         chunkQueue.append(queuedChunk)
+        await processNextInQueue()
+    }
+
+    @MainActor
+    private func processNextInQueue() async {
         guard !isProcessing else { return }
 
         isProcessing = true
-        while !chunkQueue.isEmpty {
-            let next = chunkQueue.removeFirst()
-            await performProcessChunk(next)
+        while let index = chunkQueue.firstIndex(where: {
+            if case .pending = $0.status { return true }
+            return false
+        }) {
+            await performProcessChunk(at: index)
         }
         isProcessing = false
     }
 
     @MainActor
-    private func performProcessChunk(_ queuedChunk: QueuedChunk) async {
+    private func performProcessChunk(at index: Int) async {
+        var queuedChunk = chunkQueue[index]
+        queuedChunk.status = .sending
+        chunkQueue[index] = queuedChunk
+
         let sessionId = queuedChunk.sessionId
         let partIndex = queuedChunk.partIndex
-        let text = queuedChunk.text
+        let chunk = queuedChunk.chunk
 
         guard let sessionIndex = sessions.firstIndex(where: { $0.id == sessionId }),
-              partIndex < sessions[sessionIndex].parts.count else { return }
+              partIndex < sessions[sessionIndex].parts.count else {
+            chunkQueue[index].status = .failed("Invalid session or part index")
+            return
+        }
 
         let part = sessions[sessionIndex].parts[partIndex]
 
@@ -84,7 +133,7 @@ class SessionViewModel: ObservableObject {
             // 1. LLM Update
             let updatedMemo = try await llmService.updateAIMemo(
                 existingMemo: part.aiMemo,
-                newTranscriptChunk: text,
+                newTranscriptChunk: chunk.text,
                 partInfo: part
             )
 
@@ -109,8 +158,10 @@ class SessionViewModel: ObservableObject {
                     print("Notion update failed: \(error)")
                 }
             }
+            chunkQueue[index].status = .success
         } catch {
             print("Failed to process chunk: \(error)")
+            chunkQueue[index].status = .failed(error.localizedDescription)
         }
     }
 
@@ -122,6 +173,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectSession(id: String) {
+        chunker?.flush()
         selectedSessionId = id
         currentPartIndex = 0
         transcriptionError = nil
@@ -138,7 +190,17 @@ class SessionViewModel: ObservableObject {
                 try await transcriptionService.startTranscription(audioStream: audioStream)
 
                 for await segment in transcriptionService.results {
-                    await handleTranscriptSegment(segment)
+                    let segmentWithContext = TranscriptSegment(
+                        id: segment.id,
+                        sessionId: selectedSessionId,
+                        partId: currentPart?.id ?? "",
+                        text: segment.text,
+                        isFinal: segment.isFinal,
+                        startTime: segment.startTime,
+                        endTime: segment.endTime,
+                        receivedAt: segment.receivedAt
+                    )
+                    await handleTranscriptSegment(segmentWithContext)
                 }
             } catch {
                 self.transcriptionError = error.localizedDescription
@@ -154,6 +216,8 @@ class SessionViewModel: ObservableObject {
 
         Task {
             await transcriptionService.stopTranscription()
+            chunker?.flush()
+
             // Finalize remaining provisional segments as final
             if let partId = partId {
                 let segments = sessionState.partStates[partId]?.transcript ?? []
@@ -163,6 +227,8 @@ class SessionViewModel: ObservableObject {
                     if !updatedSegments[i].isFinal {
                         let finalSegment = TranscriptSegment(
                             id: updatedSegments[i].id,
+                            sessionId: sessionId,
+                            partId: partId,
                             text: updatedSegments[i].text,
                             isFinal: true,
                             startTime: updatedSegments[i].startTime,
@@ -171,15 +237,12 @@ class SessionViewModel: ObservableObject {
                         )
                         updatedSegments[i] = finalSegment
                         hasChanges = true
-                        await processTranscriptChunk(
-                            finalSegment.text,
-                            sessionId: sessionId,
-                            partIndex: partIndex
-                        )
+                        chunker?.processSegment(finalSegment)
                     }
                 }
                 if hasChanges {
                     sessionState.partStates[partId]?.transcript = updatedSegments
+                    chunker?.flush()
                 }
             }
         }
@@ -189,7 +252,8 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func handleTranscriptSegment(_ segment: TranscriptSegment) async {
-        guard let partId = currentPart?.id else { return }
+        let partId = segment.partId
+        guard !partId.isEmpty else { return }
 
         var partState = sessionState.partStates[partId] ?? PartState()
 
@@ -200,17 +264,35 @@ class SessionViewModel: ObservableObject {
 
             // Only process if it just became final
             if segment.isFinal && !wasFinal {
-                await processTranscriptChunk(segment.text)
+                chunker?.processSegment(segment)
             }
         } else {
             // Append new segment
             partState.transcript.append(segment)
 
             if segment.isFinal {
-                await processTranscriptChunk(segment.text)
+                chunker?.processSegment(segment)
             }
         }
 
         sessionState.partStates[partId] = partState
+    }
+
+    // For debugging and manual injection (legacy support)
+    @MainActor
+    func processTranscriptChunk(
+        _ text: String,
+        sessionId: String? = nil,
+        partIndex: Int? = nil
+    ) async {
+        let targetPartId = currentPart?.id ?? ""
+        let now = clock.now.timeIntervalSince1970
+        let chunk = TranscriptChunk(
+            partId: targetPartId,
+            text: text,
+            startTime: now,
+            endTime: now
+        )
+        await enqueueChunk(chunk, sessionId: sessionId, partIndex: partIndex)
     }
 }

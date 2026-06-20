@@ -6,9 +6,20 @@ final class TranscriptionTests: XCTestCase {
     func testTranscriptSegmentInitialization() {
         let id = UUID()
         let now = Date()
-        let segment = TranscriptSegment(id: id, text: "Hello", isFinal: true, startTime: 1.0, endTime: 2.0, receivedAt: now)
+        let segment = TranscriptSegment(
+            id: id,
+            sessionId: "s1",
+            partId: "p1",
+            text: "Hello",
+            isFinal: true,
+            startTime: 1.0,
+            endTime: 2.0,
+            receivedAt: now
+        )
 
         XCTAssertEqual(segment.id, id)
+        XCTAssertEqual(segment.sessionId, "s1")
+        XCTAssertEqual(segment.partId, "p1")
         XCTAssertEqual(segment.text, "Hello")
         XCTAssertTrue(segment.isFinal)
         XCTAssertEqual(segment.startTime, 1.0)
@@ -21,7 +32,14 @@ final class TranscriptionTests: XCTestCase {
         let partId = "part-1"
         var partState = PartState()
 
-        let segment = TranscriptSegment(text: "Test", isFinal: true)
+        let segment = TranscriptSegment(
+            sessionId: "s1",
+            partId: partId,
+            text: "Test",
+            isFinal: true,
+            startTime: 0.0,
+            endTime: 1.0
+        )
         partState.transcript.append(segment)
         state.partStates[partId] = partState
 
@@ -43,7 +61,15 @@ final class TranscriptionTests: XCTestCase {
         viewModel.selectedSessionId = "s1"
 
         // 1. Add provisional
-        let provisional = TranscriptSegment(id: segmentId, text: "認識中...", isFinal: false)
+        let provisional = TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: partId,
+            text: "認識中...",
+            isFinal: false,
+            startTime: 0.0,
+            endTime: 0.0
+        )
         await viewModel.handleTranscriptSegment(provisional)
 
         XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 1)
@@ -51,7 +77,15 @@ final class TranscriptionTests: XCTestCase {
         XCTAssertFalse(viewModel.sessionState.partStates[partId]?.transcript.first?.isFinal ?? true)
 
         // 2. Update to final
-        let final = TranscriptSegment(id: segmentId, text: "確定したテキスト", isFinal: true)
+        let final = TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: partId,
+            text: "確定したテキスト",
+            isFinal: true,
+            startTime: 0.0,
+            endTime: 1.0
+        )
         await viewModel.handleTranscriptSegment(final)
 
         // Should be replaced, not duplicated
@@ -76,7 +110,15 @@ final class TranscriptionTests: XCTestCase {
 
         // 1. Add provisional to Part 1
         let segmentId = UUID()
-        await viewModel.handleTranscriptSegment(TranscriptSegment(id: segmentId, text: "認識中...", isFinal: false))
+        await viewModel.handleTranscriptSegment(TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: part1Id,
+            text: "認識中...",
+            isFinal: false,
+            startTime: 0.0,
+            endTime: 0.0
+        ))
 
         // 2. Simulate switching to Part 2 while transcription is "active"
         viewModel.currentPartIndex = 1
