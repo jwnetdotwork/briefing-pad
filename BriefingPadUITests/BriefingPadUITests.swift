@@ -28,7 +28,7 @@ final class BriefingPadUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["学習ポイント"].exists)
         XCTAssertTrue(app.staticTexts["観察メモ"].exists)
         XCTAssertTrue(app.staticTexts["良かった点候補"].exists)
-        XCTAssertTrue(app.staticTexts["短評素材 / AIメモ"].exists)
+        XCTAssertTrue(app.staticTexts["🤖 AIメモ"].exists)
     }
 
     @MainActor

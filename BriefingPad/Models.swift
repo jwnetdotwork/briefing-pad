@@ -81,7 +81,8 @@ struct PartDefinition: Identifiable, Codable, Hashable {
     let learningPoints: [LearningPoint]
     let observationItems: [ObservationItem]
     let positiveItems: [PositiveItem]
-    let aiMemo: String
+    var aiMemo: String
+    var aiMemoBlockId: String?
     var analysisState: PartAnalysisState
 
     init(
@@ -95,6 +96,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         observationItems: [ObservationItem],
         positiveItems: [PositiveItem],
         aiMemo: String = "",
+        aiMemoBlockId: String? = nil,
         analysisState: PartAnalysisState? = nil
     ) {
         self.id = id
@@ -107,6 +109,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         self.observationItems = observationItems
         self.positiveItems = positiveItems
         self.aiMemo = aiMemo
+        self.aiMemoBlockId = aiMemoBlockId
         self.analysisState = analysisState ?? PartAnalysisState.initial(
             observationItems: observationItems,
             positiveItems: positiveItems

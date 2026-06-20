@@ -44,7 +44,8 @@ enum LocalBriefingDataStore {
                             PositiveItem(id: "pos-1", text: "自然な笑顔で話しかけられていた"),
                             PositiveItem(id: "pos-2", text: "最初の一言が落ち着いていた")
                         ],
-                        aiMemo: "冒頭の挨拶はスムーズで、相手の反応を待つ余裕もあった。"
+                        aiMemo: "冒頭の挨拶はスムーズで、相手の反応を待つ余裕もあった。",
+                        aiMemoBlockId: "notion-block-id-1"
                     ),
                     PartDefinition(
                         id: "part-4-conversation",
@@ -72,7 +73,8 @@ enum LocalBriefingDataStore {
                             PositiveItem(id: "pos-3", text: "親切をきっかけにしたので構えさせにくい流れ"),
                             PositiveItem(id: "pos-4", text: "助けたい気持ちが先に出て真心が伝わりやすい")
                         ],
-                        aiMemo: "親切な行動が会話の起点になり、相手の安心感を崩さずに展開できていた。"
+                        aiMemo: "親切な行動が会話の起点になり、相手の安心感を崩さずに展開できていた。",
+                        aiMemoBlockId: "notion-block-id-4"
                     )
                 ]
             ),
@@ -100,7 +102,8 @@ enum LocalBriefingDataStore {
                         positiveItems: [
                             PositiveItem(id: "pos-5", text: "落ち着いた入り方だった")
                         ],
-                        aiMemo: "導入は落ち着いており、次の会話へつなげる下地はできている。"
+                        aiMemo: "導入は落ち着いており、次の会話へつなげる下地はできている。",
+                        aiMemoBlockId: "notion-block-id-final-1"
                     )
                 ]
             )

@@ -24,6 +24,7 @@
             { "id": "pos-2", "text": "最初の一言が落ち着いていた" }
           ],
           "aiMemo": "冒頭の挨拶はスムーズで、相手の反応を待つ余裕もあった。",
+          "aiMemoBlockId": "notion-block-id-1",
           "analysisState": {
             "observationItemStates": {
               "obs-1": {
@@ -76,6 +77,7 @@
             { "id": "pos-4", "text": "助けたい気持ちが先に出て真心が伝わりやすい" }
           ],
           "aiMemo": "親切な行動が会話の起点になり、相手の安心感を崩さずに展開できていた。",
+          "aiMemoBlockId": "notion-block-id-4",
           "analysisState": {
             "observationItemStates": {
               "obs-3": {
@@ -136,6 +138,7 @@
             { "id": "pos-5", "text": "落ち着いた入り方だった" }
           ],
           "aiMemo": "導入は落ち着いており、次の会話へつなげる下地はできている。",
+          "aiMemoBlockId": "notion-block-id-final-1",
           "analysisState": {
             "observationItemStates": {
               "obs-6": {
