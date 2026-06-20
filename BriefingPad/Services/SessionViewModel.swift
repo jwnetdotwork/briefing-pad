@@ -102,20 +102,18 @@ class SessionViewModel: ObservableObject {
         guard !isProcessing else { return }
 
         isProcessing = true
-        while let index = chunkQueue.firstIndex(where: {
-            if case .pending = $0.status { return true }
-            return false
-        }) {
-            await performProcessChunk(at: index)
+        while !chunkQueue.isEmpty {
+            await performProcessChunk()
         }
         isProcessing = false
     }
 
     @MainActor
-    private func performProcessChunk(at index: Int) async {
-        var queuedChunk = chunkQueue[index]
+    private func performProcessChunk() async {
+        guard !chunkQueue.isEmpty else { return }
+        var queuedChunk = chunkQueue[0]
         queuedChunk.status = .sending
-        chunkQueue[index] = queuedChunk
+        chunkQueue[0] = queuedChunk
 
         let sessionId = queuedChunk.sessionId
         let partIndex = queuedChunk.partIndex
@@ -158,10 +156,13 @@ class SessionViewModel: ObservableObject {
                     print("Notion update failed: \(error)")
                 }
             }
-            chunkQueue[index].status = .success
         } catch {
             print("Failed to process chunk: \(error)")
-            chunkQueue[index].status = .failed(error.localizedDescription)
+        }
+        // Always remove the chunk after processing attempt to keep the queue bounded.
+        // In Phase 3, we don't have automatic retries, so we just move on.
+        if !chunkQueue.isEmpty {
+            chunkQueue.removeFirst()
         }
     }
 

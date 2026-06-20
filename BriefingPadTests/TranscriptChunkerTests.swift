@@ -21,10 +21,12 @@ final class TranscriptChunkerTests: XCTestCase {
 
     @MainActor
     func testSilenceThreshold() async {
+        let expectation = XCTestExpectation(description: "Chunk should be flushed after silence")
         var flushedChunks: [TranscriptChunk] = []
         let scheduler = TestScheduler()
         let chunker = TranscriptChunker(scheduler: scheduler) { chunk in
             flushedChunks.append(chunk)
+            expectation.fulfill()
         }
 
         let segment = TranscriptSegment(sessionId: "s1", partId: "p1", text: "Hello", isFinal: true, startTime: 100, endTime: 101)
@@ -36,8 +38,7 @@ final class TranscriptChunkerTests: XCTestCase {
         // Trigger silence
         scheduler.lastAction?()
 
-        // Wait for @MainActor Task
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        await fulfillment(of: [expectation], timeout: 1.0)
 
         XCTAssertEqual(flushedChunks.count, 1)
         XCTAssertEqual(flushedChunks.first?.text, "Hello")
@@ -47,11 +48,18 @@ final class TranscriptChunkerTests: XCTestCase {
 
     @MainActor
     func testMaxDuration() async {
+        let expectation1 = XCTestExpectation(description: "First chunk should be flushed by max duration")
+        let expectation2 = XCTestExpectation(description: "Second chunk should be flushed by silence")
         var flushedChunks: [TranscriptChunk] = []
         let scheduler = TestScheduler()
         let clock = MutableClock()
         let chunker = TranscriptChunker(clock: clock, scheduler: scheduler) { chunk in
             flushedChunks.append(chunk)
+            if flushedChunks.count == 1 {
+                expectation1.fulfill()
+            } else if flushedChunks.count == 2 {
+                expectation2.fulfill()
+            }
         }
 
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p1", text: "First", isFinal: true, startTime: 10, endTime: 11))
@@ -61,12 +69,12 @@ final class TranscriptChunkerTests: XCTestCase {
         // This segment arrives after 15s, so the PREVIOUS chunk ("First") should be flushed immediately.
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p1", text: "Second", isFinal: true, startTime: 26, endTime: 27))
 
-        XCTAssertEqual(flushedChunks.count, 1)
+        await fulfillment(of: [expectation1], timeout: 1.0)
         XCTAssertEqual(flushedChunks.first?.text, "First")
 
         // Finalize by silence to check second chunk
         scheduler.lastAction?()
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        await fulfillment(of: [expectation2], timeout: 1.0)
 
         XCTAssertEqual(flushedChunks.count, 2)
         XCTAssertEqual(flushedChunks.last?.text, "Second")
@@ -99,14 +107,16 @@ final class TranscriptChunkerTests: XCTestCase {
 
     @MainActor
     func testEmptyAfterTrimDoesNotFlush() async {
-        var flushedChunks: [TranscriptChunk] = []
+        let expectation = XCTestExpectation(description: "Chunk should NOT be flushed")
+        expectation.isInverted = true
         let scheduler = TestScheduler()
-        let chunker = TranscriptChunker(scheduler: scheduler) { flushedChunks.append($0) }
+        let chunker = TranscriptChunker(scheduler: scheduler) { _ in
+            expectation.fulfill()
+        }
 
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p1", text: "   ", isFinal: true, startTime: 10, endTime: 11))
         scheduler.lastAction?()
 
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertEqual(flushedChunks.count, 0)
+        await fulfillment(of: [expectation], timeout: 0.1)
     }
 }

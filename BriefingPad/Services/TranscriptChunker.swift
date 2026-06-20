@@ -68,8 +68,8 @@ class TranscriptChunker {
             let chunk = TranscriptChunk(
                 partId: currentSegments[0].partId,
                 text: trimmedText,
-                startTime: currentSegments.first?.startTime ?? 0,
-                endTime: currentSegments.last?.endTime ?? 0
+                startTime: currentSegments.first!.startTime,
+                endTime: currentSegments.last!.endTime
             )
             onFlush(chunk)
         }
