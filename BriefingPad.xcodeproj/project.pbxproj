@@ -1,0 +1,580 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		55AC95C52FE6855000C2C32B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 55AC95AF2FE6854F00C2C32B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 55AC95B62FE6854F00C2C32B;
+			remoteInfo = BriefingPad;
+		};
+		55AC95CF2FE6855000C2C32B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 55AC95AF2FE6854F00C2C32B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 55AC95B62FE6854F00C2C32B;
+			remoteInfo = BriefingPad;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		55AC95B72FE6854F00C2C32B /* BriefingPad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BriefingPad.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		55AC95C42FE6855000C2C32B /* BriefingPadTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BriefingPadTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		55AC95CE2FE6855000C2C32B /* BriefingPadUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BriefingPadUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		55AC95B92FE6854F00C2C32B /* BriefingPad */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BriefingPad;
+			sourceTree = "<group>";
+		};
+		55AC95C72FE6855000C2C32B /* BriefingPadTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BriefingPadTests;
+			sourceTree = "<group>";
+		};
+		55AC95D12FE6855000C2C32B /* BriefingPadUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BriefingPadUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		55AC95B42FE6854F00C2C32B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95C12FE6855000C2C32B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95CB2FE6855000C2C32B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		55AC95AE2FE6854F00C2C32B = {
+			isa = PBXGroup;
+			children = (
+				55AC95B92FE6854F00C2C32B /* BriefingPad */,
+				55AC95C72FE6855000C2C32B /* BriefingPadTests */,
+				55AC95D12FE6855000C2C32B /* BriefingPadUITests */,
+				55AC95B82FE6854F00C2C32B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		55AC95B82FE6854F00C2C32B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				55AC95B72FE6854F00C2C32B /* BriefingPad.app */,
+				55AC95C42FE6855000C2C32B /* BriefingPadTests.xctest */,
+				55AC95CE2FE6855000C2C32B /* BriefingPadUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		55AC95B62FE6854F00C2C32B /* BriefingPad */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 55AC95D82FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPad" */;
+			buildPhases = (
+				55AC95B32FE6854F00C2C32B /* Sources */,
+				55AC95B42FE6854F00C2C32B /* Frameworks */,
+				55AC95B52FE6854F00C2C32B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				55AC95B92FE6854F00C2C32B /* BriefingPad */,
+			);
+			name = BriefingPad;
+			packageProductDependencies = (
+			);
+			productName = BriefingPad;
+			productReference = 55AC95B72FE6854F00C2C32B /* BriefingPad.app */;
+			productType = "com.apple.product-type.application";
+		};
+		55AC95C32FE6855000C2C32B /* BriefingPadTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 55AC95DB2FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPadTests" */;
+			buildPhases = (
+				55AC95C02FE6855000C2C32B /* Sources */,
+				55AC95C12FE6855000C2C32B /* Frameworks */,
+				55AC95C22FE6855000C2C32B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				55AC95C62FE6855000C2C32B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				55AC95C72FE6855000C2C32B /* BriefingPadTests */,
+			);
+			name = BriefingPadTests;
+			packageProductDependencies = (
+			);
+			productName = BriefingPadTests;
+			productReference = 55AC95C42FE6855000C2C32B /* BriefingPadTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		55AC95CD2FE6855000C2C32B /* BriefingPadUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 55AC95DE2FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPadUITests" */;
+			buildPhases = (
+				55AC95CA2FE6855000C2C32B /* Sources */,
+				55AC95CB2FE6855000C2C32B /* Frameworks */,
+				55AC95CC2FE6855000C2C32B /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				55AC95D02FE6855000C2C32B /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				55AC95D12FE6855000C2C32B /* BriefingPadUITests */,
+			);
+			name = BriefingPadUITests;
+			packageProductDependencies = (
+			);
+			productName = BriefingPadUITests;
+			productReference = 55AC95CE2FE6855000C2C32B /* BriefingPadUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		55AC95AF2FE6854F00C2C32B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2650;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					55AC95B62FE6854F00C2C32B = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					55AC95C32FE6855000C2C32B = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 55AC95B62FE6854F00C2C32B;
+					};
+					55AC95CD2FE6855000C2C32B = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 55AC95B62FE6854F00C2C32B;
+					};
+				};
+			};
+			buildConfigurationList = 55AC95B22FE6854F00C2C32B /* Build configuration list for PBXProject "BriefingPad" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 55AC95AE2FE6854F00C2C32B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 55AC95B82FE6854F00C2C32B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				55AC95B62FE6854F00C2C32B /* BriefingPad */,
+				55AC95C32FE6855000C2C32B /* BriefingPadTests */,
+				55AC95CD2FE6855000C2C32B /* BriefingPadUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		55AC95B52FE6854F00C2C32B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95C22FE6855000C2C32B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95CC2FE6855000C2C32B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		55AC95B32FE6854F00C2C32B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95C02FE6855000C2C32B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55AC95CA2FE6855000C2C32B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		55AC95C62FE6855000C2C32B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 55AC95B62FE6854F00C2C32B /* BriefingPad */;
+			targetProxy = 55AC95C52FE6855000C2C32B /* PBXContainerItemProxy */;
+		};
+		55AC95D02FE6855000C2C32B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 55AC95B62FE6854F00C2C32B /* BriefingPad */;
+			targetProxy = 55AC95CF2FE6855000C2C32B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		55AC95D62FE6855000C2C32B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		55AC95D72FE6855000C2C32B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		55AC95D92FE6855000C2C32B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "ブリーフィング・パッド";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPad;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		55AC95DA2FE6855000C2C32B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "ブリーフィング・パッド";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPad;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		55AC95DC2FE6855000C2C32B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPadTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BriefingPad.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BriefingPad";
+			};
+			name = Debug;
+		};
+		55AC95DD2FE6855000C2C32B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.5;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPadTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BriefingPad.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BriefingPad";
+			};
+			name = Release;
+		};
+		55AC95DF2FE6855000C2C32B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPadUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = BriefingPad;
+			};
+			name = Debug;
+		};
+		55AC95E02FE6855000C2C32B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SLYS2S5UMZ;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = jp.shipweb.BriefingPadUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = BriefingPad;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		55AC95B22FE6854F00C2C32B /* Build configuration list for PBXProject "BriefingPad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				55AC95D62FE6855000C2C32B /* Debug */,
+				55AC95D72FE6855000C2C32B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		55AC95D82FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPad" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				55AC95D92FE6855000C2C32B /* Debug */,
+				55AC95DA2FE6855000C2C32B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		55AC95DB2FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPadTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				55AC95DC2FE6855000C2C32B /* Debug */,
+				55AC95DD2FE6855000C2C32B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		55AC95DE2FE6855000C2C32B /* Build configuration list for PBXNativeTarget "BriefingPadUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				55AC95DF2FE6855000C2C32B /* Debug */,
+				55AC95E02FE6855000C2C32B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 55AC95AF2FE6854F00C2C32B /* Project object */;
+}
