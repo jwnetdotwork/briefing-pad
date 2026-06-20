@@ -31,12 +31,62 @@ struct SectionContainer<Content: View>: View {
 }
 
 struct TranscriptView: View {
-    let text: String
+    let segments: [TranscriptSegment]
+    let errorMessage: String?
+
+    @State private var isAtBottom = true
 
     var body: some View {
         SectionContainer("文字起こし") {
-            Text(text)
-                .font(.body)
+            VStack(alignment: .leading, spacing: 4) {
+                if let error = errorMessage {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .padding(.bottom, 4)
+                }
+
+                if segments.isEmpty {
+                    Text("（録音を開始するとここに文字起こしが表示されます）")
+                        .foregroundColor(.secondary)
+                        .font(.body)
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(segments) { segment in
+                                    Text(segment.text)
+                                        .font(.body)
+                                        .foregroundStyle(segment.isFinal ? .primary : .secondary)
+                                        .italic(!segment.isFinal)
+                                        .id(segment.id)
+                                }
+                            }
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear
+                                        .onChange(of: geo.frame(in: .named("scroll")).maxY) {
+                                            let visibleHeight = 200.0
+                                            let scrollOffset = geo.frame(in: .named("scroll")).maxY
+                                            isAtBottom = scrollOffset < visibleHeight + 50
+                                        }
+                                }
+                            )
+                        }
+                        .coordinateSpace(name: "scroll")
+                        .frame(height: 200)
+                        .onChange(of: segments) {
+                            if isAtBottom {
+                                if let last = segments.last {
+                                    withAnimation {
+                                        proxy.scrollTo(last.id, anchor: .bottom)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -155,7 +205,13 @@ struct CommentMaterialView: View {
 struct SectionViews_Previews: PreviewProvider {
     static var previews: some View {
         VStack {
-            TranscriptView(text: "テスト文字起こし")
+            TranscriptView(
+                segments: [
+                    TranscriptSegment(text: "確定したテキスト", isFinal: true),
+                    TranscriptSegment(text: "未確定のテキスト", isFinal: false)
+                ],
+                errorMessage: nil
+            )
             LearningPointsView(points: [
                 LearningPoint(id: "lp-1", text: "テスト1"),
                 LearningPoint(id: "lp-2", text: "テスト2")

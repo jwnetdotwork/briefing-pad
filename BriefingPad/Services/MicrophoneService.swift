@@ -74,12 +74,20 @@ class MicrophoneService: ObservableObject {
     @Published var status: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
 
+    private var audioBufferContinuation: AsyncStream<AVAudioPCMBuffer>.Continuation?
+
     private let audioEngine: AudioEngineProvider
     private let permissionProvider: PermissionProvider
     private var lastLevelUpdateTime: Date = .distantPast
     private let levelUpdateInterval: TimeInterval = 0.1 // 10Hz
 
     private var isStartingRecording = false
+
+    func createAudioBufferStream() -> AsyncStream<AVAudioPCMBuffer> {
+        AsyncStream { continuation in
+            self.audioBufferContinuation = continuation
+        }
+    }
     private var currentPermissionRequestID = 0
 
     init(
@@ -145,6 +153,7 @@ class MicrophoneService: ObservableObject {
 
             audioEngine.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] (buffer, when) in
                 self?.processAudioBuffer(buffer)
+                self?.audioBufferContinuation?.yield(buffer)
             }
 
             audioEngine.prepare()
