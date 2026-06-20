@@ -126,3 +126,36 @@ struct BriefingSession: Identifiable, Codable, Hashable {
 struct LocalBriefingCatalog: Codable {
     let sessions: [BriefingSession]
 }
+
+struct TranscriptSegment: Identifiable, Codable, Hashable {
+    let id: UUID
+    let text: String
+    let isFinal: Bool
+    let startTime: Double?
+    let endTime: Double?
+    let receivedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        text: String,
+        isFinal: Bool,
+        startTime: Double? = nil,
+        endTime: Double? = nil,
+        receivedAt: Date = Date()
+    ) {
+        self.id = id
+        self.text = text
+        self.isFinal = isFinal
+        self.startTime = startTime
+        self.endTime = endTime
+        self.receivedAt = receivedAt
+    }
+}
+
+struct PartState: Codable, Hashable {
+    var transcript: [TranscriptSegment] = []
+}
+
+struct SessionState: Codable, Hashable {
+    var partStates: [String: PartState] = [:] // partId -> PartState
+}

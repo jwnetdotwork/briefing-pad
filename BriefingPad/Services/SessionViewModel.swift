@@ -6,9 +6,14 @@ class SessionViewModel: ObservableObject {
     @Published var selectedSessionId: String
     @Published var currentPartIndex: Int = 0
     @Published var isProcessing = false
+    @Published var sessionState = SessionState()
+    @Published var transcriptionError: String?
 
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
+    private let transcriptionService: SpeechTranscribing
+
+    private var transcriptionTask: Task<Void, Never>?
 
     private struct QueuedChunk {
         let text: String
@@ -19,13 +24,15 @@ class SessionViewModel: ObservableObject {
 
     init(
         llmService: LLMServiceProtocol = MockLLMService(),
-        notionService: NotionServiceProtocol = MockNotionService()
+        notionService: NotionServiceProtocol = MockNotionService(),
+        transcriptionService: SpeechTranscribing = MockSpeechTranscriptionService()
     ) {
         let loadedSessions = LocalBriefingDataStore.loadSessions()
         self.sessions = loadedSessions
         self.selectedSessionId = loadedSessions.first?.id ?? ""
         self.llmService = llmService
         self.notionService = notionService
+        self.transcriptionService = transcriptionService
     }
 
     var selectedSession: BriefingSession? {
@@ -41,11 +48,15 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func processTranscriptChunk(_ chunk: String) async {
+    func processTranscriptChunk(
+        _ chunk: String,
+        sessionId: String? = nil,
+        partIndex: Int? = nil
+    ) async {
         let queuedChunk = QueuedChunk(
             text: chunk,
-            sessionId: selectedSessionId,
-            partIndex: currentPartIndex
+            sessionId: sessionId ?? selectedSessionId,
+            partIndex: partIndex ?? currentPartIndex
         )
         chunkQueue.append(queuedChunk)
         guard !isProcessing else { return }
@@ -113,5 +124,93 @@ class SessionViewModel: ObservableObject {
     func selectSession(id: String) {
         selectedSessionId = id
         currentPartIndex = 0
+        transcriptionError = nil
+    }
+
+    @MainActor
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) {
+        transcriptionError = nil
+        transcriptionTask?.cancel()
+
+        transcriptionTask = Task {
+            do {
+                await transcriptionService.stopTranscription()
+                try await transcriptionService.startTranscription(audioStream: audioStream)
+
+                for await segment in transcriptionService.results {
+                    await handleTranscriptSegment(segment)
+                }
+            } catch {
+                self.transcriptionError = error.localizedDescription
+            }
+        }
+    }
+
+    @MainActor
+    func stopTranscription() {
+        let partId = currentPart?.id
+        let sessionId = selectedSessionId
+        let partIndex = currentPartIndex
+
+        Task {
+            await transcriptionService.stopTranscription()
+            // Finalize remaining provisional segments as final
+            if let partId = partId {
+                let segments = sessionState.partStates[partId]?.transcript ?? []
+                var updatedSegments = segments
+                var hasChanges = false
+                for i in 0..<updatedSegments.count {
+                    if !updatedSegments[i].isFinal {
+                        let finalSegment = TranscriptSegment(
+                            id: updatedSegments[i].id,
+                            text: updatedSegments[i].text,
+                            isFinal: true,
+                            startTime: updatedSegments[i].startTime,
+                            endTime: updatedSegments[i].endTime,
+                            receivedAt: updatedSegments[i].receivedAt
+                        )
+                        updatedSegments[i] = finalSegment
+                        hasChanges = true
+                        await processTranscriptChunk(
+                            finalSegment.text,
+                            sessionId: sessionId,
+                            partIndex: partIndex
+                        )
+                    }
+                }
+                if hasChanges {
+                    sessionState.partStates[partId]?.transcript = updatedSegments
+                }
+            }
+        }
+        transcriptionTask?.cancel()
+        transcriptionTask = nil
+    }
+
+    @MainActor
+    func handleTranscriptSegment(_ segment: TranscriptSegment) async {
+        guard let partId = currentPart?.id else { return }
+
+        var partState = sessionState.partStates[partId] ?? PartState()
+
+        if let index = partState.transcript.firstIndex(where: { $0.id == segment.id }) {
+            // Update existing segment
+            let wasFinal = partState.transcript[index].isFinal
+            partState.transcript[index] = segment
+
+            // Only process if it just became final
+            if segment.isFinal && !wasFinal {
+                await processTranscriptChunk(segment.text)
+            }
+        } else {
+            // Append new segment
+            partState.transcript.append(segment)
+
+            if segment.isFinal {
+                await processTranscriptChunk(segment.text)
+            }
+        }
+
+        sessionState.partStates[partId] = partState
     }
 }
