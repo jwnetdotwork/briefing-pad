@@ -18,7 +18,7 @@ struct ContentView: View {
         VStack(spacing: 0) {
             SessionToolbarView(
                 selectedSessionId: $viewModel.selectedSessionId,
-                sessions: viewModel.sessions,
+                viewModel: viewModel,
                 keychainService: keychainService
             )
 

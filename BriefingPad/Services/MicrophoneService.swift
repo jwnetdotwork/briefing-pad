@@ -82,6 +82,7 @@ class MicrophoneService: ObservableObject {
     private let levelUpdateInterval: TimeInterval = 0.1 // 10Hz
 
     private var isStartingRecording = false
+    private var audioFile: AVAudioFile?
 
     func createAudioBufferStream() -> AsyncStream<AVAudioPCMBuffer> {
         let id = UUID()
@@ -132,20 +133,20 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    func startRecording() {
+    func startRecording(audioFileURL: URL? = nil) {
         guard status != .recording && !isStartingRecording else { return }
         isStartingRecording = true
         status = .starting
 
         switch permissionStatus {
         case .granted:
-            performStartRecording()
+            performStartRecording(audioFileURL: audioFileURL)
         case .undetermined:
             let requestID = currentPermissionRequestID
             requestPermission { [weak self] granted in
                 guard let self = self, self.currentPermissionRequestID == requestID else { return }
                 if granted {
-                    self.performStartRecording()
+                    self.performStartRecording(audioFileURL: audioFileURL)
                 } else {
                     self.isStartingRecording = false
                     self.status = .error("マイクの使用が許可されていません")
@@ -157,13 +158,38 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    private func performStartRecording() {
+    private func performStartRecording(audioFileURL: URL?) {
         do {
             let recordingFormat = audioEngine.inputNodeFormat
+
+            if let url = audioFileURL {
+                // Ensure directory exists
+                let dir = url.deletingLastPathComponent()
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+                // AAC/M4A Settings
+                let settings: [String: Any] = [
+                    AVFormatIDKey: kAudioFormatMPEG4AAC,
+                    AVSampleRateKey: recordingFormat.sampleRate,
+                    AVNumberOfChannelsKey: recordingFormat.channelCount,
+                    AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+                ]
+
+                audioFile = try AVAudioFile(forWriting: url, settings: settings)
+            }
 
             audioEngine.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] (buffer, when) in
                 guard let self = self else { return }
                 self.processAudioBuffer(buffer)
+
+                // Write to file if recording
+                if let audioFile = self.audioFile {
+                    do {
+                        try audioFile.write(from: buffer)
+                    } catch {
+                        print("Error writing audio buffer: \(error)")
+                    }
+                }
 
                 objc_sync_enter(self)
                 let continuations = Array(self.audioBufferContinuations.values)
@@ -183,6 +209,7 @@ class MicrophoneService: ObservableObject {
             }
         } catch {
             audioEngine.removeTap(onBus: 0)
+            audioFile = nil
             DispatchQueue.main.async {
                 self.isStartingRecording = false
                 self.status = .error("録音の開始に失敗しました: \(error.localizedDescription)")
@@ -194,6 +221,7 @@ class MicrophoneService: ObservableObject {
         cancelPendingOperations()
         audioEngine.stop()
         audioEngine.removeTap(onBus: 0)
+        audioFile = nil
 
         DispatchQueue.main.async {
             self.status = .idle
