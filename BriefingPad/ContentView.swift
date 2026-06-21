@@ -1,14 +1,22 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = SessionViewModel()
+    @StateObject private var viewModel: SessionViewModel
     @StateObject private var micService = MicrophoneService()
+    private let keychainService: KeychainServiceProtocol
+
+    init(keychainService: KeychainServiceProtocol = KeychainService()) {
+        self.keychainService = keychainService
+        let llmService = OpenAILLMService(keychainService: keychainService)
+        _viewModel = StateObject(wrappedValue: SessionViewModel(llmService: llmService))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             SessionToolbarView(
                 selectedSessionId: $viewModel.selectedSessionId,
-                sessions: viewModel.sessions
+                sessions: viewModel.sessions,
+                keychainService: keychainService
             )
 
             Divider()

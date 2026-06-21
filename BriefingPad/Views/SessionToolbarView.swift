@@ -3,6 +3,8 @@ import SwiftUI
 struct SessionToolbarView: View {
     @Binding var selectedSessionId: String
     let sessions: [BriefingSession]
+    let keychainService: KeychainServiceProtocol
+    @State private var showingSettings = false
 
     var body: some View {
         HStack {
@@ -25,6 +27,14 @@ struct SessionToolbarView: View {
             .help("削除")
 
             Spacer()
+
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape")
+            }
+            .help("設定")
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(keychainService: keychainService)
+            }
         }
         .padding()
         .background(Color(NSColor.windowBackgroundColor))
@@ -35,7 +45,8 @@ struct SessionToolbarView_Previews: PreviewProvider {
     static var previews: some View {
         SessionToolbarView(
             selectedSessionId: .constant(LocalBriefingDataStore.fallbackSessions[0].id),
-            sessions: LocalBriefingDataStore.fallbackSessions
+            sessions: LocalBriefingDataStore.fallbackSessions,
+            keychainService: MockKeychainService()
         )
     }
 }
