@@ -17,7 +17,7 @@ class OpenAILLMService: LLMServiceProtocol {
         newChunk: String,
         partInfo: PartDefinition
     ) async throws -> AnalysisResult {
-        guard let apiKey = keychainService.load(key: "openai_api_key")?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
+        guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 
@@ -83,7 +83,7 @@ class OpenAILLMService: LLMServiceProtocol {
     }
 
     func generateOneLiner(summarizedPoints: [String]) async throws -> String {
-        guard let apiKey = keychainService.load(key: "openai_api_key")?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
+        guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 

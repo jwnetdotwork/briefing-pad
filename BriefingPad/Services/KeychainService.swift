@@ -76,6 +76,11 @@ enum KeychainError: Error {
     case unhandledError(status: OSStatus)
 }
 
+enum KeychainKeys {
+    static let openaiApiKey = "openai_api_key"
+    static let notionIntegrationToken = "notion_integration_token"
+}
+
 class MockKeychainService: KeychainServiceProtocol {
     private var storage: [String: String] = [:]
 

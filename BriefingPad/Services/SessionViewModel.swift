@@ -72,8 +72,52 @@ class SessionViewModel: ObservableObject {
         setupSubscriptions()
 
         Task {
+            await loadSavedSessionsFromStore()
             await loadSavedSession()
         }
+    }
+
+    @MainActor
+    private func loadSavedSessionsFromStore() async {
+        let currentSessionIds = Set(sessions.map { $0.id })
+
+        // Execute I/O on background thread
+        let loadedTemplates = await Task.detached(priority: .background) { [store] in
+            var results: [BriefingSession] = []
+            do {
+                let sessionIds = try await store.listSessions()
+                for id in sessionIds {
+                    if !currentSessionIds.contains(id) {
+                        do {
+                            if let saved = try await store.loadSession(sessionId: id) {
+                                results.append(saved.templateSnapshot)
+                            }
+                        } catch {
+                            print("Failed to load session \(id): \(error)")
+                        }
+                    }
+                }
+            } catch {
+                print("Failed to list sessions: \(error)")
+            }
+            return results
+        }.value
+
+        // Apply results on main thread
+        for template in loadedTemplates {
+            if !sessions.contains(where: { $0.id == template.id }) {
+                sessions.append(template)
+            }
+        }
+    }
+
+    func importNotionSession(_ session: BriefingSession, notionPageId: String) {
+        sessions.append(session)
+        self.notionPageId = notionPageId
+        self.selectedSessionId = session.id
+        self.currentPartIndex = 0
+        self.sessionState = SessionState()
+        saveCurrentSession()
     }
 
     private func setupSubscriptions() {

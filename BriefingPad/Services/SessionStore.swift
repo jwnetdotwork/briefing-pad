@@ -54,6 +54,7 @@ struct SavedSession: Codable {
 }
 
 protocol SessionStoreProtocol {
+    func listSessions() async throws -> [String]
     func loadSession(sessionId: String) async throws -> SavedSession?
     func saveSession(_ session: SavedSession) async throws
     func deleteSession(sessionId: String) async throws
@@ -64,6 +65,13 @@ protocol SessionStoreProtocol {
 }
 
 class FileSessionStore: SessionStoreProtocol {
+    func listSessions() async throws -> [String] {
+        let contents = try FileManager.default.contentsOfDirectory(at: rootURL, includingPropertiesForKeys: nil, options: .skipsHiddenFiles)
+        return contents
+            .filter { $0.hasDirectoryPath }
+            .map { $0.lastPathComponent }
+    }
+
     private let rootURL: URL
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
