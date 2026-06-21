@@ -70,6 +70,10 @@ class SessionViewModel: ObservableObject {
         }
 
         setupSubscriptions()
+
+        Task {
+            await loadSavedSession()
+        }
     }
 
     private func setupSubscriptions() {
@@ -277,7 +281,8 @@ class SessionViewModel: ObservableObject {
                         isFinished: partRun.isFinished,
                         elapsedTime: partRun.elapsedTime,
                         llmResults: partRun.llmResults,
-                        finalSummary: partRun.finalSummary
+                        finalSummary: partRun.finalSummary,
+                        audioFileName: partRun.audioFileName
                     )
                 }
                 self.sessionState = newState
@@ -315,6 +320,7 @@ class SessionViewModel: ObservableObject {
             partRun.isFinished = partState.isFinished
             partRun.llmResults = partState.llmResults
             partRun.finalSummary = partState.finalSummary
+            partRun.audioFileName = partState.audioFileName
 
             partRuns[partId] = partRun
         }
@@ -329,11 +335,29 @@ class SessionViewModel: ObservableObject {
         )
 
         Task {
-            do {
-                try await store.saveSession(saved)
-            } catch {
-                print("Failed to save session: \(error)")
+            await enqueueSave(saved)
+        }
+    }
+
+    private var activeSaveTask: Task<Void, Never>?
+    private var pendingSave: SavedSession?
+
+    @MainActor
+    private func enqueueSave(_ session: SavedSession) async {
+        pendingSave = session
+
+        guard activeSaveTask == nil else { return }
+
+        activeSaveTask = Task {
+            while let sessionToSave = pendingSave {
+                pendingSave = nil
+                do {
+                    try await store.saveSession(sessionToSave)
+                } catch {
+                    print("Failed to save session: \(error)")
+                }
             }
+            activeSaveTask = nil
         }
     }
 
@@ -352,6 +376,12 @@ class SessionViewModel: ObservableObject {
         guard let partId = currentPart?.id else { return }
 
         Task { @MainActor in
+            // Stop recording/transcription if active for THIS part
+            if micStatus == .recording || micStatus == .starting {
+                await stopTranscription()
+                micService.stopRecording()
+            }
+
             do {
                 if !onlyAudio && !onlyTranscript && !onlyLLM {
                     // Delete all for this part
@@ -410,16 +440,21 @@ class SessionViewModel: ObservableObject {
         let isFinished = sessionState.partStates[partId]?.isFinished ?? false
         guard !isFinished else { return }
 
-        // Get Application Support directory for audio
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let audioURL = appSupport.appendingPathComponent("BriefingPad/sessions/\(selectedSessionId)/parts/\(partId)/audio.m4a")
+        let recordingId = UUID().uuidString
+        let audioURL = store.getAudioURL(sessionId: selectedSessionId, partId: partId, recordingId: recordingId)
+
+        // Update local state to track this audio file
+        sessionState.partStates[partId]?.audioFileName = audioURL.lastPathComponent
 
         micService.startRecording(audioFileURL: audioURL)
     }
 
     func pauseRecording() {
-        micService.stopRecording()
-        saveCurrentSession()
+        Task {
+            await stopTranscription() // This ensures segments are finalized
+            micService.stopRecording()
+            saveCurrentSession()
+        }
     }
 
     @MainActor

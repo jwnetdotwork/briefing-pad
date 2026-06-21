@@ -97,4 +97,30 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: partDir.appendingPathComponent("llm_results.json").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: partDir.appendingPathComponent("final_summary.json").path))
     }
+
+    func testAudioPersistence() async throws {
+        let sessionId = "test-session"
+        let partId = "part-1"
+        let template = BriefingSession(id: sessionId, name: "Test", parts: [
+            PartDefinition(id: partId, number: 1, title: "P1", durationMinutes: 1, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+
+        let recordingId = "run1"
+        let audioURL = store.getAudioURL(sessionId: sessionId, partId: partId, recordingId: recordingId)
+        try FileManager.default.createDirectory(at: audioURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "dummy audio".data(using: .utf8)?.write(to: audioURL)
+
+        var partRun = PartRun(partId: partId)
+        partRun.audioFileName = audioURL.lastPathComponent
+
+        let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [partId: partRun])
+        try await store.saveSession(savedSession)
+
+        let loaded = try await store.loadSession(sessionId: sessionId)
+        XCTAssertEqual(loaded?.partRuns[partId]?.audioFileName, audioURL.lastPathComponent)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: audioURL.path))
+
+        try await store.deleteAudio(sessionId: sessionId, partId: partId)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
+    }
 }

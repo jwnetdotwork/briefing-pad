@@ -203,6 +203,7 @@ struct PartState: Codable, Hashable {
     var elapsedTime: TimeInterval = 0
     var llmResults: [LLMResult] = []
     var finalSummary: FinalSummary?
+    var audioFileName: String?
 }
 
 struct SessionState: Codable, Hashable {

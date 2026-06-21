@@ -1,6 +1,6 @@
 import Foundation
 
-struct LLMResult: Codable, Identifiable {
+struct LLMResult: Codable, Identifiable, Hashable {
     let id: UUID
     let observationMatches: [ItemMatch]
     let positiveMatches: [ItemMatch]
@@ -28,7 +28,7 @@ struct LLMResult: Codable, Identifiable {
     }
 }
 
-struct FinalSummary: Codable {
+struct FinalSummary: Codable, Hashable {
     let text: String
     let adoptedItemIds: [String]
     let sourceLLMResultIds: [UUID]
@@ -60,6 +60,7 @@ protocol SessionStoreProtocol {
     func deleteAudio(sessionId: String, partId: String) async throws
     func deleteTranscript(sessionId: String, partId: String) async throws
     func deleteLLMResults(sessionId: String, partId: String) async throws
+    func getAudioURL(sessionId: String, partId: String, recordingId: String) -> URL
 }
 
 class FileSessionStore: SessionStoreProtocol {
@@ -83,12 +84,21 @@ class FileSessionStore: SessionStoreProtocol {
         try? FileManager.default.createDirectory(at: self.rootURL, withIntermediateDirectories: true)
     }
 
+    private func sanitize(_ id: String) -> String {
+        // Simple sanitization: allow alphanumeric, hyphen, underscore
+        return id.replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
+    }
+
     private func sessionDirectory(for sessionId: String) -> URL {
-        rootURL.appendingPathComponent(sessionId, isDirectory: true)
+        rootURL.appendingPathComponent(sanitize(sessionId), isDirectory: true)
     }
 
     private func partDirectory(for sessionId: String, partId: String) -> URL {
-        sessionDirectory(for: sessionId).appendingPathComponent("parts/\(partId)", isDirectory: true)
+        sessionDirectory(for: sessionId).appendingPathComponent("parts/\(sanitize(partId))", isDirectory: true)
+    }
+
+    func getAudioURL(sessionId: String, partId: String, recordingId: String) -> URL {
+        partDirectory(for: sessionId, partId: partId).appendingPathComponent("audio_\(sanitize(recordingId)).m4a")
     }
 
     func loadSession(sessionId: String) async throws -> SavedSession? {
@@ -124,12 +134,12 @@ class FileSessionStore: SessionStoreProtocol {
                 partRun.finalSummary = try decoder.decode(FinalSummary.self, from: finalSummaryData)
             }
 
-            // Check for audio file
-            let audioURL = partDir.appendingPathComponent("audio.m4a")
-            if FileManager.default.fileExists(atPath: audioURL.path) {
-                partRun.audioFileName = "audio.m4a"
-            } else {
-                partRun.audioFileName = nil
+            // Check for audio file (in Phase 7 we use audioFileName stored in PartRun)
+            if let audioFileName = partRun.audioFileName {
+                let audioURL = partDir.appendingPathComponent(audioFileName)
+                if !FileManager.default.fileExists(atPath: audioURL.path) {
+                    partRun.audioFileName = nil
+                }
             }
 
             session.partRuns[part.id] = partRun
@@ -194,9 +204,11 @@ class FileSessionStore: SessionStoreProtocol {
     }
 
     func deleteAudio(sessionId: String, partId: String) async throws {
-        let audioURL = partDirectory(for: sessionId, partId: partId).appendingPathComponent("audio.m4a")
-        if FileManager.default.fileExists(atPath: audioURL.path) {
-            try FileManager.default.removeItem(at: audioURL)
+        let partDir = partDirectory(for: sessionId, partId: partId)
+        let files = try? FileManager.default.contentsOfDirectory(at: partDir, includingPropertiesForKeys: nil)
+        let audioFiles = files?.filter { $0.lastPathComponent.hasPrefix("audio_") && $0.pathExtension == "m4a" }
+        for url in audioFiles ?? [] {
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
