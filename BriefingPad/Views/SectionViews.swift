@@ -271,6 +271,12 @@ struct CommentMaterialView: View {
                 Button("再試行", action: onRetry)
                     .buttonStyle(.borderless)
                     .controlSize(.small)
+            case .noToken:
+                Image(systemName: "info.circle")
+                    .foregroundColor(.secondary)
+                Text("Notion未設定")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
         }
     }

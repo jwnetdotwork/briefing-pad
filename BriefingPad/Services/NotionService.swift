@@ -5,6 +5,7 @@ enum NotionUpdateResult {
     case success(lastEditedTime: String, contentHash: String)
     case externalModification(newBlockId: String, lastEditedTime: String, contentHash: String)
     case failure(String)
+    case noToken
 }
 
 protocol NotionServiceProtocol {
@@ -221,5 +222,16 @@ class MockNotionService: NotionServiceProtocol {
         }
 
         return .success(lastEditedTime: time, contentHash: hash)
+    }
+}
+
+class DisabledNotionService: NotionServiceProtocol {
+    func upsertAIMemo(
+        blockId: String,
+        content: String,
+        expectedLastEditedTime: String?,
+        expectedContentHash: String?
+    ) async throws -> NotionUpdateResult {
+        return .noToken
     }
 }

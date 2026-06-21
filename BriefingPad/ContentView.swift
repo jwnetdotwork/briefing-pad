@@ -8,8 +8,21 @@ struct ContentView: View {
         self.keychainService = keychainService
         let llmService = OpenAILLMService(keychainService: keychainService)
         let transcriptionService = SpeechTranscriptionService()
+
+        let notionService: NotionServiceProtocol
+        let notionToken = keychainService.load(key: KeychainKeys.notionIntegrationToken)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !notionToken.isEmpty {
+            let client = NotionClient(token: notionToken)
+            notionService = NotionService(client: client)
+        } else {
+            notionService = DisabledNotionService()
+        }
+
         _viewModel = StateObject(wrappedValue: SessionViewModel(
             llmService: llmService,
+            notionService: notionService,
             transcriptionService: transcriptionService
         ))
     }

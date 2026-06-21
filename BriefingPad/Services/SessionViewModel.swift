@@ -17,6 +17,7 @@ class SessionViewModel: ObservableObject {
         case success
         case externalModification
         case failure(String)
+        case noToken
     }
     @Published var notionSyncStatuses: [String: NotionSyncStatus] = [:] // partId -> status
 
@@ -791,6 +792,8 @@ class SessionViewModel: ObservableObject {
                 notionSyncStatuses[partId] = .externalModification
             case .failure(let error):
                 notionSyncStatuses[partId] = .failure(error)
+            case .noToken:
+                notionSyncStatuses[partId] = .noToken
             }
             saveCurrentSession()
         } catch {
