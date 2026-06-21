@@ -10,8 +10,11 @@ struct ContentView: View {
         let transcriptionService = SpeechTranscriptionService()
 
         let notionService: NotionServiceProtocol
-        if let token = keychainService.load(key: KeychainKeys.notionIntegrationToken), !token.isEmpty {
-            let client = NotionClient(token: token)
+        let notionToken = keychainService.load(key: KeychainKeys.notionIntegrationToken)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        if !notionToken.isEmpty {
+            let client = NotionClient(token: notionToken)
             notionService = NotionService(client: client)
         } else {
             notionService = DisabledNotionService()
