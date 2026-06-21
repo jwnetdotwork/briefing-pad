@@ -1,7 +1,9 @@
 import Foundation
 import Combine
 import CryptoKit
+import AVFoundation
 
+@MainActor
 class SessionViewModel: ObservableObject {
     @Published var sessions: [BriefingSession]
     @Published var selectedSessionId: String
@@ -927,11 +929,6 @@ class SessionViewModel: ObservableObject {
         items: [T],
         states: [String: AnalysisItemState]
     ) -> [SummarizedItem] {
-        struct SortableItem {
-            let text: String
-            let state: AnalysisItemState
-        }
-
         var sortableItems: [SortableItem] = []
 
         for item in items {
@@ -999,4 +996,9 @@ class SessionViewModel: ObservableObject {
         )
         await enqueueChunk(chunk, sessionId: sessionId, partIndex: partIndex)
     }
+}
+
+private struct SortableItem {
+    let text: String
+    let state: AnalysisItemState
 }
