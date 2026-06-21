@@ -1,9 +1,21 @@
 import Foundation
 
-enum AnalysisItemStatus: String, Codable, Hashable {
+enum AnalysisItemStatus: String, Codable, Hashable, Comparable {
     case hidden
     case candidate
     case strong
+
+    private var priority: Int {
+        switch self {
+        case .hidden: return 0
+        case .candidate: return 1
+        case .strong: return 2
+        }
+    }
+
+    static func < (lhs: AnalysisItemStatus, rhs: AnalysisItemStatus) -> Bool {
+        return lhs.priority < rhs.priority
+    }
 
     var displayLabel: String {
         switch self {
