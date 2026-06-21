@@ -122,5 +122,8 @@ final class SessionStoreTests: XCTestCase {
 
         try await store.deleteAudio(sessionId: sessionId, partId: partId)
         XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
+
+        let reloadedAfterDelete = try await store.loadSession(sessionId: sessionId)
+        XCTAssertNil(reloadedAfterDelete?.partRuns[partId]?.audioFileName)
     }
 }

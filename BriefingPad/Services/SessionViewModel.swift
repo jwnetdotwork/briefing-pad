@@ -264,10 +264,13 @@ class SessionViewModel: ObservableObject {
         }
     }
 
+    private var notionPageId: String?
+
     @MainActor
     private func loadSavedSession() async {
         do {
             if let saved = try await store.loadSession(sessionId: selectedSessionId) {
+                self.notionPageId = saved.notionPageId
                 // Restore template snapshot (parts, analysisState, etc)
                 if let index = sessions.firstIndex(where: { $0.id == selectedSessionId }) {
                     sessions[index] = saved.templateSnapshot
@@ -329,7 +332,7 @@ class SessionViewModel: ObservableObject {
             sessionId: selectedSessionId,
             templateSnapshot: session,
             updatedAt: clock.now,
-            notionPageId: nil, // To be filled in later phases or if available
+            notionPageId: notionPageId,
             errorHistory: [],
             partRuns: partRuns
         )
@@ -403,6 +406,7 @@ class SessionViewModel: ObservableObject {
                 } else {
                     if onlyAudio {
                         try await store.deleteAudio(sessionId: selectedSessionId, partId: partId)
+                        sessionState.partStates[partId]?.audioFileName = nil
                     }
                     if onlyTranscript {
                         try await store.deleteTranscript(sessionId: selectedSessionId, partId: partId)
@@ -444,7 +448,9 @@ class SessionViewModel: ObservableObject {
         let audioURL = store.getAudioURL(sessionId: selectedSessionId, partId: partId, recordingId: recordingId)
 
         // Update local state to track this audio file
-        sessionState.partStates[partId]?.audioFileName = audioURL.lastPathComponent
+        var partState = sessionState.partStates[partId] ?? PartState()
+        partState.audioFileName = audioURL.lastPathComponent
+        sessionState.partStates[partId] = partState
 
         micService.startRecording(audioFileURL: audioURL)
     }
