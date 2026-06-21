@@ -287,8 +287,22 @@ struct SectionViews_Previews: PreviewProvider {
         VStack {
             TranscriptView(
                 segments: [
-                    TranscriptSegment(text: "確定したテキスト", isFinal: true),
-                    TranscriptSegment(text: "未確定のテキスト", isFinal: false)
+                    TranscriptSegment(
+                        sessionId: "preview-session",
+                        partId: "preview-part-1",
+                        text: "確定したテキスト",
+                        isFinal: true,
+                        startTime: 0.0,
+                        endTime: 3.0
+                    ),
+                    TranscriptSegment(
+                        sessionId: "preview-session",
+                        partId: "preview-part-1",
+                        text: "未確定のテキスト",
+                        isFinal: false,
+                        startTime: 3.0,
+                        endTime: 5.0
+                    )
                 ],
                 errorMessage: nil
             )

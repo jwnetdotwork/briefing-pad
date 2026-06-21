@@ -31,8 +31,10 @@ class SpeechTranscriptionService: SpeechTranscribing {
     var isAvailable: Bool {
         get async {
             #if canImport(Speech)
-            if #available(macOS 15.0, *) {
-                return await SFSpeechAnalyzer.isAvailable
+            if #available(macOS 26.0, *) {
+                return SpeechTranscriber.supportedLocales.contains {
+                    $0.identifier.hasPrefix("ja")
+                }
             }
             #endif
             return false
@@ -41,34 +43,47 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
     func checkAvailability() async throws {
         #if canImport(Speech)
-        if #available(macOS 15.0, *) {
-            // 1. Check Availability
-            guard await SFSpeechAnalyzer.isAvailable else {
-                throw NSError(domain: "SpeechTranscriptionService", code: 1, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+        if #available(macOS 26.0, *) {
+            let supportedLocales = SpeechTranscriber.supportedLocales
+
+            guard supportedLocales.contains(where: { $0.identifier.hasPrefix("ja") }) else {
+                throw NSError(
+                    domain: "SpeechTranscriptionService",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "日本語の音声認識に対応していません"]
+                )
             }
 
-            // 2. Check Locale Support
-            let supportedLocales = await SFSpeechTranscriber.supportedLocales(equivalentTo: locale)
-            if !supportedLocales.contains(where: { $0.identifier.hasPrefix("ja") }) {
-                throw NSError(domain: "SpeechTranscriptionService", code: 2, userInfo: [NSLocalizedDescriptionKey: "日本語の音声認識に対応していません"])
-            }
-
-            // 3. Check Authorization
             let authStatus = SFSpeechRecognizer.authorizationStatus()
             if authStatus == .denied || authStatus == .restricted {
-                throw NSError(domain: "SpeechTranscriptionService", code: 3, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+                throw NSError(
+                    domain: "SpeechTranscriptionService",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+                )
             }
 
-            // 4. Check Microphone Permission
             let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
             if micStatus == .denied || micStatus == .restricted {
-                throw NSError(domain: "SpeechTranscriptionService", code: 4, userInfo: [NSLocalizedDescriptionKey: "マイクの使用が許可されていません"])
+                throw NSError(
+                    domain: "SpeechTranscriptionService",
+                    code: 4,
+                    userInfo: [NSLocalizedDescriptionKey: "マイクの使用が許可されていません"]
+                )
             }
         } else {
-            throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+            throw NSError(
+                domain: "SpeechTranscriptionService",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+            )
         }
         #else
-        throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+        throw NSError(
+            domain: "SpeechTranscriptionService",
+            code: 0,
+            userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+        )
         #endif
     }
 
@@ -76,67 +91,83 @@ class SpeechTranscriptionService: SpeechTranscribing {
         try await checkAvailability()
 
         #if canImport(Speech)
-        if #available(macOS 15.0, *) {
-            let analyzer = try SFSpeechAnalyzer(locale: locale)
-            let transcriber = SFSpeechTranscriber()
+        if #available(macOS 26.0, *) {
+            let transcriber = SpeechTranscriber(
+                locale: locale,
+                preset: .timeIndexedProgressiveTranscription
+            )
+
+            let analyzer = SpeechAnalyzer(modules: [transcriber])
 
             analyzerTask = Task {
-                // Map logical utterances to stable IDs by their start time
-                var utteranceIds: [TimeInterval: UUID] = [:]
+                var utteranceIds: [Int64: UUID] = [:]
 
-                let results = analyzer.subscribe(transcriber)
+                do {
+                    let inputSequence = AsyncStream<AnalyzerInput> { continuation in
+                        Task {
+                            for await buffer in audioStream {
+                                if Task.isCancelled { break }
 
-                // Pipe audio data into the analyzer
-                let inputTask = Task {
-                    for await buffer in audioStream {
-                        if Task.isCancelled { break }
-                        do {
-                            try await analyzer.addInput(buffer)
-                        } catch {
-                            print("Failed to add input to SFSpeechAnalyzer: \(error)")
-                            break
+                                // ここはSDKのAnalyzerInput初期化方法に合わせる
+                                let input = AnalyzerInput(buffer: buffer)
+                                continuation.yield(input)
+                            }
+
+                            continuation.finish()
                         }
                     }
-                    analyzer.completeInput()
-                }
 
-                // Collect results
-                for await result in results {
-                    if Task.isCancelled { break }
+                    async let analysis: CMTime? = analyzer.analyzeSequence(inputSequence)
 
-                    let transcription = result.transcription
-                    guard let firstSegment = transcription.segments.first else { continue }
+                    for try await result in transcriber.results {
+                        if Task.isCancelled { break }
+                        
+                        let text = String(result.text.characters)
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    let startTime = firstSegment.timestamp
-                    let lastSegment = transcription.segments.last
-                    let endTime = lastSegment.map { $0.timestamp + $0.duration } ?? startTime
+                        guard !text.isEmpty else { continue }
 
-                    // Get or create stable UUID for this utterance
-                    let id: UUID
-                    if let existingId = utteranceIds[startTime] {
-                        id = existingId
-                    } else {
-                        id = UUID()
-                        utteranceIds[startTime] = id
+                        let startTime = result.range.start.seconds
+                        let endTime = result.range.end.seconds
+
+                        let timeKey = Int64(startTime * 1000)
+
+                        let id: UUID
+                        if let existingId = utteranceIds[timeKey] {
+                            id = existingId
+                        } else {
+                            id = UUID()
+                            utteranceIds[timeKey] = id
+                        }
+
+                        let segment = TranscriptSegment(
+                            id: id,
+                            sessionId: "",
+                            partId: "",
+                            text: text,
+                            isFinal: result.isFinal,
+                            startTime: startTime,
+                            endTime: endTime
+                        )
+
+                        transcriptionContinuation?.yield(segment)
+
+                        if result.isFinal {
+                            utteranceIds.removeValue(forKey: timeKey)
+                        }
                     }
 
-                    let segment = TranscriptSegment(
-                        id: id,
-                        sessionId: "", // Filled by SessionViewModel
-                        partId: "",    // Filled by SessionViewModel
-                        text: transcription.formattedString,
-                        isFinal: result.isFinal,
-                        startTime: startTime,
-                        endTime: endTime
-                    )
-
-                    transcriptionContinuation?.yield(segment)
+                    _ = try await analysis
+                } catch {
+                    print("SpeechAnalyzer failed: \(error)")
                 }
-
-                await inputTask.value
             }
         } else {
-            throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+            throw NSError(
+                domain: "SpeechTranscriptionService",
+                code: 0,
+                userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+            )
         }
         #endif
     }
