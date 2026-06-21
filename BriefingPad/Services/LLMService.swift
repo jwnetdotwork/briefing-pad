@@ -20,13 +20,19 @@ protocol LLMServiceProtocol {
 }
 
 class MockLLMService: LLMServiceProtocol {
+    private let delayNanoseconds: UInt64
+
+    init(delayNanoseconds: UInt64 = 1_000_000_000) {
+        self.delayNanoseconds = delayNanoseconds
+    }
+
     func analyzeTranscript(
         fullTranscript: String,
         newChunk: String,
         partInfo: PartDefinition
     ) async throws -> AnalysisResult {
         // Simulate network delay
-        try await Task.sleep(nanoseconds: 1 * 1_000_000_000)
+        try await Task.sleep(nanoseconds: delayNanoseconds)
 
         return AnalysisResult(
             observationMatches: partInfo.observationItems.prefix(1).map {

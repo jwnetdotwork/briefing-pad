@@ -144,7 +144,7 @@ class SessionViewModel: ObservableObject {
 
             // 2. Merge Results into analysisState
             var updatedPart = part
-            let now = Date()
+            let now = clock.now
 
             updatedPart.analysisState.observationItemStates = mergeMatches(
                 existingStates: part.analysisState.observationItemStates,
@@ -297,7 +297,7 @@ class SessionViewModel: ObservableObject {
     ) -> [String: AnalysisItemState] {
         var newStates = existingStates
         for match in matches {
-            let existing = existingStates[match.itemId] ?? .hidden(at: now)
+            let existing = newStates[match.itemId] ?? existingStates[match.itemId] ?? .hidden(at: now)
 
             // Merging logic:
             // 1. Higher confidence priority

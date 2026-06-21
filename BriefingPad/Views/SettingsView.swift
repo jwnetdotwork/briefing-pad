@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var apiKey: String = ""
+    @State private var errorMessage: String?
+    @State private var showError = false
     private let keychainService: KeychainServiceProtocol
 
     init(keychainService: KeychainServiceProtocol = KeychainService()) {
@@ -34,8 +36,8 @@ struct SettingsView: View {
                         try keychainService.save(key: "openai_api_key", value: apiKey)
                         dismiss()
                     } catch {
-                        print("Failed to save API key: \(error)")
-                        // In a real app, show an alert. For now we print.
+                        errorMessage = error.localizedDescription
+                        showError = true
                     }
                 }
                 .buttonStyle(.borderedProminent)
@@ -43,6 +45,11 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 300)
+        .alert("エラー", isPresented: $showError) {
+            Button("OK") { }
+        } message: {
+            Text(errorMessage ?? "不明なエラーが発生しました")
+        }
         .onAppear {
             apiKey = keychainService.load(key: "openai_api_key") ?? ""
         }

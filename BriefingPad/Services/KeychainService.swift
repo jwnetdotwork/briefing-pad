@@ -8,12 +8,15 @@ protocol KeychainServiceProtocol {
 }
 
 class KeychainService: KeychainServiceProtocol {
+    private let service = "com.briefingpad.keychain"
+
     func save(key: String, value: String) throws {
         guard let data = value.data(using: .utf8) else { return }
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: service
         ]
 
         let attributes: [String: Any] = [
@@ -38,6 +41,7 @@ class KeychainService: KeychainServiceProtocol {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
+            kSecAttrService as String: service,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne
         ]
@@ -57,7 +61,8 @@ class KeychainService: KeychainServiceProtocol {
     func delete(key: String) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: service
         ]
 
         let status = SecItemDelete(query as CFDictionary)

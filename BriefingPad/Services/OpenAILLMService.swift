@@ -17,7 +17,7 @@ class OpenAILLMService: LLMServiceProtocol {
         newChunk: String,
         partInfo: PartDefinition
     ) async throws -> AnalysisResult {
-        guard let apiKey = keychainService.load(key: "openai_api_key"), !apiKey.isEmpty else {
+        guard let apiKey = keychainService.load(key: "openai_api_key")?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 
@@ -63,13 +63,17 @@ class OpenAILLMService: LLMServiceProtocol {
         do {
             let result = try JSONDecoder().decode(AnalysisResult.self, from: content.data(using: .utf8)!)
 
-            // Filter out unknown itemIds
+            // Filter out unknown itemIds and invalid confidence values
             let knownObsIds = Set(partInfo.observationItems.map { $0.id })
             let knownPosIds = Set(partInfo.positiveItems.map { $0.id })
 
             let filteredResult = AnalysisResult(
-                observationMatches: result.observationMatches.filter { knownObsIds.contains($0.itemId) },
-                positiveMatches: result.positiveMatches.filter { knownPosIds.contains($0.itemId) }
+                observationMatches: result.observationMatches.filter {
+                    knownObsIds.contains($0.itemId) && $0.confidence.isFinite && (0.0...1.0).contains($0.confidence)
+                },
+                positiveMatches: result.positiveMatches.filter {
+                    knownPosIds.contains($0.itemId) && $0.confidence.isFinite && (0.0...1.0).contains($0.confidence)
+                }
             )
 
             return filteredResult
