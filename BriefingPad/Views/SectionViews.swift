@@ -206,23 +206,71 @@ struct PositiveItemsView: View {
 struct CommentMaterialView: View {
     let aiMemo: String
     let isFinalizing: Bool
+    let syncStatus: SessionViewModel.NotionSyncStatus
+    let onRetry: () -> Void
 
     var body: some View {
         SectionContainer("🤖 AIメモ") {
             VStack(alignment: .leading, spacing: 8) {
-                if isFinalizing {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("確定メモ生成中...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                HStack(alignment: .center, spacing: 8) {
+                    if isFinalizing {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("確定メモ生成中...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
+
+                    Spacer()
+
+                    syncStatusView
                 }
 
                 Text(aiMemo.isEmpty && !isFinalizing ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
                     .font(.body)
                     .lineSpacing(4)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var syncStatusView: some View {
+        HStack(spacing: 4) {
+            switch syncStatus {
+            case .idle:
+                EmptyView()
+            case .writing:
+                ProgressView()
+                    .controlSize(.small)
+                Text("Notion更新中...")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            case .success:
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.green)
+                Text("Notion同期済み")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            case .externalModification:
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.orange)
+                Text("外部編集を検知 (追記しました)")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
+                Button("再試行", action: onRetry)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+            case .failure(let error):
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundColor(.red)
+                Text("Notion同期失敗: \(error)")
+                    .font(.caption2)
+                    .foregroundColor(.red)
+                Button("再試行", action: onRetry)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
             }
         }
     }
@@ -262,7 +310,12 @@ struct SectionViews_Previews: PreviewProvider {
                 ],
                 state: [:]
             )
-            CommentMaterialView(aiMemo: "AIメモ", isFinalizing: false)
+            CommentMaterialView(
+                aiMemo: "AIメモ",
+                isFinalizing: false,
+                syncStatus: .success,
+                onRetry: {}
+            )
         }
     }
 }

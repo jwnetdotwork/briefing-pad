@@ -64,7 +64,9 @@ struct ContentView: View {
 
                             CommentMaterialView(
                                 aiMemo: part.aiMemo,
-                                isFinalizing: viewModel.isFinalizing
+                                isFinalizing: viewModel.isFinalizing,
+                                syncStatus: viewModel.notionSyncStatus,
+                                onRetry: { viewModel.retryNotionSync() }
                             )
                         } else {
                             Text("現在のパートが見つかりません")

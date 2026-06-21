@@ -100,6 +100,8 @@ struct PartDefinition: Identifiable, Codable, Hashable {
     let positiveItems: [PositiveItem]
     var aiMemo: String
     var aiMemoBlockId: String?
+    var lastSyncedHash: String?
+    var lastSyncedTime: String?
     var analysisState: PartAnalysisState
 
     init(
@@ -114,6 +116,8 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         positiveItems: [PositiveItem],
         aiMemo: String = "",
         aiMemoBlockId: String? = nil,
+        lastSyncedHash: String? = nil,
+        lastSyncedTime: String? = nil,
         analysisState: PartAnalysisState? = nil
     ) {
         self.id = id
@@ -127,6 +131,8 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         self.positiveItems = positiveItems
         self.aiMemo = aiMemo
         self.aiMemoBlockId = aiMemoBlockId
+        self.lastSyncedHash = lastSyncedHash
+        self.lastSyncedTime = lastSyncedTime
         self.analysisState = analysisState ?? PartAnalysisState.initial(
             observationItems: observationItems,
             positiveItems: positiveItems

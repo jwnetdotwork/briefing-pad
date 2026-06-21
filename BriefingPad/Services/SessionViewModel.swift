@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import CryptoKit
 
 class SessionViewModel: ObservableObject {
     @Published var sessions: [BriefingSession]
@@ -9,6 +10,15 @@ class SessionViewModel: ObservableObject {
     @Published var isFinalizing = false
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
+
+    enum NotionSyncStatus: Equatable {
+        case idle
+        case writing
+        case success
+        case externalModification
+        case failure(String)
+    }
+    @Published var notionSyncStatus: NotionSyncStatus = .idle
 
     @Published var micStatus: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
@@ -260,12 +270,15 @@ class SessionViewModel: ObservableObject {
 
             saveCurrentSession()
 
-            // 3. Notion Update (Disabled in Phase 4)
-            /*
+            // 3. Notion Update
             if let blockId = updatedPart.aiMemoBlockId {
-                // ...
+                let finalMemo = formatFinalMemo(
+                    positives: getSummarizedItems(items: updatedPart.positiveItems, states: updatedPart.analysisState.positiveItemStates),
+                    observations: getSummarizedItems(items: updatedPart.observationItems, states: updatedPart.analysisState.observationItemStates),
+                    oneLiner: nil // Don't include one-liner in live updates
+                )
+                triggerNotionSync(blockId: blockId, content: finalMemo, partId: part.id)
             }
-            */
         } catch {
             print("Failed to process chunk: \(error)")
             // Mark as failed in queue if we had a way to show it, but for now we just remove it.
@@ -388,6 +401,9 @@ class SessionViewModel: ObservableObject {
 
     private var activeSaveTask: Task<Void, Never>?
     private var pendingSave: SavedSession?
+
+    private var notionSyncTask: Task<Void, Never>?
+    private var pendingAIMemoUpdate: String?
 
     @MainActor
     private func enqueueSave(_ session: SavedSession) async {
@@ -575,18 +591,9 @@ class SessionViewModel: ObservableObject {
         )
         sessionState.partStates[part.id]?.finalSummary = finalSummary
 
-        // 5. Notion Update
+        // 5. Notion Update (Wait for final sync)
         if let blockId = updatedPart.aiMemoBlockId {
-            do {
-                let result = try await notionService.upsertAIMemo(blockId: blockId, content: finalMemo)
-
-                if case .externalModification(let newBlockId) = result {
-                    updatedPart.aiMemoBlockId = newBlockId
-                    updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
-                }
-            } catch {
-                print("Failed to update Notion: \(error)")
-            }
+            await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
         }
 
         // 6. Mark as finished
@@ -723,6 +730,95 @@ class SessionViewModel: ObservableObject {
 
         transcriptionTask?.cancel()
         transcriptionTask = nil
+    }
+
+    // MARK: - Notion Sync logic
+
+    func triggerNotionSync(blockId: String, content: String, partId: String) {
+        pendingAIMemoUpdate = content
+
+        guard notionSyncTask == nil else { return }
+
+        notionSyncTask = Task { @MainActor in
+            while let contentToSync = pendingAIMemoUpdate {
+                // Throttle: if same content as last synced, skip
+                if let part = currentPart, part.id == partId, part.lastSyncedHash == calculateHash(content: contentToSync) {
+                    pendingAIMemoUpdate = nil
+                    break
+                }
+
+                pendingAIMemoUpdate = nil
+                await performNotionSync(blockId: blockId, content: contentToSync, partId: partId)
+            }
+            notionSyncTask = nil
+        }
+    }
+
+    private func syncNotionImmediately(blockId: String, content: String, partId: String) async {
+        pendingAIMemoUpdate = nil
+        notionSyncTask?.cancel()
+        notionSyncTask = nil
+        await performNotionSync(blockId: blockId, content: content, partId: partId)
+    }
+
+    @MainActor
+    private func performNotionSync(blockId: String, content: String, partId: String) async {
+        guard let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+              let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) else { return }
+
+        let part = sessions[sessionIndex].parts[partIndex]
+        notionSyncStatus = .writing
+
+        do {
+            let result = try await notionService.upsertAIMemo(
+                blockId: blockId,
+                content: content,
+                expectedLastEditedTime: part.lastSyncedTime,
+                expectedContentHash: part.lastSyncedHash
+            )
+
+            switch result {
+            case .success(let time, let hash):
+                sessions[sessionIndex].parts[partIndex].lastSyncedTime = time
+                sessions[sessionIndex].parts[partIndex].lastSyncedHash = hash
+                notionSyncStatus = .success
+            case .externalModification(let newBlockId, let time, let hash):
+                sessions[sessionIndex].parts[partIndex].aiMemoBlockId = newBlockId
+                sessions[sessionIndex].parts[partIndex].lastSyncedTime = time
+                sessions[sessionIndex].parts[partIndex].lastSyncedHash = hash
+                notionSyncStatus = .externalModification
+            case .failure(let error):
+                notionSyncStatus = .failure(error)
+            }
+            saveCurrentSession()
+        } catch {
+            notionSyncStatus = .failure(error.localizedDescription)
+        }
+    }
+
+    func retryNotionSync() {
+        guard let part = currentPart, let blockId = part.aiMemoBlockId else { return }
+
+        // Use the stored aiMemo which might already have one-liner if part was finished.
+        // If empty, generate from current analysis.
+        let content: String
+        if part.aiMemo.isEmpty {
+             content = formatFinalMemo(
+                positives: getSummarizedItems(items: part.positiveItems, states: part.analysisState.positiveItemStates),
+                observations: getSummarizedItems(items: part.observationItems, states: part.analysisState.observationItemStates),
+                oneLiner: nil
+            )
+        } else {
+            content = part.aiMemo
+        }
+
+        triggerNotionSync(blockId: blockId, content: content, partId: part.id)
+    }
+
+    private func calculateHash(content: String) -> String {
+        let data = Data(content.utf8)
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
     @MainActor
