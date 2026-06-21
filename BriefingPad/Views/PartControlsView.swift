@@ -20,7 +20,7 @@ struct PartControlsView: View {
                 Button(action: { viewModel.moveToPreviousPart() }) {
                     Text("[前へ]")
                 }
-                .disabled(viewModel.currentPartIndex == 0 || totalParts <= 1)
+                .disabled(viewModel.currentPartIndex == 0 || totalParts <= 1 || viewModel.isFinalizing)
 
                 VStack {
                     Text(formatTime(viewModel.partElapsedTime))
@@ -32,7 +32,7 @@ struct PartControlsView: View {
                 Button(action: { viewModel.moveToNextPart() }) {
                     Text("[次へ]")
                 }
-                .disabled(viewModel.currentPartIndex >= (totalParts - 1) || totalParts <= 1)
+                .disabled(viewModel.currentPartIndex >= (totalParts - 1) || totalParts <= 1 || viewModel.isFinalizing)
             }
 
             HStack(spacing: 40) {
@@ -46,7 +46,7 @@ struct PartControlsView: View {
                         Text("[開始]")
                             .frame(width: 80)
                     }
-                    .disabled(isFinished || viewModel.micStatus == .starting)
+                    .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing)
                 }
 
                 Button(action: {

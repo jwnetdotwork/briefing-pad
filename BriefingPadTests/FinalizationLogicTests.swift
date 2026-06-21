@@ -111,6 +111,33 @@ final class FinalizationLogicTests: XCTestCase {
         XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("◎ 短評で使えそう"))
         XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("💡 言えそうな一言"))
     }
+
+    @MainActor
+    func testFinishPartFlow_NotionExternalModification() async {
+        let mockLLM = MockLLMService(delayNanoseconds: 0)
+        let mockNotion = MockNotionService()
+        mockNotion.shouldSimulateExternalModification = true
+
+        let viewModel = SessionViewModel(
+            llmService: mockLLM,
+            notionService: mockNotion,
+            transcriptionService: MockSpeechTranscriptionService(),
+            micService: MicrophoneService(),
+            clock: MockClock()
+        )
+
+        // Setup initial part with a block ID
+        if var part = viewModel.currentPart {
+            part.aiMemoBlockId = "original-block-id"
+            viewModel.sessions[0].parts[0] = part
+        }
+
+        await viewModel.finishPart()
+
+        // Verify block ID was updated
+        XCTAssertNotEqual(viewModel.sessions[0].parts[0].aiMemoBlockId, "original-block-id")
+        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemoBlockId?.contains("new-block-id") ?? false)
+    }
 }
 
 class MockClock: Clock {

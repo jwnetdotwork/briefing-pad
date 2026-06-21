@@ -79,7 +79,9 @@ class SessionViewModel: ObservableObject {
                     self.startTranscription(audioStream: self.micService.createAudioBufferStream())
                     self.startTimer()
                 } else {
-                    self.stopTranscription()
+                    Task {
+                        await self.stopTranscription()
+                    }
                     self.stopTimer()
                 }
             }
@@ -228,7 +230,9 @@ class SessionViewModel: ObservableObject {
             } else {
                 micService.stopRecording()
             }
-            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            Task {
+                await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            }
         }
         chunker?.flush()
         selectedSessionId = id
@@ -267,7 +271,7 @@ class SessionViewModel: ObservableObject {
 
         // 1. Stop recording and flush
         micService.stopRecording()
-        stopTranscription(sessionId: targetSessionId, partId: part.id)
+        await stopTranscription(sessionId: targetSessionId, partId: part.id)
 
         // 2. Wait for queue to settle
         while !chunkQueue.isEmpty || isProcessing {
@@ -275,13 +279,21 @@ class SessionViewModel: ObservableObject {
         }
 
         // 3. Finalization Processing
+        // Re-fetch part after wait to get latest analysis results
+        guard let session = sessions.first(where: { $0.id == targetSessionId }),
+              targetPartIndex < session.parts.count else {
+            isFinalizing = false
+            return
+        }
+        let latestPart = session.parts[targetPartIndex]
+
         let positives = getSummarizedItems(
-            items: part.positiveItems,
-            states: part.analysisState.positiveItemStates
+            items: latestPart.positiveItems,
+            states: latestPart.analysisState.positiveItemStates
         )
         let observations = getSummarizedItems(
-            items: part.observationItems,
-            states: part.analysisState.observationItemStates
+            items: latestPart.observationItems,
+            states: latestPart.analysisState.observationItemStates
         )
 
         var oneLiner: String? = nil
@@ -303,14 +315,19 @@ class SessionViewModel: ObservableObject {
         )
 
         // 4. Update local state
-        var updatedPart = part
+        var updatedPart = latestPart
         updatedPart.aiMemo = finalMemo
         updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
 
         // 5. Notion Update
         if let blockId = updatedPart.aiMemoBlockId {
             do {
-                _ = try await notionService.upsertAIMemo(blockId: blockId, content: finalMemo)
+                let result = try await notionService.upsertAIMemo(blockId: blockId, content: finalMemo)
+
+                if case .externalModification(let newBlockId) = result {
+                    updatedPart.aiMemoBlockId = newBlockId
+                    updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
+                }
             } catch {
                 print("Failed to update Notion: \(error)")
             }
@@ -346,7 +363,9 @@ class SessionViewModel: ObservableObject {
             } else {
                 micService.stopRecording()
             }
-            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            Task {
+                await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            }
         }
 
         chunker?.flush()
@@ -410,42 +429,41 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func stopTranscription(sessionId: String? = nil, partId: String? = nil) {
+    func stopTranscription(sessionId: String? = nil, partId: String? = nil) async {
         let targetPartId = partId ?? currentPart?.id
         let targetSessionId = sessionId ?? selectedSessionId
 
-        Task {
-            await transcriptionService.stopTranscription()
-            chunker?.flush()
+        await transcriptionService.stopTranscription()
+        chunker?.flush()
 
-            // Finalize remaining provisional segments as final
-            if let partId = targetPartId {
-                let segments = sessionState.partStates[partId]?.transcript ?? []
-                var updatedSegments = segments
-                var hasChanges = false
-                for i in 0..<updatedSegments.count {
-                    if !updatedSegments[i].isFinal {
-                        let finalSegment = TranscriptSegment(
-                            id: updatedSegments[i].id,
-                            sessionId: targetSessionId,
-                            partId: partId,
-                            text: updatedSegments[i].text,
-                            isFinal: true,
-                            startTime: updatedSegments[i].startTime,
-                            endTime: updatedSegments[i].endTime,
-                            receivedAt: updatedSegments[i].receivedAt
-                        )
-                        updatedSegments[i] = finalSegment
-                        hasChanges = true
-                        chunker?.processSegment(finalSegment)
-                    }
-                }
-                if hasChanges {
-                    sessionState.partStates[partId]?.transcript = updatedSegments
-                    chunker?.flush()
+        // Finalize remaining provisional segments as final
+        if let partId = targetPartId {
+            let segments = sessionState.partStates[partId]?.transcript ?? []
+            var updatedSegments = segments
+            var hasChanges = false
+            for i in 0..<updatedSegments.count {
+                if !updatedSegments[i].isFinal {
+                    let finalSegment = TranscriptSegment(
+                        id: updatedSegments[i].id,
+                        sessionId: targetSessionId,
+                        partId: partId,
+                        text: updatedSegments[i].text,
+                        isFinal: true,
+                        startTime: updatedSegments[i].startTime,
+                        endTime: updatedSegments[i].endTime,
+                        receivedAt: updatedSegments[i].receivedAt
+                    )
+                    updatedSegments[i] = finalSegment
+                    hasChanges = true
+                    chunker?.processSegment(finalSegment)
                 }
             }
+            if hasChanges {
+                sessionState.partStates[partId]?.transcript = updatedSegments
+                chunker?.flush()
+            }
         }
+
         transcriptionTask?.cancel()
         transcriptionTask = nil
     }
