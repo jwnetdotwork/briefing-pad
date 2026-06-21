@@ -37,11 +37,7 @@ class NotionImportService: NotionImportServiceProtocol {
             throw NotionError.authenticationFailed
         }
 
-        do {
-            _ = try await client.fetchPage(pageId: pageId)
-        } catch {
-            throw NotionError.permissionDenied
-        }
+        _ = try await client.fetchPage(pageId: pageId)
     }
 
     func generatePreview(token: String, pageId: String) async throws -> NotionPreview {

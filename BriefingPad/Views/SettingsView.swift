@@ -44,8 +44,8 @@ struct SettingsView: View {
 
                 Button("保存") {
                     do {
-                        try keychainService.save(key: "openai_api_key", value: apiKey)
-                        try keychainService.save(key: "notion_integration_token", value: notionToken)
+                        try keychainService.save(key: KeychainKeys.openaiApiKey, value: apiKey)
+                        try keychainService.save(key: KeychainKeys.notionIntegrationToken, value: notionToken)
                         dismiss()
                     } catch {
                         errorMessage = error.localizedDescription
@@ -63,8 +63,8 @@ struct SettingsView: View {
             Text(errorMessage ?? "不明なエラーが発生しました")
         }
         .onAppear {
-            apiKey = keychainService.load(key: "openai_api_key") ?? ""
-            notionToken = keychainService.load(key: "notion_integration_token") ?? ""
+            apiKey = keychainService.load(key: KeychainKeys.openaiApiKey) ?? ""
+            notionToken = keychainService.load(key: KeychainKeys.notionIntegrationToken) ?? ""
         }
     }
 }

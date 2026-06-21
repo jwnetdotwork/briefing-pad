@@ -64,7 +64,11 @@ class NotionParser {
                 currentPartHeader = (block.id, text)
                 currentPartBlocks = [block]
 
-                if let chapter = currentChapter, !targetChapters.contains(chapter) {
+                if let chapter = currentChapter {
+                    if !targetChapters.contains(chapter) {
+                        uninterpretedBlockCount += 1
+                    }
+                } else {
                     uninterpretedBlockCount += 1
                 }
                 continue
@@ -72,7 +76,11 @@ class NotionParser {
 
             if currentPartHeader != nil {
                 currentPartBlocks.append(block)
-                if let chapter = currentChapter, !targetChapters.contains(chapter) {
+                if let chapter = currentChapter {
+                    if !targetChapters.contains(chapter) {
+                        uninterpretedBlockCount += 1
+                    }
+                } else {
                     uninterpretedBlockCount += 1
                 }
             } else {

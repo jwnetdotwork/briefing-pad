@@ -4,8 +4,11 @@ import Testing
 
 struct NotionParserTests {
     @Test func testParseSampleJson() async throws {
-        // In this environment, we may not have Bundle.for, so we read directly from the file system.
-        let url = URL(fileURLWithPath: "docs/notion_page_sample.json")
+        // Use #filePath to find docs relative to this test file
+        let currentFile = URL(fileURLWithPath: #filePath)
+        let projectRoot = currentFile.deletingLastPathComponent().deletingLastPathComponent()
+        let url = projectRoot.appendingPathComponent("docs/notion_page_sample.json")
+
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

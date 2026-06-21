@@ -31,6 +31,10 @@ struct NotionImportSheet: View {
                 TextField("https://app.notion.com/...", text: $notionURL)
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
+                    .onChange(of: notionURL) { _ in
+                        preview = nil
+                        pageId = nil
+                    }
             }
 
             if let errorMessage = errorMessage {
@@ -142,7 +146,7 @@ struct NotionImportSheet: View {
     }
 
     private func generatePreview() {
-        guard let token = keychainService.load(key: "notion_integration_token"), !token.isEmpty else {
+        guard let token = keychainService.load(key: KeychainKeys.notionIntegrationToken), !token.isEmpty else {
             errorMessage = "設定画面で Notion トークンを保存してください"
             return
         }
@@ -184,7 +188,7 @@ struct NotionImportSheet: View {
     }
 
     private func performImport() {
-        guard let token = keychainService.load(key: "notion_integration_token"), let id = pageId else { return }
+        guard let token = keychainService.load(key: KeychainKeys.notionIntegrationToken), let id = pageId else { return }
 
         isLoading = true
         errorMessage = nil
