@@ -5,6 +5,7 @@ struct SessionToolbarView: View {
     @ObservedObject var viewModel: SessionViewModel
     let keychainService: KeychainServiceProtocol
     @State private var showingSettings = false
+    @State private var showImport = false
     @State private var showingSessionDeleteAlert = false
     @State private var showingPartDeleteAlert = false
     @State private var partDeleteMode: PartDeleteMode = .all
@@ -87,6 +88,14 @@ struct SessionToolbarView: View {
             }
 
             Spacer()
+
+            Button(action: { showImport = true }) {
+                Label("Notionインポート", systemImage: "square.and.arrow.down")
+            }
+            .help("Notion からインポート")
+            .sheet(isPresented: $showImport) {
+                NotionImportSheet(viewModel: viewModel, keychainService: keychainService)
+            }
 
             Button(action: { showingSettings = true }) {
                 Image(systemName: "gearshape")

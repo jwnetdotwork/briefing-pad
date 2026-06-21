@@ -72,8 +72,34 @@ class SessionViewModel: ObservableObject {
         setupSubscriptions()
 
         Task {
+            await loadSavedSessionsFromStore()
             await loadSavedSession()
         }
+    }
+
+    @MainActor
+    private func loadSavedSessionsFromStore() async {
+        do {
+            let sessionIds = try await store.listSessions()
+            for id in sessionIds {
+                if !sessions.contains(where: { $0.id == id }) {
+                    if let saved = try await store.loadSession(sessionId: id) {
+                        sessions.append(saved.templateSnapshot)
+                    }
+                }
+            }
+        } catch {
+            print("Failed to list sessions: \(error)")
+        }
+    }
+
+    func importNotionSession(_ session: BriefingSession, notionPageId: String) {
+        sessions.append(session)
+        self.notionPageId = notionPageId
+        self.selectedSessionId = session.id
+        self.currentPartIndex = 0
+        self.sessionState = SessionState()
+        saveCurrentSession()
     }
 
     private func setupSubscriptions() {

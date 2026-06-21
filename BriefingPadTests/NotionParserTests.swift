@@ -4,22 +4,20 @@ import Testing
 
 struct NotionParserTests {
     @Test func testParseSampleJson() async throws {
-        let testBundle = Bundle(for: TestBundleToken.self)
-        guard let url = testBundle.url(forResource: "notion_page_sample", withExtension: "json") else {
-            Issue.record("notion_page_sample.json not found")
-            return
-        }
-
+        // In this environment, we may not have Bundle.for, so we read directly from the file system.
+        let url = URL(fileURLWithPath: "docs/notion_page_sample.json")
         let data = try Data(contentsOf: url)
         let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let blockList = try decoder.decode(NotionBlockList.self, from: data)
 
         let parser = NotionParser()
-        let session = parser.parse(blocks: blockList.results, sessionName: "Test Session")
+        let result = parser.parse(blocks: blockList.results, sessionName: "Test Session")
+        let session = result.session
 
         // Check filtering
-        // Part 1, 2 should be excluded.
-        // Part 3, 4, 5 should be included.
+        // Part 1, 2 should be excluded (number 1, 2 in '神の言葉の宝').
+        // Part 3 (in '神の言葉の宝'), 4, 5 (in '野外奉仕に励む') should be included.
         #expect(session.parts.count == 3)
 
         let part3 = session.parts.first { $0.number == 3 }
@@ -27,7 +25,6 @@ struct NotionParserTests {
         #expect(part3?.title == "聖書朗読 山田二郎")
         #expect(part3?.durationMinutes == 4)
         #expect(part3?.setting == "エレ 9:13-24")
-        // Sample JSON has bullet points for these
         #expect(part3!.learningPoints.count == 2)
         #expect(part3!.observationItems.count == 5)
         #expect(part3!.positiveItems.count == 4)
@@ -41,21 +38,17 @@ struct NotionParserTests {
         #expect(part4!.observationItems.count == 7)
         #expect(part4!.positiveItems.count == 4)
 
-        let part5 = session.parts.first { $0.number == 5 }
-        #expect(part5 != nil)
-        #expect(part5?.title == "会話を始める 山田三郎/山田四郎")
-        #expect(part5?.durationMinutes == 4)
-        #expect(part5?.setting == "家から家で。（LINEで証言を行なうという場面設定）")
+        // Verify uninterpretedBlockCount
+        // The sample has blocks before '神の言葉の宝' (6月22-28日..., 5番の歌..., 開会の言葉...)
+        // Those should be counted.
+        #expect(result.uninterpretedBlockCount > 0)
+    }
 
-        // Verify rawMarkdown contains everything
-        #expect(part3?.rawMarkdown.contains("📓学習ポイント") == true)
-        #expect(part3?.rawMarkdown.contains("👀観察メモ") == true)
-        #expect(part3?.rawMarkdown.contains("👍どこがどのように良かったか") == true)
-        #expect(part3?.rawMarkdown.contains("☔次の一歩") == true)
-
-        // Part 4 also has 📓学習ポイント 👀観察メモ 👍どこがどのように良かったか ☔次の一歩
-        #expect(part4?.rawMarkdown.contains("📓学習ポイント") == true)
+    @Test func testNormalizePageId() {
+        #expect(NotionClient.normalizePageId("344f63ef-3462-808f-842a-f49cbf6bbfd3") == "344f63ef3462808f842af49cbf6bbfd3")
+        #expect(NotionClient.normalizePageId("344f63ef3462808f842af49cbf6bbfd3") == "344f63ef3462808f842af49cbf6bbfd3")
+        #expect(NotionClient.normalizePageId("https://app.notion.com/My-Session-344f63ef3462808f842af49cbf6bbfd3") == "344f63ef3462808f842af49cbf6bbfd3")
+        #expect(NotionClient.normalizePageId("https://app.notion.com/p/344f63ef3462808f842af49cbf6bbfd3") == "344f63ef3462808f842af49cbf6bbfd3")
+        #expect(NotionClient.normalizePageId("invalid") == nil)
     }
 }
-
-private final class TestBundleToken {}

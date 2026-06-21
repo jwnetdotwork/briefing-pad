@@ -20,16 +20,28 @@ class NotionParser {
         }
     }
 
-    func parse(blocks: [NotionBlock], sessionName: String) -> BriefingSession {
+    struct ParseResult {
+        let session: BriefingSession
+        let uninterpretedBlockCount: Int
+    }
+
+    func parse(blocks: [NotionBlock], sessionName: String) -> ParseResult {
         var parts: [PartDefinition] = []
         var currentChapter: String?
         var currentPartBlocks: [NotionBlock] = []
         var currentPartHeader: (id: String, text: String)?
+        var uninterpretedBlockCount = 0
+
+        let targetChapters = ["神の言葉の宝", "野外奉仕に励む"]
 
         func flushPart() {
             guard let header = currentPartHeader, let chapter = currentChapter else { return }
             if let part = processPart(blocks: currentPartBlocks, headerId: header.id, headerText: header.text, chapter: chapter) {
                 parts.append(part)
+            } else {
+                // If it wasn't a target part but was in a target chapter, we don't count it as "outside target chapters"
+                // The requirement said "outside target chapters", so we only count blocks where currentChapter is not in targetChapters.
+                // Wait, the prompt says: "神の言葉の宝 と 野外奉仕に励む の外にあるブロック数を数えてください。"
             }
             currentPartBlocks = []
             currentPartHeader = nil
@@ -41,6 +53,9 @@ class NotionParser {
             if block.type == "heading_2" {
                 flushPart()
                 currentChapter = text
+                if !targetChapters.contains(text) {
+                    uninterpretedBlockCount += 1
+                }
                 continue
             }
 
@@ -48,20 +63,38 @@ class NotionParser {
                 flushPart()
                 currentPartHeader = (block.id, text)
                 currentPartBlocks = [block]
+
+                if let chapter = currentChapter, !targetChapters.contains(chapter) {
+                    uninterpretedBlockCount += 1
+                }
                 continue
             }
 
             if currentPartHeader != nil {
                 currentPartBlocks.append(block)
+                if let chapter = currentChapter, !targetChapters.contains(chapter) {
+                    uninterpretedBlockCount += 1
+                }
+            } else {
+                // Blocks outside any part
+                if let chapter = currentChapter {
+                    if !targetChapters.contains(chapter) {
+                        uninterpretedBlockCount += 1
+                    }
+                } else {
+                    // Blocks before any chapter
+                    uninterpretedBlockCount += 1
+                }
             }
         }
         flushPart()
 
-        return BriefingSession(
+        let session = BriefingSession(
             id: UUID().uuidString,
             name: sessionName,
             parts: parts
         )
+        return ParseResult(session: session, uninterpretedBlockCount: uninterpretedBlockCount)
     }
 
     private func processPart(blocks: [NotionBlock], headerId: String, headerText: String, chapter: String) -> PartDefinition? {
