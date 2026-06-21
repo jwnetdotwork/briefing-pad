@@ -106,9 +106,7 @@ struct PartControlsView: View {
 struct PartControlsView_Previews: PreviewProvider {
     static var previews: some View {
         PartControlsView(
-            currentPartIndex: .constant(1),
-            totalParts: 5,
-            micService: MicrophoneService()
+            viewModel: SessionViewModel()
         )
     }
 }

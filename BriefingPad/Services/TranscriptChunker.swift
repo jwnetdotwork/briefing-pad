@@ -12,6 +12,7 @@ class TranscriptChunker {
     private let silenceThreshold: TimeInterval = 1.0
     private let maxCharacterCount: Int = 120
 
+    @MainActor
     init(
         clock: Clock = RealClock(),
         scheduler: Scheduler? = nil,
@@ -50,8 +51,9 @@ class TranscriptChunker {
 
         // Reset silence timer
         scheduler.schedule(after: silenceThreshold) { [weak self] in
+            guard let self else { return }
             Task { @MainActor in
-                self?.flush()
+                self.flush()
             }
         }
     }
