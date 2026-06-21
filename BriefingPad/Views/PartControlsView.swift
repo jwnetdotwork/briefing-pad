@@ -49,11 +49,15 @@ struct PartControlsView: View {
                     .disabled(isFinished || viewModel.micStatus == .starting)
                 }
 
-                Button(action: { viewModel.finishPart() }) {
+                Button(action: {
+                    Task {
+                        await viewModel.finishPart()
+                    }
+                }) {
                     Text("[パート終了]")
                         .frame(width: 80)
                 }
-                .disabled(isFinished)
+                .disabled(isFinished || viewModel.isFinalizing)
             }
         }
         .padding()

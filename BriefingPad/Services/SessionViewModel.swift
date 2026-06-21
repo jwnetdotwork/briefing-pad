@@ -6,6 +6,7 @@ class SessionViewModel: ObservableObject {
     @Published var selectedSessionId: String
     @Published var currentPartIndex: Int = 0
     @Published var isProcessing = false
+    @Published var isFinalizing = false
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
 
@@ -254,13 +255,73 @@ class SessionViewModel: ObservableObject {
         micService.stopRecording()
     }
 
-    func finishPart() {
+    @MainActor
+    func finishPart() async {
+        guard !isFinalizing else { return }
+        guard let part = currentPart else { return }
+
+        let targetSessionId = selectedSessionId
+        let targetPartIndex = currentPartIndex
+
+        isFinalizing = true
+
+        // 1. Stop recording and flush
         micService.stopRecording()
-        if let partId = currentPart?.id {
-            var partState = sessionState.partStates[partId] ?? PartState()
-            partState.isFinished = true
-            sessionState.partStates[partId] = partState
+        stopTranscription(sessionId: targetSessionId, partId: part.id)
+
+        // 2. Wait for queue to settle
+        while !chunkQueue.isEmpty || isProcessing {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
         }
+
+        // 3. Finalization Processing
+        let positives = getSummarizedItems(
+            items: part.positiveItems,
+            states: part.analysisState.positiveItemStates
+        )
+        let observations = getSummarizedItems(
+            items: part.observationItems,
+            states: part.analysisState.observationItemStates
+        )
+
+        var oneLiner: String? = nil
+        let summarizedTextList = positives.map { "良: \($0.text)" } + observations.map { "観: \($0.text)" }
+
+        if !summarizedTextList.isEmpty {
+            do {
+                oneLiner = try await llmService.generateOneLiner(summarizedPoints: summarizedTextList)
+            } catch {
+                print("Failed to generate one-liner: \(error)")
+                // Continue with deterministic part
+            }
+        }
+
+        let finalMemo = formatFinalMemo(
+            positives: positives,
+            observations: observations,
+            oneLiner: oneLiner
+        )
+
+        // 4. Update local state
+        var updatedPart = part
+        updatedPart.aiMemo = finalMemo
+        updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
+
+        // 5. Notion Update
+        if let blockId = updatedPart.aiMemoBlockId {
+            do {
+                _ = try await notionService.upsertAIMemo(blockId: blockId, content: finalMemo)
+            } catch {
+                print("Failed to update Notion: \(error)")
+            }
+        }
+
+        // 6. Mark as finished
+        var partState = sessionState.partStates[part.id] ?? PartState()
+        partState.isFinished = true
+        sessionState.partStates[part.id] = partState
+
+        isFinalizing = false
     }
 
     func moveToNextPart() {
@@ -477,6 +538,72 @@ class SessionViewModel: ObservableObject {
             }
         }
         return newStates
+    }
+
+    // MARK: - Finalization Logic
+
+    struct SummarizedItem {
+        let text: String
+        let evidence: String
+    }
+
+    func getSummarizedItems<T: SummaryItemProtocol>(
+        items: [T],
+        states: [String: AnalysisItemState]
+    ) -> [SummarizedItem] {
+        struct SortableItem {
+            let text: String
+            let state: AnalysisItemState
+        }
+
+        var sortableItems: [SortableItem] = []
+
+        for item in items {
+            if let state = states[item.id], state.status != .hidden {
+                sortableItems.append(SortableItem(text: item.text, state: state))
+            }
+        }
+
+        return sortableItems
+            .sorted { (a, b) -> Bool in
+                if a.state.status != b.state.status {
+                    return a.state.status > b.state.status
+                }
+                return a.state.confidence > b.state.confidence
+            }
+            .prefix(2)
+            .map { SummarizedItem(text: $0.text, evidence: $0.state.shortEvidence) }
+    }
+
+    func formatFinalMemo(
+        positives: [SummarizedItem],
+        observations: [SummarizedItem],
+        oneLiner: String?
+    ) -> String {
+        var lines: [String] = []
+
+        if !positives.isEmpty {
+            lines.append("◎ 短評で使えそう")
+            for item in positives {
+                lines.append("- \(item.text): \(item.evidence)")
+            }
+            lines.append("")
+        }
+
+        if !observations.isEmpty {
+            lines.append("👀 根拠になりそうな観察")
+            for item in observations {
+                lines.append("- \(item.text): \(item.evidence)")
+            }
+            lines.append("")
+        }
+
+        if let oneLiner = oneLiner, !oneLiner.isEmpty {
+            lines.append("💡 言えそうな一言")
+            lines.append(oneLiner)
+        }
+
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // For debugging and manual injection (legacy support)

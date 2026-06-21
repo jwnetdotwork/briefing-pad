@@ -50,12 +50,17 @@ struct LearningPoint: Identifiable, Codable, Hashable {
     let text: String
 }
 
-struct ObservationItem: Identifiable, Codable, Hashable {
+protocol SummaryItemProtocol: Identifiable {
+    var id: String { get }
+    var text: String { get }
+}
+
+struct ObservationItem: SummaryItemProtocol, Codable, Hashable {
     let id: String
     let text: String
 }
 
-struct PositiveItem: Identifiable, Codable, Hashable {
+struct PositiveItem: SummaryItemProtocol, Codable, Hashable {
     let id: String
     let text: String
 }

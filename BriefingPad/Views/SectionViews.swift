@@ -205,12 +205,25 @@ struct PositiveItemsView: View {
 
 struct CommentMaterialView: View {
     let aiMemo: String
+    let isFinalizing: Bool
 
     var body: some View {
         SectionContainer("🤖 AIメモ") {
-            Text(aiMemo.isEmpty ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
-                .font(.body)
-                .lineSpacing(4)
+            VStack(alignment: .leading, spacing: 8) {
+                if isFinalizing {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("確定メモ生成中...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Text(aiMemo.isEmpty && !isFinalizing ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
+                    .font(.body)
+                    .lineSpacing(4)
+            }
         }
     }
 }
@@ -249,7 +262,7 @@ struct SectionViews_Previews: PreviewProvider {
                 ],
                 state: [:]
             )
-            CommentMaterialView(aiMemo: "AIメモ")
+            CommentMaterialView(aiMemo: "AIメモ", isFinalizing: false)
         }
     }
 }

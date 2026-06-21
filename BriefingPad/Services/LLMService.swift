@@ -17,6 +17,8 @@ protocol LLMServiceProtocol {
         newChunk: String,
         partInfo: PartDefinition
     ) async throws -> AnalysisResult
+
+    func generateOneLiner(summarizedPoints: [String]) async throws -> String
 }
 
 class MockLLMService: LLMServiceProtocol {
@@ -42,5 +44,10 @@ class MockLLMService: LLMServiceProtocol {
                 ItemMatch(itemId: $0.id, confidence: 0.7, shortEvidence: "Mock positive match")
             }
         )
+    }
+
+    func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+        try await Task.sleep(nanoseconds: delayNanoseconds)
+        return "素晴らしい対応でした。特に相手の状況を汲み取った発言が印象的です。"
     }
 }
