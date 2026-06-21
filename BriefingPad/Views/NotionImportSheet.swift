@@ -76,7 +76,7 @@ struct NotionImportSheet: View {
             }
         }
         .padding()
-        .frame(width: 500, minHeight: 400)
+        .frame(minWidth: 500, maxWidth: 500, minHeight: 400)
     }
 
     @ViewBuilder
