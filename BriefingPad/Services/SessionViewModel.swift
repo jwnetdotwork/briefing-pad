@@ -63,7 +63,7 @@ class SessionViewModel: ObservableObject {
         micService: MicrophoneService = MicrophoneService(),
         store: SessionStoreProtocol = FileSessionStore(),
         clock: Clock = RealClock(),
-        scheduler: Scheduler = RealScheduler()
+        scheduler: Scheduler? = nil
     ) {
         let loadedSessions = LocalBriefingDataStore.loadSessions()
         self.sessions = loadedSessions
@@ -75,7 +75,7 @@ class SessionViewModel: ObservableObject {
         self.store = store
         self.clock = clock
 
-        self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler) { [weak self] chunk in
+        self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler ?? RealScheduler()) { [weak self] chunk in
             guard let self = self else { return }
             Task { @MainActor in
                 await self.enqueueChunk(chunk)

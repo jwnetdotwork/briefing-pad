@@ -14,11 +14,11 @@ class TranscriptChunker {
 
     init(
         clock: Clock = RealClock(),
-        scheduler: Scheduler = RealScheduler(),
+        scheduler: Scheduler? = nil,
         onFlush: @escaping (TranscriptChunk) -> Void
     ) {
         self.clock = clock
-        self.scheduler = scheduler
+        self.scheduler = scheduler ?? RealScheduler()
         self.onFlush = onFlush
     }
 

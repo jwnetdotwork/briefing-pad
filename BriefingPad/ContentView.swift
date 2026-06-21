@@ -4,7 +4,8 @@ struct ContentView: View {
     @StateObject private var viewModel: SessionViewModel
     private let keychainService: KeychainServiceProtocol
 
-    init(keychainService: KeychainServiceProtocol = KeychainService()) {
+    @MainActor
+    init(keychainService: KeychainServiceProtocol) {
         self.keychainService = keychainService
         let llmService = OpenAILLMService(keychainService: keychainService)
         let transcriptionService = SpeechTranscriptionService()
@@ -25,6 +26,11 @@ struct ContentView: View {
             notionService: notionService,
             transcriptionService: transcriptionService
         ))
+    }
+
+    @MainActor
+    init() {
+        self.init(keychainService: KeychainService())
     }
 
     var body: some View {
@@ -96,7 +102,9 @@ struct ContentView: View {
     }
 }
 
+@MainActor
 struct ContentView_Previews: PreviewProvider {
+    @MainActor
     static var previews: some View {
         ContentView()
     }

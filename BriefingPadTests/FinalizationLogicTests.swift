@@ -1,6 +1,7 @@
 import XCTest
 @testable import BriefingPad
 
+@MainActor
 final class FinalizationLogicTests: XCTestCase {
 
     func testGetSummarizedItems_Prioritization() {
