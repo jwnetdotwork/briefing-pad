@@ -65,7 +65,7 @@ struct ContentView: View {
                             CommentMaterialView(
                                 aiMemo: part.aiMemo,
                                 isFinalizing: viewModel.isFinalizing,
-                                syncStatus: viewModel.notionSyncStatus,
+                                syncStatus: viewModel.notionSyncStatuses[part.id] ?? .idle,
                                 onRetry: { viewModel.retryNotionSync() }
                             )
                         } else {

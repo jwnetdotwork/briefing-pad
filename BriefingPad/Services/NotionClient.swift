@@ -26,7 +26,7 @@ class NotionClient: NotionClientProtocol {
         let (data, response) = try await session.data(for: request)
         if let httpResponse = response as? HTTPURLResponse {
             if httpResponse.statusCode == 429 && retryCount < 3 {
-                let delay = Double(retryCount + 1) * 1.0 // Simple backoff
+                let delay = pow(2.0, Double(retryCount)) * 1.0 // Exponential backoff
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
                 return try await performRequest(request: request, retryCount: retryCount + 1)
             }

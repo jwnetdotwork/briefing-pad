@@ -44,12 +44,17 @@ class NotionService: NotionServiceProtocol {
             let allBlocks = try await client.fetchBlocks(blockId: parentId)
             let frame = findFrame(headerId: blockId, allBlocks: allBlocks)
             let existingNotionContent = frame.blocks.map { getPlainText($0) }.joined(separator: "\n")
-            let existingNotionHash = calculateHash(content: existingNotionContent)
+            let existingNotionHash = CryptoUtils.calculateHash(content: existingNotionContent)
 
             let isModifiedExternally: Bool
             if let expectedTime = expectedLastEditedTime, let expectedHash = expectedContentHash {
-                // If Notion's last_edited_time is newer than our expected time, AND the hash has changed
-                isModifiedExternally = (currentLastEditedTime > expectedTime) && (existingNotionHash != expectedHash)
+                let formatter = ISO8601DateFormatter()
+                if let currentDate = formatter.date(from: currentLastEditedTime),
+                   let expectedDate = formatter.date(from: expectedTime) {
+                    isModifiedExternally = (currentDate > expectedDate) && (existingNotionHash != expectedHash)
+                } else {
+                    isModifiedExternally = (currentLastEditedTime > expectedTime) && (existingNotionHash != expectedHash)
+                }
             } else {
                 isModifiedExternally = false
             }
@@ -64,7 +69,7 @@ class NotionService: NotionServiceProtocol {
                     return .externalModification(
                         newBlockId: newHeader.id,
                         lastEditedTime: newHeader.last_edited_time ?? "",
-                        contentHash: calculateHash(content: content)
+                        contentHash: CryptoUtils.calculateHash(content: content)
                     )
                 }
                 return .failure("Failed to append new blocks")
@@ -81,7 +86,7 @@ class NotionService: NotionServiceProtocol {
                 if let newHeader = newBlocks.first {
                     return .success(
                         lastEditedTime: newHeader.last_edited_time ?? "",
-                        contentHash: calculateHash(content: content)
+                        contentHash: CryptoUtils.calculateHash(content: content)
                     )
                 }
                 return .failure("Failed to append blocks")
@@ -91,17 +96,16 @@ class NotionService: NotionServiceProtocol {
         }
     }
 
-    private func calculateHash(content: String) -> String {
-        let data = Data(content.utf8)
-        let hash = SHA256.hash(data: data)
-        return hash.compactMap { String(format: "%02x", $0) }.joined()
-    }
-
     private func findFrame(headerId: String, allBlocks: [NotionBlock]) -> (header: NotionBlock, blocks: [NotionBlock]) {
         guard let headerIndex = allBlocks.firstIndex(where: { $0.id == headerId }) else {
             // Should not happen if headerId is valid, but fallback to single block
             if let block = allBlocks.first(where: { $0.id == headerId }) {
                 return (block, [block])
+            }
+            guard !allBlocks.isEmpty else {
+                // Return a dummy block if allBlocks is empty to avoid crash
+                let dummy = NotionBlock(id: headerId, type: "unsupported", has_children: false, last_edited_time: nil, parent: nil, heading_2: nil, heading_3: nil, heading_4: nil, paragraph: nil, bulleted_list_item: nil, image: nil)
+                return (dummy, [])
             }
             return (allBlocks[0], [])
         }
@@ -160,7 +164,10 @@ class NotionService: NotionServiceProtocol {
                 ])
 
                 for i in 1..<lines.count {
-                    let item = lines[i].trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "- ", with: "")
+                    var item = lines[i].trimmingCharacters(in: .whitespaces)
+                    if item.hasPrefix("- ") {
+                        item = String(item.dropFirst(2))
+                    }
                     blocks.append([
                         "object": "block",
                         "type": "bulleted_list_item",
@@ -201,7 +208,7 @@ class MockNotionService: NotionServiceProtocol {
         // Simulate network delay
         try await Task.sleep(nanoseconds: 1 * 1_000_000_000)
 
-        let hash = calculateHash(content: content)
+        let hash = CryptoUtils.calculateHash(content: content)
         let time = ISO8601DateFormatter().string(from: Date())
 
         if shouldSimulateExternalModification {
@@ -214,11 +221,5 @@ class MockNotionService: NotionServiceProtocol {
         }
 
         return .success(lastEditedTime: time, contentHash: hash)
-    }
-
-    private func calculateHash(content: String) -> String {
-        let data = Data(content.utf8)
-        let hash = SHA256.hash(data: data)
-        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 }

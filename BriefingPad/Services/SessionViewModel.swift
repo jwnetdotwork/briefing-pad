@@ -18,7 +18,7 @@ class SessionViewModel: ObservableObject {
         case externalModification
         case failure(String)
     }
-    @Published var notionSyncStatus: NotionSyncStatus = .idle
+    @Published var notionSyncStatuses: [String: NotionSyncStatus] = [:] // partId -> status
 
     @Published var micStatus: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
@@ -742,7 +742,9 @@ class SessionViewModel: ObservableObject {
         notionSyncTask = Task { @MainActor in
             while let contentToSync = pendingAIMemoUpdate {
                 // Throttle: if same content as last synced, skip
-                if let part = currentPart, part.id == partId, part.lastSyncedHash == calculateHash(content: contentToSync) {
+                if let session = selectedSession,
+                   let part = session.parts.first(where: { $0.id == partId }),
+                   part.lastSyncedHash == CryptoUtils.calculateHash(content: contentToSync) {
                     pendingAIMemoUpdate = nil
                     break
                 }
@@ -767,7 +769,7 @@ class SessionViewModel: ObservableObject {
               let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) else { return }
 
         let part = sessions[sessionIndex].parts[partIndex]
-        notionSyncStatus = .writing
+        notionSyncStatuses[partId] = .writing
 
         do {
             let result = try await notionService.upsertAIMemo(
@@ -781,18 +783,18 @@ class SessionViewModel: ObservableObject {
             case .success(let time, let hash):
                 sessions[sessionIndex].parts[partIndex].lastSyncedTime = time
                 sessions[sessionIndex].parts[partIndex].lastSyncedHash = hash
-                notionSyncStatus = .success
+                notionSyncStatuses[partId] = .success
             case .externalModification(let newBlockId, let time, let hash):
                 sessions[sessionIndex].parts[partIndex].aiMemoBlockId = newBlockId
                 sessions[sessionIndex].parts[partIndex].lastSyncedTime = time
                 sessions[sessionIndex].parts[partIndex].lastSyncedHash = hash
-                notionSyncStatus = .externalModification
+                notionSyncStatuses[partId] = .externalModification
             case .failure(let error):
-                notionSyncStatus = .failure(error)
+                notionSyncStatuses[partId] = .failure(error)
             }
             saveCurrentSession()
         } catch {
-            notionSyncStatus = .failure(error.localizedDescription)
+            notionSyncStatuses[partId] = .failure(error.localizedDescription)
         }
     }
 
@@ -813,12 +815,6 @@ class SessionViewModel: ObservableObject {
         }
 
         triggerNotionSync(blockId: blockId, content: content, partId: part.id)
-    }
-
-    private func calculateHash(content: String) -> String {
-        let data = Data(content.utf8)
-        let hash = SHA256.hash(data: data)
-        return hash.compactMap { String(format: "%02x", $0) }.joined()
     }
 
     @MainActor
