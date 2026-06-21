@@ -194,6 +194,8 @@ struct TranscriptChunk: Identifiable, Codable, Hashable {
 
 struct PartState: Codable, Hashable {
     var transcript: [TranscriptSegment] = []
+    var isFinished: Bool = false
+    var elapsedTime: TimeInterval = 0
 }
 
 struct SessionState: Codable, Hashable {

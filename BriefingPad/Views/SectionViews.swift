@@ -116,32 +116,36 @@ struct ObservationItemsView: View {
 
     var body: some View {
         SectionContainer("観察メモ") {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
                     Text("なし")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(items) { item in
                         let itemState = state[item.id] ?? .hidden()
+                        let isStrong = itemState.status == .strong
+                        let isCandidate = itemState.status == .candidate
 
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 2) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text("・\(item.text)")
+                                    .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
+
                                 Spacer(minLength: 12)
-                                Text(itemState.status.displayLabel)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
+
+                                if isStrong || isCandidate {
+                                    Text(itemState.status.displayLabel)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
                             }
 
-                            if !itemState.shortEvidence.isEmpty {
+                            if !itemState.shortEvidence.isEmpty && (isStrong || isCandidate) {
                                 Text(itemState.shortEvidence)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .lineLimit(1)
                             }
-
-                            Text("confidence \(Int(itemState.confidence * 100))% / 更新 \(itemState.lastUpdatedAt.formatted(date: .omitted, time: .shortened))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -154,34 +158,43 @@ struct PositiveItemsView: View {
     let items: [PositiveItem]
     let state: [String: AnalysisItemState]
 
+    private var displayItems: [(item: PositiveItem, state: AnalysisItemState)] {
+        items.compactMap { item -> (item: PositiveItem, state: AnalysisItemState)? in
+            let itemState = state[item.id] ?? .hidden()
+            guard itemState.status != .hidden else { return nil }
+            return (item, itemState)
+        }
+        .sorted { $0.state.confidence > $1.state.confidence }
+        .prefix(2)
+        .map { $0 }
+    }
+
     var body: some View {
         SectionContainer("良かった点候補") {
-            VStack(alignment: .leading, spacing: 12) {
-                if items.isEmpty {
-                    Text("なし")
+            VStack(alignment: .leading, spacing: 8) {
+                if displayItems.isEmpty {
+                    Text("（該当なし）")
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(items) { item in
-                        let itemState = state[item.id] ?? .hidden()
-
-                        VStack(alignment: .leading, spacing: 4) {
+                    ForEach(displayItems, id: \.item.id) { pair in
+                        VStack(alignment: .leading, spacing: 2) {
                             HStack(alignment: .firstTextBaseline) {
-                                Text("・\(item.text)")
+                                Text("・\(pair.item.text)")
+                                    .font(.body.bold())
+
                                 Spacer(minLength: 12)
-                                Text(itemState.status.displayLabel)
+
+                                Text(pair.state.status.displayLabel)
                                     .font(.caption2)
                                     .foregroundColor(.secondary)
                             }
 
-                            if !itemState.shortEvidence.isEmpty {
-                                Text(itemState.shortEvidence)
+                            if !pair.state.shortEvidence.isEmpty {
+                                Text(pair.state.shortEvidence)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
+                                    .lineLimit(1)
                             }
-
-                            Text("confidence \(Int(itemState.confidence * 100))% / 更新 \(itemState.lastUpdatedAt.formatted(date: .omitted, time: .shortened))")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
                         }
                     }
                 }
