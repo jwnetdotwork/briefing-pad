@@ -18,6 +18,7 @@ class SessionViewModel: ObservableObject {
     private let notionService: NotionServiceProtocol
     private let transcriptionService: SpeechTranscribing
     private let micService: MicrophoneService
+    private let store: SessionStoreProtocol
     private let clock: Clock
 
     private var transcriptionTask: Task<Void, Never>?
@@ -47,6 +48,7 @@ class SessionViewModel: ObservableObject {
         notionService: NotionServiceProtocol = MockNotionService(),
         transcriptionService: SpeechTranscribing = MockSpeechTranscriptionService(),
         micService: MicrophoneService = MicrophoneService(),
+        store: SessionStoreProtocol = FileSessionStore(),
         clock: Clock = RealClock(),
         scheduler: Scheduler = RealScheduler()
     ) {
@@ -57,6 +59,7 @@ class SessionViewModel: ObservableObject {
         self.notionService = notionService
         self.transcriptionService = transcriptionService
         self.micService = micService
+        self.store = store
         self.clock = clock
 
         self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler) { [weak self] chunk in
@@ -196,6 +199,19 @@ class SessionViewModel: ObservableObject {
             // Update local state immediately for UI responsiveness
             self.updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
 
+            // Record LLM Result
+            let llmResult = LLMResult(
+                observationMatches: result.observationMatches,
+                positiveMatches: result.positiveMatches,
+                sourceChunkId: chunk.id,
+                sourceChunkText: chunk.text,
+                sourceChunkStartTime: chunk.startTime,
+                sourceChunkEndTime: chunk.endTime
+            )
+            sessionState.partStates[part.id]?.llmResults.append(llmResult)
+
+            saveCurrentSession()
+
             // 3. Notion Update (Disabled in Phase 4)
             /*
             if let blockId = updatedPart.aiMemoBlockId {
@@ -238,10 +254,152 @@ class SessionViewModel: ObservableObject {
         selectedSessionId = id
         currentPartIndex = 0
         transcriptionError = nil
-        if let partId = currentPart?.id {
-            partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
-        } else {
-            partElapsedTime = 0
+
+        Task {
+            await loadSavedSession()
+        }
+    }
+
+    @MainActor
+    private func loadSavedSession() async {
+        do {
+            if let saved = try await store.loadSession(sessionId: selectedSessionId) {
+                // Restore template snapshot (parts, analysisState, etc)
+                if let index = sessions.firstIndex(where: { $0.id == selectedSessionId }) {
+                    sessions[index] = saved.templateSnapshot
+                }
+
+                // Restore SessionState
+                var newState = SessionState()
+                for (partId, partRun) in saved.partRuns {
+                    newState.partStates[partId] = PartState(
+                        transcript: partRun.transcript,
+                        isFinished: partRun.isFinished,
+                        elapsedTime: partRun.elapsedTime,
+                        llmResults: partRun.llmResults,
+                        finalSummary: partRun.finalSummary
+                    )
+                }
+                self.sessionState = newState
+            } else {
+                // If no saved session, reset sessionState for this session
+                self.sessionState = SessionState()
+                // Also reset parts to initial state if needed,
+                // but since we load them from LocalBriefingDataStore in init,
+                // we might want to re-load the template if it was modified.
+                let templates = LocalBriefingDataStore.loadSessions()
+                if let template = templates.first(where: { $0.id == selectedSessionId }),
+                   let index = sessions.firstIndex(where: { $0.id == selectedSessionId }) {
+                    sessions[index] = template
+                }
+            }
+
+            if let partId = currentPart?.id {
+                partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+            } else {
+                partElapsedTime = 0
+            }
+        } catch {
+            print("Failed to load saved session: \(error)")
+        }
+    }
+
+    func saveCurrentSession() {
+        guard let session = selectedSession else { return }
+
+        var partRuns: [String: PartRun] = [:]
+        for (partId, partState) in sessionState.partStates {
+            var partRun = PartRun(partId: partId)
+            partRun.transcript = partState.transcript
+            partRun.elapsedTime = partState.elapsedTime
+            partRun.isFinished = partState.isFinished
+            partRun.llmResults = partState.llmResults
+            partRun.finalSummary = partState.finalSummary
+
+            partRuns[partId] = partRun
+        }
+
+        let saved = SavedSession(
+            sessionId: selectedSessionId,
+            templateSnapshot: session,
+            updatedAt: clock.now,
+            notionPageId: nil, // To be filled in later phases or if available
+            errorHistory: [],
+            partRuns: partRuns
+        )
+
+        Task {
+            do {
+                try await store.saveSession(saved)
+            } catch {
+                print("Failed to save session: \(error)")
+            }
+        }
+    }
+
+    func deleteCurrentSession() {
+        Task {
+            do {
+                try await store.deleteSession(sessionId: selectedSessionId)
+                await loadSavedSession() // Reload to template state
+            } catch {
+                print("Failed to delete session: \(error)")
+            }
+        }
+    }
+
+    func deleteCurrentPartData(onlyAudio: Bool = false, onlyTranscript: Bool = false, onlyLLM: Bool = false) {
+        guard let partId = currentPart?.id else { return }
+
+        Task { @MainActor in
+            do {
+                if !onlyAudio && !onlyTranscript && !onlyLLM {
+                    // Delete all for this part
+                    try await store.deleteAudio(sessionId: selectedSessionId, partId: partId)
+                    try await store.deleteTranscript(sessionId: selectedSessionId, partId: partId)
+                    try await store.deleteLLMResults(sessionId: selectedSessionId, partId: partId)
+
+                    // Reset local state for this part
+                    sessionState.partStates[partId] = PartState()
+                    // Also reset part definition in session
+                    if let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+                       let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) {
+                        let templates = LocalBriefingDataStore.loadSessions()
+                        if let templateSession = templates.first(where: { $0.id == selectedSessionId }),
+                           let templatePart = templateSession.parts.first(where: { $0.id == partId }) {
+                            sessions[sessionIndex].parts[partIndex] = templatePart
+                        }
+                    }
+                } else {
+                    if onlyAudio {
+                        try await store.deleteAudio(sessionId: selectedSessionId, partId: partId)
+                    }
+                    if onlyTranscript {
+                        try await store.deleteTranscript(sessionId: selectedSessionId, partId: partId)
+                        sessionState.partStates[partId]?.transcript = []
+                        chunker?.flush()
+                    }
+                    if onlyLLM {
+                        try await store.deleteLLMResults(sessionId: selectedSessionId, partId: partId)
+                        sessionState.partStates[partId]?.llmResults = []
+                        sessionState.partStates[partId]?.finalSummary = nil
+
+                        // Reset analysis state in PartDefinition
+                        if let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+                           let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) {
+                            let part = sessions[sessionIndex].parts[partIndex]
+                            sessions[sessionIndex].parts[partIndex].analysisState = PartAnalysisState.initial(
+                                observationItems: part.observationItems,
+                                positiveItems: part.positiveItems
+                            )
+                            sessions[sessionIndex].parts[partIndex].aiMemo = ""
+                        }
+                    }
+                }
+                saveCurrentSession()
+            } catch {
+                print("Failed to delete part data: \(error)")
+            }
         }
     }
 
@@ -252,11 +410,16 @@ class SessionViewModel: ObservableObject {
         let isFinished = sessionState.partStates[partId]?.isFinished ?? false
         guard !isFinished else { return }
 
-        micService.startRecording()
+        // Get Application Support directory for audio
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let audioURL = appSupport.appendingPathComponent("BriefingPad/sessions/\(selectedSessionId)/parts/\(partId)/audio.m4a")
+
+        micService.startRecording(audioFileURL: audioURL)
     }
 
     func pauseRecording() {
         micService.stopRecording()
+        saveCurrentSession()
     }
 
     @MainActor
@@ -319,6 +482,14 @@ class SessionViewModel: ObservableObject {
         updatedPart.aiMemo = finalMemo
         updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
 
+        // Record Final Summary
+        let finalSummary = FinalSummary(
+            text: finalMemo,
+            adoptedItemIds: positives.map { $0.text } + observations.map { $0.text },
+            sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
+        )
+        sessionState.partStates[part.id]?.finalSummary = finalSummary
+
         // 5. Notion Update
         if let blockId = updatedPart.aiMemoBlockId {
             do {
@@ -338,6 +509,7 @@ class SessionViewModel: ObservableObject {
         partState.isFinished = true
         sessionState.partStates[part.id] = partState
 
+        saveCurrentSession()
         isFinalizing = false
     }
 
@@ -475,6 +647,7 @@ class SessionViewModel: ObservableObject {
 
         var partState = sessionState.partStates[partId] ?? PartState()
 
+        var shouldSave = false
         if let index = partState.transcript.firstIndex(where: { $0.id == segment.id }) {
             // Update existing segment
             let wasFinal = partState.transcript[index].isFinal
@@ -483,6 +656,7 @@ class SessionViewModel: ObservableObject {
             // Only process if it just became final
             if segment.isFinal && !wasFinal {
                 chunker?.processSegment(segment)
+                shouldSave = true
             }
         } else {
             // Append new segment
@@ -490,10 +664,14 @@ class SessionViewModel: ObservableObject {
 
             if segment.isFinal {
                 chunker?.processSegment(segment)
+                shouldSave = true
             }
         }
 
         sessionState.partStates[partId] = partState
+        if shouldSave {
+            saveCurrentSession()
+        }
     }
 
     private func mergeMatches(

@@ -201,6 +201,8 @@ struct PartState: Codable, Hashable {
     var transcript: [TranscriptSegment] = []
     var isFinished: Bool = false
     var elapsedTime: TimeInterval = 0
+    var llmResults: [LLMResult] = []
+    var finalSummary: FinalSummary?
 }
 
 struct SessionState: Codable, Hashable {
