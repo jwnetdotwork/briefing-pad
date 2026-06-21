@@ -13,36 +13,12 @@ protocol SpeechTranscribing {
     func stopTranscription() async
 }
 
-// Internal implementation details for SFSpeechAnalyzer support (macOS 15+)
-#if canImport(Speech)
-@available(macOS 15.0, *)
-class SpeechTranscriber {
-    static var isAvailable: Bool {
-        get async {
-            // Simplified check for this environment
-            return true
-        }
-    }
-
-    static func supportedLocales(equivalentTo locale: Locale) async -> [Locale] {
-        // Assume ja-JP is supported
-        return [Locale(identifier: "ja-JP")]
-    }
-}
-
-@available(macOS 15.0, *)
-class AnalyzerInputConverter {
-    func convert(_ buffer: AVAudioPCMBuffer) -> Any? {
-        // In real implementation, this converts to SFSpeechAnalyzer.Input.AudioBuffer
-        return nil
-    }
-}
-#endif
-
 class SpeechTranscriptionService: SpeechTranscribing {
     private var transcriptionContinuation: AsyncStream<TranscriptSegment>.Continuation?
-
     let results: AsyncStream<TranscriptSegment>
+
+    private let locale = Locale(identifier: "ja-JP")
+    private var analyzerTask: Task<Void, Never>?
 
     init() {
         var continuation: AsyncStream<TranscriptSegment>.Continuation?
@@ -52,14 +28,11 @@ class SpeechTranscriptionService: SpeechTranscribing {
         self.transcriptionContinuation = continuation
     }
 
-    private let locale = Locale(identifier: "ja-JP")
-    private var analyzerTask: Task<Void, Never>?
-
     var isAvailable: Bool {
         get async {
             #if canImport(Speech)
             if #available(macOS 15.0, *) {
-                return await SpeechTranscriber.isAvailable
+                return await SFSpeechAnalyzer.isAvailable
             }
             #endif
             return false
@@ -69,19 +42,33 @@ class SpeechTranscriptionService: SpeechTranscribing {
     func checkAvailability() async throws {
         #if canImport(Speech)
         if #available(macOS 15.0, *) {
-            guard await SpeechTranscriber.isAvailable else {
-                throw NSError(domain: "SpeechTranscriptionService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Speech transcription is not available on this device."])
+            // 1. Check Availability
+            guard await SFSpeechAnalyzer.isAvailable else {
+                throw NSError(domain: "SpeechTranscriptionService", code: 1, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
             }
 
-            let supported = await SpeechTranscriber.supportedLocales(equivalentTo: locale)
-            guard !supported.isEmpty else {
-                throw NSError(domain: "SpeechTranscriptionService", code: 2, userInfo: [NSLocalizedDescriptionKey: "Japanese (ja-JP) is not supported."])
+            // 2. Check Locale Support
+            let supportedLocales = await SFSpeechTranscriber.supportedLocales(equivalentTo: locale)
+            if !supportedLocales.contains(where: { $0.identifier.hasPrefix("ja") }) {
+                throw NSError(domain: "SpeechTranscriptionService", code: 2, userInfo: [NSLocalizedDescriptionKey: "日本語の音声認識に対応していません"])
+            }
+
+            // 3. Check Authorization
+            let authStatus = SFSpeechRecognizer.authorizationStatus()
+            if authStatus == .denied || authStatus == .restricted {
+                throw NSError(domain: "SpeechTranscriptionService", code: 3, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
+            }
+
+            // 4. Check Microphone Permission
+            let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+            if micStatus == .denied || micStatus == .restricted {
+                throw NSError(domain: "SpeechTranscriptionService", code: 4, userInfo: [NSLocalizedDescriptionKey: "マイクの使用が許可されていません"])
             }
         } else {
-            throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "macOS 15.0 or later is required for this feature."])
+            throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
         }
         #else
-        throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Speech framework is not available."])
+        throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
         #endif
     }
 
@@ -90,15 +77,67 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
         #if canImport(Speech)
         if #available(macOS 15.0, *) {
-            // NOTE: The implementation below is conceptual for sandbox compilation.
-            // In a real build, we would use the actual SFSpeechAnalyzer types.
-            // Explicitly throw as it's not yet fully implemented in this shell.
-            throw NSError(domain: "SpeechTranscriptionService", code: 3, userInfo: [NSLocalizedDescriptionKey: "Real SpeechAnalyzer implementation is placeholder."])
+            let analyzer = try SFSpeechAnalyzer(locale: locale)
+            let transcriber = SFSpeechTranscriber()
+
+            analyzerTask = Task {
+                // Map logical utterances to stable IDs by their start time
+                var utteranceIds: [TimeInterval: UUID] = [:]
+
+                let results = analyzer.subscribe(transcriber)
+
+                // Pipe audio data into the analyzer
+                let inputTask = Task {
+                    for await buffer in audioStream {
+                        if Task.isCancelled { break }
+                        do {
+                            try await analyzer.addInput(buffer)
+                        } catch {
+                            print("Failed to add input to SFSpeechAnalyzer: \(error)")
+                            break
+                        }
+                    }
+                    analyzer.completeInput()
+                }
+
+                // Collect results
+                for await result in results {
+                    if Task.isCancelled { break }
+
+                    let transcription = result.transcription
+                    guard let firstSegment = transcription.segments.first else { continue }
+
+                    let startTime = firstSegment.timestamp
+                    let lastSegment = transcription.segments.last
+                    let endTime = lastSegment.map { $0.timestamp + $0.duration } ?? startTime
+
+                    // Get or create stable UUID for this utterance
+                    let id: UUID
+                    if let existingId = utteranceIds[startTime] {
+                        id = existingId
+                    } else {
+                        id = UUID()
+                        utteranceIds[startTime] = id
+                    }
+
+                    let segment = TranscriptSegment(
+                        id: id,
+                        sessionId: "", // Filled by SessionViewModel
+                        partId: "",    // Filled by SessionViewModel
+                        text: transcription.formattedString,
+                        isFinal: result.isFinal,
+                        startTime: startTime,
+                        endTime: endTime
+                    )
+
+                    transcriptionContinuation?.yield(segment)
+                }
+
+                await inputTask.value
+            }
         } else {
-             throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "macOS 15.0+ required"])
+            throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"])
         }
-        #else
-        throw NSError(domain: "SpeechTranscriptionService", code: 0, userInfo: [NSLocalizedDescriptionKey: "Speech framework missing"])
         #endif
     }
 
@@ -142,26 +181,41 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                 count += 1
                 if count % 20 == 0 { // Faster for feedback
                     let id = UUID()
-                    // Yield provisional
-                    let provText = "（認識中...）発話チャンク \(count/20)"
+                    let chunkNum = count / 20
+
+                    // 1st provisional
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
                         sessionId: "",
                         partId: "",
-                        text: provText,
+                        text: "（認識中...）発話チャンク \(chunkNum)",
                         isFinal: false,
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0
                     ))
 
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    if Task.isCancelled { return }
+
+                    // 2nd provisional (update)
+                    transcriptionContinuation?.yield(TranscriptSegment(
+                        id: id,
+                        sessionId: "",
+                        partId: "",
+                        text: "（認識中...）確定間近 \(chunkNum)",
+                        isFinal: false,
+                        startTime: Double(count) / 10.0,
+                        endTime: Double(count) / 10.0 + 0.5
+                    ))
+
                     // Shortly after yield final
-                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    try? await Task.sleep(nanoseconds: 400_000_000)
                     if Task.isCancelled { return }
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
                         sessionId: "",
                         partId: "",
-                        text: "確定した発話 \(count/20)",
+                        text: "確定した発話 \(chunkNum)",
                         isFinal: true,
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0 + 1.0

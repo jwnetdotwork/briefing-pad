@@ -8,7 +8,11 @@ struct ContentView: View {
     init(keychainService: KeychainServiceProtocol = KeychainService()) {
         self.keychainService = keychainService
         let llmService = OpenAILLMService(keychainService: keychainService)
-        _viewModel = StateObject(wrappedValue: SessionViewModel(llmService: llmService))
+        let transcriptionService = SpeechTranscriptionService()
+        _viewModel = StateObject(wrappedValue: SessionViewModel(
+            llmService: llmService,
+            transcriptionService: transcriptionService
+        ))
     }
 
     var body: some View {

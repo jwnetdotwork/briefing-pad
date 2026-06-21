@@ -95,6 +95,59 @@ final class TranscriptionTests: XCTestCase {
     }
 
     @MainActor
+    func testMultipleProvisionalUpdates() async {
+        let viewModel = SessionViewModel()
+        let partId = "test-part"
+        let segmentId = UUID()
+
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: partId, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+
+        // 1. Provisional 1
+        await viewModel.handleTranscriptSegment(TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: partId,
+            text: "あいう",
+            isFinal: false,
+            startTime: 0.0,
+            endTime: 0.0
+        ))
+
+        // 2. Provisional 2 (same ID)
+        await viewModel.handleTranscriptSegment(TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: partId,
+            text: "あいうえお",
+            isFinal: false,
+            startTime: 0.0,
+            endTime: 0.5
+        ))
+
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 1)
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.first?.text, "あいうえお")
+
+        // 3. Final (same ID)
+        await viewModel.handleTranscriptSegment(TranscriptSegment(
+            id: segmentId,
+            sessionId: "s1",
+            partId: partId,
+            text: "あいうえお。",
+            isFinal: true,
+            startTime: 0.0,
+            endTime: 1.0
+        ))
+
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 1)
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.first?.text, "あいうえお。")
+        XCTAssertTrue(viewModel.sessionState.partStates[partId]?.transcript.first?.isFinal ?? false)
+    }
+
+    @MainActor
     func testStopTranscriptionContextSafety() async {
         let viewModel = SessionViewModel()
         let part1Id = "p1"
