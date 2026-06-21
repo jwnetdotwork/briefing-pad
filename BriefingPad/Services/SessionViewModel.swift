@@ -130,36 +130,108 @@ class SessionViewModel: ObservableObject {
         let part = sessions[sessionIndex].parts[partIndex]
 
         do {
-            // 1. LLM Update
-            let updatedMemo = try await llmService.updateAIMemo(
-                existingMemo: part.aiMemo,
-                newTranscriptChunk: chunk.text,
+            // 1. LLM Analysis
+            let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
+                .filter { $0.isFinal }
+                .map { $0.text }
+                .joined(separator: "\n")
+
+            let result = try await llmService.analyzeTranscript(
+                fullTranscript: fullTranscript,
+                newChunk: chunk.text,
                 partInfo: part
             )
 
-            // Update local state immediately for UI responsiveness
+            // 2. Merge Results into analysisState
             var updatedPart = part
-            updatedPart.aiMemo = updatedMemo
+            let now = Date()
+
+            // Helper to merge matches
+            func mergeMatches(
+                existingStates: [String: AnalysisItemState],
+                matches: [ItemMatch],
+                now: Date
+            ) -> [String: AnalysisItemState] {
+                var newStates = existingStates
+                for match in matches {
+                    let existing = existingStates[match.itemId] ?? .hidden(at: now)
+
+                    // Merging logic:
+                    // 1. Higher confidence priority
+                    // 2. strong is sticky unless explicitly downgraded (confidence < 0.6)
+
+                    let newStatus: AnalysisItemStatus
+                    if match.confidence >= 0.8 {
+                        newStatus = .strong
+                    } else if match.confidence >= 0.6 {
+                        newStatus = .candidate
+                    } else {
+                        newStatus = .hidden
+                    }
+
+                    var shouldUpdate = false
+
+                    // Priority rules:
+                    // 1. Higher status wins (strong > candidate > hidden)
+                    // 2. Same status: higher confidence wins
+                    // 3. Special sticky rules for strong/candidate:
+                    //    - If existing is strong, only downgrade if new confidence is below 0.6 (explicit downgrade)
+                    //    - If existing is candidate, only downgrade to hidden if new confidence is very low (e.g. < 0.3)
+
+                    if newStatus.rawValue > existing.status.rawValue {
+                        // Upgrade
+                        shouldUpdate = true
+                    } else if newStatus == existing.status {
+                        // Same status, update if confidence improved
+                        if match.confidence > existing.confidence {
+                            shouldUpdate = true
+                        }
+                    } else {
+                        // Potential downgrade
+                        if existing.status == .strong && match.confidence < 0.6 {
+                            // strong -> candidate or hidden (explicit)
+                            shouldUpdate = true
+                        } else if existing.status == .candidate && match.confidence < 0.3 {
+                            // candidate -> hidden (explicit)
+                            shouldUpdate = true
+                        }
+                    }
+
+                    if shouldUpdate {
+                        newStates[match.itemId] = AnalysisItemState(
+                            confidence: match.confidence,
+                            shortEvidence: match.shortEvidence,
+                            status: newStatus,
+                            lastUpdatedAt: now
+                        )
+                    }
+                }
+                return newStates
+            }
+
+            updatedPart.analysisState.observationItemStates = mergeMatches(
+                existingStates: part.analysisState.observationItemStates,
+                matches: result.observationMatches,
+                now: now
+            )
+            updatedPart.analysisState.positiveItemStates = mergeMatches(
+                existingStates: part.analysisState.positiveItemStates,
+                matches: result.positiveMatches,
+                now: now
+            )
+
+            // Update local state immediately for UI responsiveness
             self.updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
 
-            // 2. Notion Update
+            // 3. Notion Update (Disabled in Phase 4)
+            /*
             if let blockId = updatedPart.aiMemoBlockId {
-                let result = try await notionService.upsertAIMemo(blockId: blockId, content: updatedMemo)
-
-                switch result {
-                case .success:
-                    print("Notion updated successfully")
-                case .externalModification(let newBlockId):
-                    print("External modification detected, updated with new block ID: \(newBlockId)")
-                    var updatedPartWithNewId = updatedPart
-                    updatedPartWithNewId.aiMemoBlockId = newBlockId
-                    self.updateLocalPart(updatedPartWithNewId, sessionId: sessionId, partIndex: partIndex)
-                case .failure(let error):
-                    print("Notion update failed: \(error)")
-                }
+                // ...
             }
+            */
         } catch {
             print("Failed to process chunk: \(error)")
+            // Mark as failed in queue if we had a way to show it, but for now we just remove it.
         }
         // Always remove the chunk after processing attempt to keep the queue bounded.
         // In Phase 3, we don't have automatic retries, so we just move on.

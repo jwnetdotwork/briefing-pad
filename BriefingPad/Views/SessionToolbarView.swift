@@ -3,6 +3,7 @@ import SwiftUI
 struct SessionToolbarView: View {
     @Binding var selectedSessionId: String
     let sessions: [BriefingSession]
+    @State private var showingSettings = false
 
     var body: some View {
         HStack {
@@ -25,6 +26,14 @@ struct SessionToolbarView: View {
             .help("削除")
 
             Spacer()
+
+            Button(action: { showingSettings = true }) {
+                Image(systemName: "gearshape")
+            }
+            .help("設定")
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
         }
         .padding()
         .background(Color(NSColor.windowBackgroundColor))

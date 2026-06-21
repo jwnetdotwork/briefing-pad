@@ -9,9 +9,11 @@ import SwiftUI
 
 @main
 struct BriefingPadApp: App {
+    private let keychainService = KeychainService()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(keychainService: keychainService)
         }
     }
 }

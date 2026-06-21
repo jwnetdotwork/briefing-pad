@@ -1,8 +1,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var viewModel = SessionViewModel()
+    @StateObject private var viewModel: SessionViewModel
     @StateObject private var micService = MicrophoneService()
+
+    init(keychainService: KeychainServiceProtocol = KeychainService()) {
+        let llmService = OpenAILLMService(keychainService: keychainService)
+        _viewModel = StateObject(wrappedValue: SessionViewModel(llmService: llmService))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
