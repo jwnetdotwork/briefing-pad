@@ -9,12 +9,19 @@ class SessionViewModel: ObservableObject {
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
 
+    @Published var micStatus: MicrophoneStatus = .idle
+    @Published var audioLevel: AudioLevel = .silent
+    @Published var partElapsedTime: TimeInterval = 0
+
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
     private let transcriptionService: SpeechTranscribing
+    private let micService: MicrophoneService
     private let clock: Clock
 
     private var transcriptionTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
+    private var timer: AnyCancellable?
 
     enum ChunkStatus: Equatable {
         case pending
@@ -38,6 +45,7 @@ class SessionViewModel: ObservableObject {
         llmService: LLMServiceProtocol = MockLLMService(),
         notionService: NotionServiceProtocol = MockNotionService(),
         transcriptionService: SpeechTranscribing = MockSpeechTranscriptionService(),
+        micService: MicrophoneService = MicrophoneService(),
         clock: Clock = RealClock(),
         scheduler: Scheduler = RealScheduler()
     ) {
@@ -47,6 +55,7 @@ class SessionViewModel: ObservableObject {
         self.llmService = llmService
         self.notionService = notionService
         self.transcriptionService = transcriptionService
+        self.micService = micService
         self.clock = clock
 
         self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler) { [weak self] chunk in
@@ -55,6 +64,30 @@ class SessionViewModel: ObservableObject {
                 await self.enqueueChunk(chunk)
             }
         }
+
+        setupSubscriptions()
+    }
+
+    private func setupSubscriptions() {
+        micService.$status
+            .receive(on: RunLoop.main)
+            .sink { [weak self] status in
+                guard let self = self else { return }
+                self.micStatus = status
+                if status == .recording {
+                    self.startTranscription(audioStream: self.micService.createAudioBufferStream())
+                    self.startTimer()
+                } else {
+                    self.stopTranscription()
+                    self.stopTimer()
+                }
+            }
+            .store(in: &cancellables)
+
+        micService.$audioLevel
+            .receive(on: RunLoop.main)
+            .assign(to: \.audioLevel, on: self)
+            .store(in: &cancellables)
     }
 
     var selectedSession: BriefingSession? {
@@ -185,10 +218,89 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectSession(id: String) {
+        if micStatus == .recording {
+            micService.stopRecording()
+        }
         chunker?.flush()
         selectedSessionId = id
         currentPartIndex = 0
         transcriptionError = nil
+        if let partId = currentPart?.id {
+            partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+        } else {
+            partElapsedTime = 0
+        }
+    }
+
+    // MARK: - Recording Operations
+
+    func startRecording() {
+        guard let partId = currentPart?.id else { return }
+        let isFinished = sessionState.partStates[partId]?.isFinished ?? false
+        guard !isFinished else { return }
+
+        micService.startRecording()
+    }
+
+    func pauseRecording() {
+        micService.stopRecording()
+    }
+
+    func finishPart() {
+        micService.stopRecording()
+        if let partId = currentPart?.id {
+            var partState = sessionState.partStates[partId] ?? PartState()
+            partState.isFinished = true
+            sessionState.partStates[partId] = partState
+        }
+    }
+
+    func moveToNextPart() {
+        selectPart(index: currentPartIndex + 1)
+    }
+
+    func moveToPreviousPart() {
+        selectPart(index: currentPartIndex - 1)
+    }
+
+    func selectPart(index: Int) {
+        guard let session = selectedSession,
+              index >= 0,
+              index < session.parts.count else { return }
+
+        if micStatus == .recording {
+            micService.stopRecording()
+        }
+
+        chunker?.flush()
+        currentPartIndex = index
+        let partId = session.parts[index].id
+        partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+    }
+
+    // MARK: - Timer
+
+    private func startTimer() {
+        timer?.cancel()
+        timer = Timer.publish(every: 1, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.incrementTimer()
+            }
+    }
+
+    private func stopTimer() {
+        timer?.cancel()
+        timer = nil
+    }
+
+    private func incrementTimer() {
+        partElapsedTime += 1
+        if let partId = currentPart?.id {
+            var partState = sessionState.partStates[partId] ?? PartState()
+            partState.elapsedTime = partElapsedTime
+            sessionState.partStates[partId] = partState
+        }
     }
 
     @MainActor

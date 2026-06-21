@@ -1,88 +1,98 @@
 import SwiftUI
 
 struct PartControlsView: View {
-    @Binding var currentPartIndex: Int
-    let totalParts: Int
-    @ObservedObject var micService: MicrophoneService
+    @ObservedObject var viewModel: SessionViewModel
 
-    private var lastPartIndex: Int {
-        max(totalParts - 1, 0)
+    private var totalParts: Int {
+        viewModel.selectedSession?.parts.count ?? 0
+    }
+
+    private var isFinished: Bool {
+        if let partId = viewModel.currentPart?.id {
+            return viewModel.sessionState.partStates[partId]?.isFinished ?? false
+        }
+        return false
     }
 
     var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 40) {
-                Button(action: {
-                    if currentPartIndex > 0 {
-                        currentPartIndex -= 1
-                    }
-                }) {
+                Button(action: { viewModel.moveToPreviousPart() }) {
                     Text("[前へ]")
                 }
-                .disabled(currentPartIndex == 0 || totalParts <= 1)
+                .disabled(viewModel.currentPartIndex == 0 || totalParts <= 1)
 
                 VStack {
-                    Text("00:02:31") // Dummy timer
+                    Text(formatTime(viewModel.partElapsedTime))
                         .font(.system(.title2, design: .monospaced))
 
                     statusView
                 }
 
-                Button(action: {
-                    if currentPartIndex < lastPartIndex {
-                        currentPartIndex += 1
-                    }
-                }) {
+                Button(action: { viewModel.moveToNextPart() }) {
                     Text("[次へ]")
                 }
-                .disabled(currentPartIndex >= lastPartIndex || totalParts <= 1)
+                .disabled(viewModel.currentPartIndex >= (totalParts - 1) || totalParts <= 1)
             }
 
-            HStack(spacing: 60) {
-                Button(action: { micService.startRecording() }) {
-                    Text("[開始]")
-                        .frame(width: 80)
+            HStack(spacing: 40) {
+                if viewModel.micStatus == .recording {
+                    Button(action: { viewModel.pauseRecording() }) {
+                        Text("[停止]")
+                            .frame(width: 80)
+                    }
+                } else {
+                    Button(action: { viewModel.startRecording() }) {
+                        Text("[開始]")
+                            .frame(width: 80)
+                    }
+                    .disabled(isFinished || viewModel.micStatus == .starting)
                 }
-                .disabled(micService.status == .recording || micService.status == .starting)
 
-                Button(action: { micService.stopRecording() }) {
-                    Text("[終了]")
+                Button(action: { viewModel.finishPart() }) {
+                    Text("[パート終了]")
                         .frame(width: 80)
                 }
-                .disabled(micService.status != .recording)
+                .disabled(isFinished)
             }
         }
         .padding()
     }
 
+    private func formatTime(_ time: TimeInterval) -> String {
+        let minutes = Int(time) / 60
+        let seconds = Int(time) % 60
+        return String(format: "%02d:%02d:%02d", 0, minutes, seconds) // Matches dummy HH:MM:SS style but HH is 0
+    }
+
     @ViewBuilder
     private var statusView: some View {
-        switch micService.status {
-        case .idle:
-            if micService.permissionStatus == .denied {
-                Text("マイク許可なし")
-                    .font(.caption)
-                    .foregroundColor(.orange)
-            } else {
+        if isFinished {
+            Text("完了済み")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        } else {
+            switch viewModel.micStatus {
+            case .idle:
                 Text("待機中")
                     .font(.caption)
                     .foregroundColor(.secondary)
-            }
-        case .starting:
-            Text("準備中...")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        case .recording:
-            HStack(spacing: 4) {
-                Text("● 録音中")
-                Text("/ 音量: \(micService.audioLevel.rawValue)")
-            }
-            .font(.caption)
-            .foregroundColor(.red)
-        case .error(let message):
-            Text(message)
+            case .starting:
+                Text("準備中...")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            case .recording:
+                HStack(spacing: 4) {
+                    Text("● 録音中")
+                    Text("/ 音量: \(viewModel.audioLevel.rawValue)")
+                }
                 .font(.caption)
                 .foregroundColor(.red)
+            case .error(let message):
+                Text(message)
+                    .font(.caption)
+                    .foregroundColor(.red)
+            }
         }
     }
 }

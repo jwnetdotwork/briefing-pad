@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel: SessionViewModel
-    @StateObject private var micService = MicrophoneService()
     private let keychainService: KeychainServiceProtocol
 
     init(keychainService: KeychainServiceProtocol = KeychainService()) {
@@ -40,18 +39,7 @@ struct ContentView: View {
                                 .padding(.horizontal)
 
                             VStack {
-                                PartControlsView(
-                                    currentPartIndex: $viewModel.currentPartIndex,
-                                    totalParts: session.parts.count,
-                                    micService: micService
-                                )
-                            }
-                            .onChange(of: micService.status) {
-                                if micService.status == .recording {
-                                    viewModel.startTranscription(audioStream: micService.createAudioBufferStream())
-                                } else if micService.status == .idle {
-                                    viewModel.stopTranscription()
-                                }
+                                PartControlsView(viewModel: viewModel)
                             }
 
                             Divider()
@@ -62,7 +50,7 @@ struct ContentView: View {
                                 errorMessage: viewModel.transcriptionError
                             )
 
-                            LearningPointsView(points: part.learningPoints)
+                            // LearningPointsView is hidden in Phase 5 Dashboard
 
                             ObservationItemsView(
                                 items: part.observationItems,
@@ -87,10 +75,6 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 600)
-        .onChange(of: viewModel.selectedSessionId) {
-            viewModel.currentPartIndex = 0
-            micService.cancelPendingOperationsAndStop()
-        }
     }
 }
 
