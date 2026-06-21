@@ -42,13 +42,21 @@ final class SessionControlTests: XCTestCase {
         viewModel.startRecording()
         XCTAssertEqual(mockMic.startRecordingCalled, true)
 
-        // Simulate mic status change (normally done via subscription)
-        mockMic.status = .recording
-        // We need to wait for the publisher to deliver or call the subscription logic manually in a controlled way.
-        // Since setupSubscriptions uses RunLoop.main, we might need a small wait or use a more direct approach.
-        // For this test, let's assume the subscription works and check the resulting state.
+        // Verify mic status updates correctly via subscription
+        let expectation = XCTestExpectation(description: "ViewModel micStatus updates to recording")
+        let cancellable = viewModel.$micStatus
+            .dropFirst() // Initial state is idle
+            .sink { status in
+                if status == .recording {
+                    expectation.fulfill()
+                }
+            }
 
-        // To be safe in a non-running environment, I'll just verify the methods exist and call the right service methods.
+        mockMic.status = .recording
+        wait(for: [expectation], timeout: 1.0)
+        cancellable.cancel()
+
+        XCTAssertEqual(viewModel.micStatus, .recording)
 
         // 2. Pause Recording
         viewModel.pauseRecording()

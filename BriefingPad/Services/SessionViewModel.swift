@@ -218,8 +218,16 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectSession(id: String) {
-        if micStatus == .recording {
-            micService.stopRecording()
+        if micStatus == .recording || micStatus == .starting {
+            let oldPartId = currentPart?.id
+            let oldSessionId = selectedSessionId
+
+            if micStatus == .starting {
+                micService.cancelPendingOperationsAndStop()
+            } else {
+                micService.stopRecording()
+            }
+            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
         }
         chunker?.flush()
         selectedSessionId = id
@@ -268,8 +276,16 @@ class SessionViewModel: ObservableObject {
               index >= 0,
               index < session.parts.count else { return }
 
-        if micStatus == .recording {
-            micService.stopRecording()
+        if micStatus == .recording || micStatus == .starting {
+            let oldPartId = currentPart?.id
+            let oldSessionId = selectedSessionId
+
+            if micStatus == .starting {
+                micService.cancelPendingOperationsAndStop()
+            } else {
+                micService.stopRecording()
+            }
+            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
         }
 
         chunker?.flush()
@@ -333,17 +349,16 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func stopTranscription() {
-        let partId = currentPart?.id
-        let sessionId = selectedSessionId
-        let partIndex = currentPartIndex
+    func stopTranscription(sessionId: String? = nil, partId: String? = nil) {
+        let targetPartId = partId ?? currentPart?.id
+        let targetSessionId = sessionId ?? selectedSessionId
 
         Task {
             await transcriptionService.stopTranscription()
             chunker?.flush()
 
             // Finalize remaining provisional segments as final
-            if let partId = partId {
+            if let partId = targetPartId {
                 let segments = sessionState.partStates[partId]?.transcript ?? []
                 var updatedSegments = segments
                 var hasChanges = false
@@ -351,7 +366,7 @@ class SessionViewModel: ObservableObject {
                     if !updatedSegments[i].isFinal {
                         let finalSegment = TranscriptSegment(
                             id: updatedSegments[i].id,
-                            sessionId: sessionId,
+                            sessionId: targetSessionId,
                             partId: partId,
                             text: updatedSegments[i].text,
                             isFinal: true,
