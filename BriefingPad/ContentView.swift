@@ -62,7 +62,10 @@ struct ContentView: View {
                                 state: part.analysisState.positiveItemStates
                             )
 
-                            CommentMaterialView(aiMemo: part.aiMemo)
+                            CommentMaterialView(
+                                aiMemo: part.aiMemo,
+                                isFinalizing: viewModel.isFinalizing
+                            )
                         } else {
                             Text("現在のパートが見つかりません")
                                 .padding()

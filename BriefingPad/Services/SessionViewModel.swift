@@ -6,6 +6,7 @@ class SessionViewModel: ObservableObject {
     @Published var selectedSessionId: String
     @Published var currentPartIndex: Int = 0
     @Published var isProcessing = false
+    @Published var isFinalizing = false
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
 
@@ -78,7 +79,9 @@ class SessionViewModel: ObservableObject {
                     self.startTranscription(audioStream: self.micService.createAudioBufferStream())
                     self.startTimer()
                 } else {
-                    self.stopTranscription()
+                    Task {
+                        await self.stopTranscription()
+                    }
                     self.stopTimer()
                 }
             }
@@ -227,7 +230,9 @@ class SessionViewModel: ObservableObject {
             } else {
                 micService.stopRecording()
             }
-            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            Task {
+                await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            }
         }
         chunker?.flush()
         selectedSessionId = id
@@ -254,13 +259,86 @@ class SessionViewModel: ObservableObject {
         micService.stopRecording()
     }
 
-    func finishPart() {
+    @MainActor
+    func finishPart() async {
+        guard !isFinalizing else { return }
+        guard let part = currentPart else { return }
+
+        let targetSessionId = selectedSessionId
+        let targetPartIndex = currentPartIndex
+
+        isFinalizing = true
+
+        // 1. Stop recording and flush
         micService.stopRecording()
-        if let partId = currentPart?.id {
-            var partState = sessionState.partStates[partId] ?? PartState()
-            partState.isFinished = true
-            sessionState.partStates[partId] = partState
+        await stopTranscription(sessionId: targetSessionId, partId: part.id)
+
+        // 2. Wait for queue to settle
+        while !chunkQueue.isEmpty || isProcessing {
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1s
         }
+
+        // 3. Finalization Processing
+        // Re-fetch part after wait to get latest analysis results
+        guard let session = sessions.first(where: { $0.id == targetSessionId }),
+              targetPartIndex < session.parts.count else {
+            isFinalizing = false
+            return
+        }
+        let latestPart = session.parts[targetPartIndex]
+
+        let positives = getSummarizedItems(
+            items: latestPart.positiveItems,
+            states: latestPart.analysisState.positiveItemStates
+        )
+        let observations = getSummarizedItems(
+            items: latestPart.observationItems,
+            states: latestPart.analysisState.observationItemStates
+        )
+
+        var oneLiner: String? = nil
+        let summarizedTextList = positives.map { "良: \($0.text)" } + observations.map { "観: \($0.text)" }
+
+        if !summarizedTextList.isEmpty {
+            do {
+                oneLiner = try await llmService.generateOneLiner(summarizedPoints: summarizedTextList)
+            } catch {
+                print("Failed to generate one-liner: \(error)")
+                // Continue with deterministic part
+            }
+        }
+
+        let finalMemo = formatFinalMemo(
+            positives: positives,
+            observations: observations,
+            oneLiner: oneLiner
+        )
+
+        // 4. Update local state
+        var updatedPart = latestPart
+        updatedPart.aiMemo = finalMemo
+        updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
+
+        // 5. Notion Update
+        if let blockId = updatedPart.aiMemoBlockId {
+            do {
+                let result = try await notionService.upsertAIMemo(blockId: blockId, content: finalMemo)
+
+                if case .externalModification(let newBlockId) = result {
+                    updatedPart.aiMemoBlockId = newBlockId
+                    updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
+                }
+            } catch {
+                print("Failed to update Notion: \(error)")
+            }
+        }
+
+        // 6. Mark as finished
+        var partState = sessionState.partStates[part.id] ?? PartState()
+        partState.isFinished = true
+        sessionState.partStates[part.id] = partState
+
+        isFinalizing = false
     }
 
     func moveToNextPart() {
@@ -285,7 +363,9 @@ class SessionViewModel: ObservableObject {
             } else {
                 micService.stopRecording()
             }
-            stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            Task {
+                await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            }
         }
 
         chunker?.flush()
@@ -349,42 +429,41 @@ class SessionViewModel: ObservableObject {
     }
 
     @MainActor
-    func stopTranscription(sessionId: String? = nil, partId: String? = nil) {
+    func stopTranscription(sessionId: String? = nil, partId: String? = nil) async {
         let targetPartId = partId ?? currentPart?.id
         let targetSessionId = sessionId ?? selectedSessionId
 
-        Task {
-            await transcriptionService.stopTranscription()
-            chunker?.flush()
+        await transcriptionService.stopTranscription()
+        chunker?.flush()
 
-            // Finalize remaining provisional segments as final
-            if let partId = targetPartId {
-                let segments = sessionState.partStates[partId]?.transcript ?? []
-                var updatedSegments = segments
-                var hasChanges = false
-                for i in 0..<updatedSegments.count {
-                    if !updatedSegments[i].isFinal {
-                        let finalSegment = TranscriptSegment(
-                            id: updatedSegments[i].id,
-                            sessionId: targetSessionId,
-                            partId: partId,
-                            text: updatedSegments[i].text,
-                            isFinal: true,
-                            startTime: updatedSegments[i].startTime,
-                            endTime: updatedSegments[i].endTime,
-                            receivedAt: updatedSegments[i].receivedAt
-                        )
-                        updatedSegments[i] = finalSegment
-                        hasChanges = true
-                        chunker?.processSegment(finalSegment)
-                    }
-                }
-                if hasChanges {
-                    sessionState.partStates[partId]?.transcript = updatedSegments
-                    chunker?.flush()
+        // Finalize remaining provisional segments as final
+        if let partId = targetPartId {
+            let segments = sessionState.partStates[partId]?.transcript ?? []
+            var updatedSegments = segments
+            var hasChanges = false
+            for i in 0..<updatedSegments.count {
+                if !updatedSegments[i].isFinal {
+                    let finalSegment = TranscriptSegment(
+                        id: updatedSegments[i].id,
+                        sessionId: targetSessionId,
+                        partId: partId,
+                        text: updatedSegments[i].text,
+                        isFinal: true,
+                        startTime: updatedSegments[i].startTime,
+                        endTime: updatedSegments[i].endTime,
+                        receivedAt: updatedSegments[i].receivedAt
+                    )
+                    updatedSegments[i] = finalSegment
+                    hasChanges = true
+                    chunker?.processSegment(finalSegment)
                 }
             }
+            if hasChanges {
+                sessionState.partStates[partId]?.transcript = updatedSegments
+                chunker?.flush()
+            }
         }
+
         transcriptionTask?.cancel()
         transcriptionTask = nil
     }
@@ -477,6 +556,72 @@ class SessionViewModel: ObservableObject {
             }
         }
         return newStates
+    }
+
+    // MARK: - Finalization Logic
+
+    struct SummarizedItem {
+        let text: String
+        let evidence: String
+    }
+
+    func getSummarizedItems<T: SummaryItemProtocol>(
+        items: [T],
+        states: [String: AnalysisItemState]
+    ) -> [SummarizedItem] {
+        struct SortableItem {
+            let text: String
+            let state: AnalysisItemState
+        }
+
+        var sortableItems: [SortableItem] = []
+
+        for item in items {
+            if let state = states[item.id], state.status != .hidden {
+                sortableItems.append(SortableItem(text: item.text, state: state))
+            }
+        }
+
+        return sortableItems
+            .sorted { (a, b) -> Bool in
+                if a.state.status != b.state.status {
+                    return a.state.status > b.state.status
+                }
+                return a.state.confidence > b.state.confidence
+            }
+            .prefix(2)
+            .map { SummarizedItem(text: $0.text, evidence: $0.state.shortEvidence) }
+    }
+
+    func formatFinalMemo(
+        positives: [SummarizedItem],
+        observations: [SummarizedItem],
+        oneLiner: String?
+    ) -> String {
+        var lines: [String] = []
+
+        if !positives.isEmpty {
+            lines.append("◎ 短評で使えそう")
+            for item in positives {
+                lines.append("- \(item.text): \(item.evidence)")
+            }
+            lines.append("")
+        }
+
+        if !observations.isEmpty {
+            lines.append("👀 根拠になりそうな観察")
+            for item in observations {
+                lines.append("- \(item.text): \(item.evidence)")
+            }
+            lines.append("")
+        }
+
+        if let oneLiner = oneLiner, !oneLiner.isEmpty {
+            lines.append("💡 言えそうな一言")
+            lines.append(oneLiner)
+        }
+
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // For debugging and manual injection (legacy support)

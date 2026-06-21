@@ -81,6 +81,48 @@ class OpenAILLMService: LLMServiceProtocol {
             throw LLMError.parseError(error.localizedDescription)
         }
     }
+
+    func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+        guard let apiKey = keychainService.load(key: "openai_api_key")?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
+            throw LLMError.missingApiKey
+        }
+
+        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
+        let userPrompt = PromptBuilder.buildOneLinerUserPrompt(summarizedPoints: summarizedPoints)
+
+        let requestBody: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": systemPrompt],
+                ["role": "user", "content": userPrompt]
+            ],
+            "temperature": 0.7,
+            "max_tokens": 100
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+        request.timeoutInterval = 30.0
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            let errorStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let errorBody = String(data: data, encoding: .utf8) ?? "No body"
+            throw LLMError.apiError(status: errorStatus, body: errorBody)
+        }
+
+        let openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
+        guard let content = openAIResponse.choices.first?.message.content else {
+            throw LLMError.invalidResponse
+        }
+
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 
 enum LLMError: Error {

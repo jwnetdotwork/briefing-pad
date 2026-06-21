@@ -59,4 +59,25 @@ struct PromptBuilder {
 
         return prompt
     }
+
+    static func buildOneLinerSystemPrompt() -> String {
+        return """
+        あなたはコミュニケーション講師です。
+        提供された「分析結果の要約」をもとに、受講者のモチベーションを高めるような、褒め中心の「言えそうな一言」を1文で生成してください。
+
+        制約：
+        1. 必ず1文（30〜60文字程度）で出力すること。
+        2. 親しみやすくもプロフェッショナルなトーンにすること。
+        3. 余計な説明や、挨拶、Markdownのコードブロックは含めず、本文のみを出力すること。
+        """
+    }
+
+    static func buildOneLinerUserPrompt(summarizedPoints: [String]) -> String {
+        var prompt = "## 分析結果の要約\n"
+        for point in summarizedPoints {
+            prompt += "- \(point)\n"
+        }
+        prompt += "\n上記をもとに、前向きな「一言」を生成してください。"
+        return prompt
+    }
 }
