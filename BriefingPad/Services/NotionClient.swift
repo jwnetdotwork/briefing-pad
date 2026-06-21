@@ -2,8 +2,12 @@ import Foundation
 
 protocol NotionClientProtocol {
     func fetchPage(pageId: String) async throws -> NotionPage
+    func fetchBlock(blockId: String) async throws -> NotionBlock
     func fetchBlocks(blockId: String) async throws -> [NotionBlock]
     func fetchBlocksRecursively(blockId: String) async throws -> [NotionBlock]
+    func updateBlock(blockId: String, content: [String: Any]) async throws -> NotionBlock
+    func appendBlocks(blockId: String, children: [[String: Any]]) async throws -> [NotionBlock]
+    func deleteBlock(blockId: String) async throws
     func testConnection() async throws -> Bool
 }
 
@@ -18,18 +22,39 @@ class NotionClient: NotionClientProtocol {
         self.decoder = JSONDecoder()
     }
 
+    private func performRequest(request: URLRequest, retryCount: Int = 0) async throws -> (Data, URLResponse) {
+        let (data, response) = try await session.data(for: request)
+        if let httpResponse = response as? HTTPURLResponse {
+            if httpResponse.statusCode == 429 && retryCount < 3 {
+                let delay = pow(2.0, Double(retryCount)) * 1.0 // Exponential backoff
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await performRequest(request: request, retryCount: retryCount + 1)
+            }
+            if !(200...299).contains(httpResponse.statusCode) {
+                throw mapError(statusCode: httpResponse.statusCode)
+            }
+        }
+        return (data, response)
+    }
+
     func fetchPage(pageId: String) async throws -> NotionPage {
         let url = URL(string: "https://api.notion.com/v1/pages/\(pageId)")!
         var request = URLRequest(url: url)
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
 
-        let (data, response) = try await session.data(for: request)
-        if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-            throw mapError(statusCode: httpResponse.statusCode)
-        }
-
+        let (data, _) = try await performRequest(request: request)
         return try decoder.decode(NotionPage.self, from: data)
+    }
+
+    func fetchBlock(blockId: String) async throws -> NotionBlock {
+        let url = URL(string: "https://api.notion.com/v1/blocks/\(blockId)")!
+        var request = URLRequest(url: url)
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
+
+        let (data, _) = try await performRequest(request: request)
+        return try decoder.decode(NotionBlock.self, from: data)
     }
 
     func fetchBlocks(blockId: String) async throws -> [NotionBlock] {
@@ -49,11 +74,7 @@ class NotionClient: NotionClientProtocol {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
 
-            let (data, response) = try await session.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse, !(200...299).contains(httpResponse.statusCode) {
-                throw mapError(statusCode: httpResponse.statusCode)
-            }
-
+            let (data, _) = try await performRequest(request: request)
             let list = try decoder.decode(NotionBlockList.self, from: data)
             allBlocks.append(contentsOf: list.results)
             cursor = list.has_more ? list.next_cursor : nil
@@ -77,15 +98,55 @@ class NotionClient: NotionClientProtocol {
         return resultBlocks
     }
 
+    func updateBlock(blockId: String, content: [String: Any]) async throws -> NotionBlock {
+        let url = URL(string: "https://api.notion.com/v1/blocks/\(blockId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: content)
+
+        let (data, _) = try await performRequest(request: request)
+        return try decoder.decode(NotionBlock.self, from: data)
+    }
+
+    func appendBlocks(blockId: String, children: [[String: Any]]) async throws -> [NotionBlock] {
+        let url = URL(string: "https://api.notion.com/v1/blocks/\(blockId)/children")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PATCH"
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["children": children])
+
+        let (data, _) = try await performRequest(request: request)
+        return try decoder.decode(NotionBlockList.self, from: data).results
+    }
+
+    func deleteBlock(blockId: String) async throws {
+        let url = URL(string: "https://api.notion.com/v1/blocks/\(blockId)")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
+
+        _ = try await performRequest(request: request)
+    }
+
     func testConnection() async throws -> Bool {
         let url = URL(string: "https://api.notion.com/v1/users/me")!
         var request = URLRequest(url: url)
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.addValue("2022-06-28", forHTTPHeaderField: "Notion-Version")
 
-        let (_, response) = try await session.data(for: request)
-        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
-            return true
+        do {
+            let (_, response) = try await performRequest(request: request)
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
+                return true
+            }
+        } catch {
+            return false
         }
         return false
     }

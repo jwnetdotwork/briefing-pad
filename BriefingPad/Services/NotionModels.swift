@@ -10,6 +10,8 @@ struct NotionBlock: Decodable {
     let id: String
     let type: String
     let has_children: Bool
+    let last_edited_time: String?
+    let parent: NotionBlockParent?
     let heading_2: NotionHeading?
     let heading_3: NotionHeading?
     let heading_4: NotionHeading?
@@ -18,8 +20,14 @@ struct NotionBlock: Decodable {
     let image: NotionImage?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, has_children, heading_2, heading_3, heading_4, paragraph, bulleted_list_item, image
+        case id, type, has_children, last_edited_time, parent, heading_2, heading_3, heading_4, paragraph, bulleted_list_item, image
     }
+}
+
+struct NotionBlockParent: Decodable {
+    let type: String
+    let page_id: String?
+    let block_id: String?
 }
 
 struct NotionPage: Decodable {
