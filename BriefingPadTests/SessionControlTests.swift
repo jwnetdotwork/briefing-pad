@@ -76,6 +76,83 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(viewModel.currentPartIndex, 0)
         XCTAssertEqual(viewModel.currentPart?.id, "part1")
     }
+
+    @MainActor
+    func testPartSwitchResetsTimer() async {
+        let viewModel = SessionViewModel()
+        let part1Id = "p1"
+        let part2Id = "p2"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: []),
+            PartDefinition(id: part2Id, number: 2, title: "P2", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+
+        // 1. Set some elapsed time for Part 1 in the session state
+        viewModel.currentPartIndex = 0
+        var p1State = PartState()
+        p1State.elapsedTime = 100
+        viewModel.sessionState.partStates[part1Id] = p1State
+        viewModel.partElapsedTime = 100
+
+        // 2. Switch to Part 2
+        viewModel.selectPart(index: 1)
+
+        XCTAssertEqual(viewModel.currentPartIndex, 1)
+        XCTAssertEqual(viewModel.partElapsedTime, 0, "Timer should be reset to 0 for a new part with no history")
+
+        // 3. Set elapsed time for Part 2
+        var p2State = PartState()
+        p2State.elapsedTime = 50
+        viewModel.sessionState.partStates[part2Id] = p2State
+        viewModel.partElapsedTime = 50
+
+        // 4. Switch back to Part 1
+        viewModel.selectPart(index: 0)
+        XCTAssertEqual(viewModel.partElapsedTime, 100, "Timer should restore Part 1's value")
+    }
+
+    @MainActor
+    func testRecordingContextIsolation() async {
+        let mockTranscription = MockSpeechTranscriptionService()
+        let viewModel = SessionViewModel(transcriptionService: mockTranscription)
+        let part1Id = "p1"
+        let part2Id = "p2"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: []),
+            PartDefinition(id: part2Id, number: 2, title: "P2", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+
+        // 1. Start transcription for Part 1
+        viewModel.currentPartIndex = 0
+        let audioStream = AsyncStream<AVAudioPCMBuffer> { continuation in continuation.finish() }
+        viewModel.startTranscription(audioStream: audioStream)
+
+        // Give the task a moment to start
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
+        // 2. Switch to Part 2 (This should reset context and stop transcription)
+        viewModel.selectPart(index: 1)
+
+        // 3. Simulate a late segment arriving from the OLD stream
+        // The transcription service loop should be running and checking context.
+        mockTranscription.resultsContinuation?.yield(SpeechRecognitionResult(
+            text: "遅れてきた発話",
+            isFinal: true,
+            startTime: 0.0,
+            endTime: 1.0
+        ))
+
+        // Give it a moment to process (or be filtered)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+
+        // 4. Assertions
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count ?? 0, 0, "Late segment from old context should be ignored")
+        XCTAssertEqual(viewModel.sessionState.partStates[part2Id]?.transcript.count ?? 0, 0, "Late segment should not go into new part")
+    }
 }
 
 class MockMicrophoneService: MicrophoneService {

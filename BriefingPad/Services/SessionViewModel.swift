@@ -56,6 +56,12 @@ class SessionViewModel: ObservableObject {
 
     private var chunker: TranscriptChunker?
 
+    private struct RecordingContext: Equatable {
+        let sessionId: String
+        let partId: String
+    }
+    @Published private var activeRecordingContext: RecordingContext?
+
     init(
         llmService: LLMServiceProtocol = MockLLMService(),
         notionService: NotionServiceProtocol = MockNotionService(),
@@ -301,25 +307,27 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectSession(id: String) {
-        if micStatus == .recording || micStatus == .starting {
-            let oldPartId = currentPart?.id
-            let oldSessionId = selectedSessionId
+        let oldPartId = currentPart?.id
+        let oldSessionId = selectedSessionId
 
-            if micStatus == .starting {
-                micService.cancelPendingOperationsAndStop()
-            } else {
-                micService.stopRecording()
-            }
-            Task {
+        Task { @MainActor in
+            if micStatus == .recording || micStatus == .starting {
+                if micStatus == .starting {
+                    micService.cancelPendingOperationsAndStop()
+                } else {
+                    micService.stopRecording()
+                }
                 await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            } else {
+                // Not recording, but should still flush
+                chunker?.flush()
             }
-        }
-        chunker?.flush()
-        selectedSessionId = id
-        currentPartIndex = 0
-        transcriptionError = nil
 
-        Task {
+            selectedSessionId = id
+            currentPartIndex = 0
+            transcriptionError = nil
+            partElapsedTime = 0
+
             await loadSavedSession()
         }
     }
@@ -621,24 +629,26 @@ class SessionViewModel: ObservableObject {
               index >= 0,
               index < session.parts.count else { return }
 
-        if micStatus == .recording || micStatus == .starting {
-            let oldPartId = currentPart?.id
-            let oldSessionId = selectedSessionId
+        let oldPartId = currentPart?.id
+        let oldSessionId = selectedSessionId
 
-            if micStatus == .starting {
-                micService.cancelPendingOperationsAndStop()
-            } else {
-                micService.stopRecording()
-            }
-            Task {
+        Task { @MainActor in
+            if micStatus == .recording || micStatus == .starting {
+                if micStatus == .starting {
+                    micService.cancelPendingOperationsAndStop()
+                } else {
+                    micService.stopRecording()
+                }
                 await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            } else {
+                // Not recording, but should still flush
+                chunker?.flush()
             }
-        }
 
-        chunker?.flush()
-        currentPartIndex = index
-        let partId = session.parts[index].id
-        partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+            currentPartIndex = index
+            let partId = session.parts[index].id
+            partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+        }
     }
 
     // MARK: - Timer
@@ -671,16 +681,26 @@ class SessionViewModel: ObservableObject {
         transcriptionError = nil
         transcriptionTask?.cancel()
 
+        let context = RecordingContext(
+            sessionId: selectedSessionId,
+            partId: currentPart?.id ?? ""
+        )
+        activeRecordingContext = context
+
         transcriptionTask = Task {
             do {
                 await transcriptionService.stopTranscription()
                 try await transcriptionService.startTranscription(audioStream: audioStream)
 
                 for await segment in transcriptionService.results {
+                    // Only process segments if they match the context when they were received
+                    guard let activeContext = self.activeRecordingContext,
+                          activeContext == context else { continue }
+
                     let segmentWithContext = TranscriptSegment(
                         id: segment.id,
-                        sessionId: selectedSessionId,
-                        partId: currentPart?.id ?? "",
+                        sessionId: context.sessionId,
+                        partId: context.partId,
                         text: segment.text,
                         isFinal: segment.isFinal,
                         startTime: segment.startTime,
@@ -697,8 +717,10 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func stopTranscription(sessionId: String? = nil, partId: String? = nil) async {
-        let targetPartId = partId ?? currentPart?.id
-        let targetSessionId = sessionId ?? selectedSessionId
+        let targetPartId = partId ?? activeRecordingContext?.partId ?? currentPart?.id
+        let targetSessionId = sessionId ?? activeRecordingContext?.sessionId ?? selectedSessionId
+
+        activeRecordingContext = nil
 
         await transcriptionService.stopTranscription()
         chunker?.flush()
@@ -831,7 +853,7 @@ class SessionViewModel: ObservableObject {
 
         var shouldSave = false
         if let index = partState.transcript.firstIndex(where: { $0.id == segment.id }) {
-            // Update existing segment
+            // Update existing segment by ID (Standard case)
             let wasFinal = partState.transcript[index].isFinal
             partState.transcript[index] = segment
 
@@ -839,6 +861,20 @@ class SessionViewModel: ObservableObject {
             if segment.isFinal && !wasFinal {
                 chunker?.processSegment(segment)
                 shouldSave = true
+            }
+        } else if let duplicateIndex = findDuplicateIndex(for: segment, in: partState.transcript) {
+            // Update existing segment by similarity
+            let existing = partState.transcript[duplicateIndex]
+
+            // Priority: Final over Provisional
+            if segment.isFinal || !existing.isFinal {
+                let wasFinal = existing.isFinal
+                partState.transcript[duplicateIndex] = segment
+                shouldSave = true
+
+                if segment.isFinal && !wasFinal {
+                    chunker?.processSegment(segment)
+                }
             }
         } else {
             // Append new segment
@@ -854,6 +890,28 @@ class SessionViewModel: ObservableObject {
         if shouldSave {
             saveCurrentSession()
         }
+    }
+
+    private func findDuplicateIndex(for segment: TranscriptSegment, in transcript: [TranscriptSegment]) -> Int? {
+        // Look backwards as duplicates are likely near the end
+        for (index, existing) in transcript.enumerated().reversed() {
+            // Time proximity: within 2 seconds
+            let timeDiff = abs(segment.startTime - existing.startTime)
+            if timeDiff < 2.0 {
+                let text1 = normalizeForComparison(segment.text)
+                let text2 = normalizeForComparison(existing.text)
+
+                if text1 == text2 && !text1.isEmpty {
+                    return index
+                }
+            }
+        }
+        return nil
+    }
+
+    private func normalizeForComparison(_ text: String) -> String {
+        let punctuation = CharacterSet.punctuationCharacters.union(.whitespacesAndNewlines)
+        return text.components(separatedBy: punctuation).joined().lowercased()
     }
 
     private func mergeMatches(
