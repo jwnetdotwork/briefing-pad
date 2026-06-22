@@ -17,7 +17,6 @@ class SpeechTranscriptionService: SpeechTranscribing {
     private var transcriptionContinuation: AsyncStream<TranscriptSegment>.Continuation?
     let results: AsyncStream<TranscriptSegment>
 
-    private let locale = Locale(identifier: "ja-JP")
     private var analyzerTask: Task<Void, Never>?
 
     init() {
@@ -32,27 +31,37 @@ class SpeechTranscriptionService: SpeechTranscribing {
         get async {
             #if canImport(Speech)
             if #available(macOS 26.0, *) {
-                return SpeechTranscriber.supportedLocales.contains {
-                    $0.identifier.hasPrefix("ja")
-                }
+                return SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
             }
             #endif
             return false
         }
     }
 
-    func checkAvailability() async throws {
+    private func resolveLocale() throws -> Locale {
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            let supportedLocales = SpeechTranscriber.supportedLocales
-
-            guard supportedLocales.contains(where: { $0.identifier.hasPrefix("ja") }) else {
+            guard let locale = SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 2,
                     userInfo: [NSLocalizedDescriptionKey: "日本語の音声認識に対応していません"]
                 )
             }
+            return locale
+        }
+        #endif
+        throw NSError(
+            domain: "SpeechTranscriptionService",
+            code: 0,
+            userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+        )
+    }
+
+    func checkAvailability() async throws {
+        #if canImport(Speech)
+        if #available(macOS 26.0, *) {
+            _ = try resolveLocale()
 
             let authStatus = SFSpeechRecognizer.authorizationStatus()
             if authStatus == .denied || authStatus == .restricted {
@@ -92,6 +101,17 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
+            let locale = try resolveLocale()
+
+            // 資産の準備（日本語モデルの準備）
+            let assetRequest = AssetInventory.assetInstallationRequest(supporting: locale)
+            if assetRequest.status != .installed {
+                // ダウンロードが必要な場合は、完了まで待機する
+                for await status in assetRequest.progress {
+                    if status == .installed { break }
+                }
+            }
+
             let transcriber = SpeechTranscriber(
                 locale: locale,
                 preset: .timeIndexedProgressiveTranscription
@@ -105,12 +125,71 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 do {
                     let inputSequence = AsyncStream<AnalyzerInput> { continuation in
                         Task {
+                            var converter: AVAudioConverter?
+                            var targetFormat: AVAudioFormat?
+
                             for await buffer in audioStream {
                                 if Task.isCancelled { break }
 
-                                // ここはSDKのAnalyzerInput初期化方法に合わせる
-                                let input = AnalyzerInput(buffer: buffer)
-                                continuation.yield(input)
+                                // ターゲットフォーマットの取得とコンバーターの初期化
+                                if targetFormat == nil {
+                                    targetFormat = SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: buffer.format)
+                                    if let target = targetFormat {
+                                        converter = AVAudioConverter(from: buffer.format, to: target)
+                                    }
+                                }
+
+                                guard let target = targetFormat, let conv = converter else {
+                                    // 変換不可の場合はエラー終了
+                                    let error = NSError(
+                                        domain: "SpeechTranscriptionService",
+                                        code: 5,
+                                        userInfo: [NSLocalizedDescriptionKey: "オーディオ形式の変換に失敗しました"]
+                                    )
+                                    self.transcriptionContinuation?.yield(TranscriptSegment(
+                                        id: UUID(),
+                                        sessionId: "",
+                                        partId: "",
+                                        text: "Error: \(error.localizedDescription)",
+                                        isFinal: true,
+                                        startTime: 0,
+                                        endTime: 0
+                                    ))
+                                    continuation.finish()
+                                    return
+                                }
+
+                                if target == buffer.format {
+                                    continuation.yield(AnalyzerInput(buffer: buffer))
+                                } else {
+                                    // フォーマット変換
+                                    let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * target.sampleRate / buffer.format.sampleRate)
+                                    if let outputBuffer = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: frameCount) {
+                                        var error: NSError?
+                                        let status = conv.convert(to: outputBuffer, error: &error) { _, outStatus in
+                                            outStatus.pointee = .haveData
+                                            return buffer
+                                        }
+
+                                        if status == .error || error != nil {
+                                            let finalError = error ?? NSError(domain: "SpeechTranscriptionService", code: 5, userInfo: nil)
+                                            print("Audio conversion failed: \(finalError)")
+                                            self.transcriptionContinuation?.yield(TranscriptSegment(
+                                                id: UUID(),
+                                                sessionId: "",
+                                                partId: "",
+                                                text: "Error: \(finalError.localizedDescription)",
+                                                isFinal: true,
+                                                startTime: 0,
+                                                endTime: 0
+                                            ))
+                                            continuation.finish()
+                                            return
+                                        }
+
+                                        continuation.yield(AnalyzerInput(buffer: outputBuffer))
+                                    }
+                                }
                             }
 
                             continuation.finish()
@@ -160,6 +239,16 @@ class SpeechTranscriptionService: SpeechTranscribing {
                     _ = try await analysis
                 } catch {
                     print("SpeechAnalyzer failed: \(error)")
+                    let segment = TranscriptSegment(
+                        id: UUID(),
+                        sessionId: "",
+                        partId: "",
+                        text: "Error: \(error.localizedDescription)",
+                        isFinal: true,
+                        startTime: 0,
+                        endTime: 0
+                    )
+                    transcriptionContinuation?.yield(segment)
                 }
             }
         } else {
