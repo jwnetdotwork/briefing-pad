@@ -232,7 +232,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                             print("[SpeechTranscriptionService] [\(runID ?? "none")] Result (\(isFirstResult ? "FIRST" : "FINAL")): isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s, text=\"\(text)\"")
                             isFirstResult = false
                         } else {
-                            print("[SpeechTranscriptionService] [\(runID ?? "none")] Result (INTER): isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s")
+//                            print("[SpeechTranscriptionService] [\(runID ?? "none")] Result (INTER): isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s")
                         }
                         #endif
 
