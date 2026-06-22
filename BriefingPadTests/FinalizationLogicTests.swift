@@ -102,15 +102,21 @@ final class FinalizationLogicTests: XCTestCase {
         // Give the task a moment to start and reach the await point
         try? await Task.sleep(nanoseconds: 100_000_000)
 
-        // 2. Finish the part (this should populate aiMemo and mark as finished)
+        // 2. Schedule resume to happen after finishPart() starts waiting for the queue
+        Task.detached {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            await mockLLM.resume()
+        }
+
+        // 3. Finish the part (this should populate aiMemo and mark as finished)
+        // finishPart() will wait for the chunkQueue to be empty.
         await viewModel.finishPart()
 
         let memoAfterFinish = viewModel.sessions[0].parts[0].aiMemo
         XCTAssertFalse(memoAfterFinish.isEmpty, "Memo should be populated after finishPart")
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
 
-        // 3. Let the analysis chunk finish
-        mockLLM.resume()
+        // 4. Ensure analysis chunk finished
         await chunkTask.value
 
         // 4. Verify aiMemo is NOT overwritten/cleared by the late chunk
@@ -119,7 +125,7 @@ final class FinalizationLogicTests: XCTestCase {
         XCTAssertFalse(memoAfterLateChunk.isEmpty)
     }
 
-    private class ControlledMockLLM: LLMServiceProtocol {
+    private actor ControlledMockLLM: LLMServiceProtocol {
         private var continuation: CheckedContinuation<Void, Never>?
 
         func resume() {
