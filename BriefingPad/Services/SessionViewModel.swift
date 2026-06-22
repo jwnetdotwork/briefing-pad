@@ -91,9 +91,8 @@ class SessionViewModel: ObservableObject {
         clock: Clock = RealClock(),
         scheduler: Scheduler? = nil
     ) {
-        let loadedSessions = LocalBriefingDataStore.loadSessions()
-        self.sessions = loadedSessions
-        self.selectedSessionId = loadedSessions.first?.id ?? ""
+        self.sessions = []
+        self.selectedSessionId = ""
         self.llmService = llmService
         self.notionService = notionService
         self.transcriptionService = transcriptionService
@@ -147,6 +146,11 @@ class SessionViewModel: ObservableObject {
             if !sessions.contains(where: { $0.id == template.id }) {
                 sessions.append(template)
             }
+        }
+
+        if selectedSessionId.isEmpty {
+            selectedSessionId = sessions.first?.id ?? ""
+            currentPartIndex = 0
         }
     }
 
@@ -385,6 +389,12 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     private func loadSavedSession() async {
+        guard !selectedSessionId.isEmpty else {
+            self.sessionState = SessionState()
+            self.partElapsedTime = 0
+            return
+        }
+
         do {
             if let saved = try await store.loadSession(sessionId: selectedSessionId) {
                 self.notionPageId = saved.notionPageId
@@ -407,16 +417,8 @@ class SessionViewModel: ObservableObject {
                 }
                 self.sessionState = newState
             } else {
-                // If no saved session, reset sessionState for this session
+                // If no saved session exists, clear runtime state for this selection.
                 self.sessionState = SessionState()
-                // Also reset parts to initial state if needed,
-                // but since we load them from LocalBriefingDataStore in init,
-                // we might want to re-load the template if it was modified.
-                let templates = LocalBriefingDataStore.loadSessions()
-                if let template = templates.first(where: { $0.id == selectedSessionId }),
-                   let index = sessions.firstIndex(where: { $0.id == selectedSessionId }) {
-                    sessions[index] = template
-                }
             }
 
             if let partId = currentPart?.id {
@@ -485,13 +487,39 @@ class SessionViewModel: ObservableObject {
     }
 
     func deleteCurrentSession() {
-        Task {
+        guard let currentIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }) else { return }
+
+        Task { @MainActor in
+            let deletedSessionId = selectedSessionId
+
+            activeSaveTask?.cancel()
+            activeSaveTask = nil
+            pendingSave = nil
+
             do {
-                try await store.deleteSession(sessionId: selectedSessionId)
-                await loadSavedSession() // Reload to template state
+                try await store.deleteSession(sessionId: deletedSessionId)
             } catch {
                 print("Failed to delete session: \(error)")
+                return
             }
+
+            sessions.removeAll { $0.id == deletedSessionId }
+
+            if sessions.isEmpty {
+                selectedSessionId = ""
+                currentPartIndex = 0
+                sessionState = SessionState()
+                partElapsedTime = 0
+                transcriptionError = nil
+                return
+            }
+
+            let nextIndex = min(currentIndex, sessions.count - 1)
+            selectedSessionId = sessions[nextIndex].id
+            currentPartIndex = 0
+            transcriptionError = nil
+            partElapsedTime = 0
+            await loadSavedSession()
         }
     }
 
@@ -514,14 +542,16 @@ class SessionViewModel: ObservableObject {
 
                     // Reset local state for this part
                     sessionState.partStates[partId] = PartState()
-                    // Also reset part definition in session
                     if let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
                        let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) {
-                        let templates = LocalBriefingDataStore.loadSessions()
-                        if let templateSession = templates.first(where: { $0.id == selectedSessionId }),
-                           let templatePart = templateSession.parts.first(where: { $0.id == partId }) {
-                            sessions[sessionIndex].parts[partIndex] = templatePart
-                        }
+                        let part = sessions[sessionIndex].parts[partIndex]
+                        sessions[sessionIndex].parts[partIndex].analysisState = PartAnalysisState.initial(
+                            observationItems: part.observationItems,
+                            positiveItems: part.positiveItems
+                        )
+                        sessions[sessionIndex].parts[partIndex].aiMemo = ""
+                        sessions[sessionIndex].parts[partIndex].lastSyncedHash = nil
+                        sessions[sessionIndex].parts[partIndex].lastSyncedTime = nil
                     }
                 } else {
                     if onlyAudio {

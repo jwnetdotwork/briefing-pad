@@ -64,14 +64,14 @@ struct SessionToolbarView: View {
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("削除")
-            .disabled(viewModel.micStatus == .recording || viewModel.micStatus == .starting)
-            .confirmationDialog("セッションを削除しますか？", isPresented: $showingSessionDeleteAlert) {
+            .disabled(viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.selectedSession == nil)
+            .confirmationDialog("セッションを完全に削除しますか？", isPresented: $showingSessionDeleteAlert) {
                 Button("削除", role: .destructive) {
                     viewModel.deleteCurrentSession()
                 }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("このセッションのすべてのデータが削除されます。")
+                Text("このセッションは一覧からも消え、保存済みデータも削除されます。")
             }
             .confirmationDialog("パートのデータを削除しますか？", isPresented: $showingPartDeleteAlert) {
                 Button("削除", role: .destructive) {
@@ -109,4 +109,3 @@ struct SessionToolbarView: View {
         .background(Color(NSColor.windowBackgroundColor))
     }
 }
-

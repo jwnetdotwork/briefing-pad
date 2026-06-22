@@ -1,11 +1,20 @@
 import XCTest
 import Combine
+import AVFoundation
 @testable import BriefingPad
 
 final class SessionControlTests: XCTestCase {
 
+    private func makeTempStore() -> (FileSessionStore, URL) {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        return (FileSessionStore(rootURL: tempDir), tempDir)
+    }
+
     @MainActor
     func testSessionControlFlow() async {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
         let obs1 = ObservationItem(id: "obs1", text: "Obs 1")
         let part1 = PartDefinition(
             id: "part1",
@@ -33,7 +42,7 @@ final class SessionControlTests: XCTestCase {
         let session = BriefingSession(id: "s1", name: "Session 1", parts: [part1, part2])
 
         let mockMic = MockMicrophoneService()
-        let viewModel = SessionViewModel(micService: mockMic)
+        let viewModel = SessionViewModel(micService: mockMic, store: store)
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
 
@@ -63,7 +72,7 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(mockMic.stopRecordingCalled, true)
 
         // 3. Finish Part
-        viewModel.finishPart()
+        await viewModel.finishPart()
         XCTAssertEqual(viewModel.sessionState.partStates["part1"]?.isFinished, true)
 
         // 4. Move to Next Part
@@ -79,7 +88,10 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testPartSwitchResetsTimer() async {
-        let viewModel = SessionViewModel()
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewModel = SessionViewModel(store: store)
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -115,8 +127,11 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testRecordingContextIsolation() async {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
         let mockTranscription = MockSpeechTranscriptionService()
-        let viewModel = SessionViewModel(transcriptionService: mockTranscription)
+        let viewModel = SessionViewModel(transcriptionService: mockTranscription, store: store)
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -150,13 +165,93 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count ?? 0, 0, "Late segment from old context should be ignored")
         XCTAssertEqual(viewModel.sessionState.partStates[part2Id]?.transcript.count ?? 0, 0, "Late segment should not go into new part")
     }
+
+    @MainActor
+    func testLoadsSessionsOnlyFromStore() async throws {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let sessionId = "saved-session"
+        let template = BriefingSession(
+            id: sessionId,
+            name: "Saved Session",
+            parts: [
+                PartDefinition(id: "part-1", number: 1, title: "P1", durationMinutes: 5, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+            ]
+        )
+        let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [:])
+        try await store.saveSession(savedSession)
+
+        let viewModel = SessionViewModel(store: store)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(viewModel.sessions.map(\.id), [sessionId])
+        XCTAssertEqual(viewModel.selectedSessionId, sessionId)
+    }
+
+    @MainActor
+    func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewModel = SessionViewModel(store: store)
+        let session1 = BriefingSession(id: "s1", name: "Session 1", parts: [])
+        let session2 = BriefingSession(id: "s2", name: "Session 2", parts: [])
+        let session3 = BriefingSession(id: "s3", name: "Session 3", parts: [])
+        viewModel.sessions = [session1, session2, session3]
+        viewModel.selectedSessionId = "s2"
+
+        let expectation = XCTestExpectation(description: "selected session moved")
+        let cancellable = viewModel.$selectedSessionId
+            .dropFirst()
+            .sink { id in
+                if id == "s3" {
+                    expectation.fulfill()
+                }
+            }
+
+        viewModel.deleteCurrentSession()
+        wait(for: [expectation], timeout: 1.0)
+        cancellable.cancel()
+
+        XCTAssertEqual(viewModel.sessions.map(\.id), ["s1", "s3"])
+        XCTAssertEqual(viewModel.selectedSessionId, "s3")
+    }
+
+    @MainActor
+    func testDeleteLastSessionLeavesNoSelection() async {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewModel = SessionViewModel(store: store)
+        let session = BriefingSession(id: "s1", name: "Session 1", parts: [])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+
+        let expectation = XCTestExpectation(description: "selection cleared")
+        let cancellable = viewModel.$selectedSessionId
+            .dropFirst()
+            .sink { id in
+                if id.isEmpty {
+                    expectation.fulfill()
+                }
+            }
+
+        viewModel.deleteCurrentSession()
+        wait(for: [expectation], timeout: 1.0)
+        cancellable.cancel()
+
+        XCTAssertTrue(viewModel.sessions.isEmpty)
+        XCTAssertEqual(viewModel.selectedSessionId, "")
+        XCTAssertNil(viewModel.selectedSession)
+    }
 }
 
 class MockMicrophoneService: MicrophoneService {
     var startRecordingCalled = false
     var stopRecordingCalled = false
 
-    override func startRecording() {
+    override func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
         startRecordingCalled = true
     }
 

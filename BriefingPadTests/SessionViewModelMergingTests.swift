@@ -85,4 +85,8 @@ class MockLLMServiceWithResult: LLMServiceProtocol {
     func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition) async throws -> AnalysisResult {
         return result
     }
+
+    func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+        return "Mock One-Liner"
+    }
 }

@@ -178,7 +178,7 @@ final class TranscriptionTests: XCTestCase {
 
         // 3. Stop transcription
         // It should finalize Part 1 even though we are now on Part 2
-        viewModel.stopTranscription()
+        await viewModel.stopTranscription()
 
         // Wait a bit for the Task in stopTranscription to finish
         try? await Task.sleep(nanoseconds: 100_000_000)

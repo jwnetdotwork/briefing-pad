@@ -65,9 +65,13 @@ final class SessionStoreTests: XCTestCase {
 
         try await store.saveSession(savedSession)
         XCTAssertTrue(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent(sessionId).path))
+        let sessionsBeforeDelete = try await store.listSessions()
+        XCTAssertEqual(sessionsBeforeDelete, [sessionId])
 
         try await store.deleteSession(sessionId: sessionId)
         XCTAssertFalse(FileManager.default.fileExists(atPath: tempDir.appendingPathComponent(sessionId).path))
+        let sessionsAfterDelete = try await store.listSessions()
+        XCTAssertEqual(sessionsAfterDelete, [])
     }
 
     func testDeleteSpecificData() async throws {

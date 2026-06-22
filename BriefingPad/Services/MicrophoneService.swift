@@ -69,7 +69,7 @@ class SystemAudioEngineProvider: AudioEngineProvider {
     }
 }
 
-class MicrophoneService: ObservableObject {
+open class MicrophoneService: ObservableObject {
     @Published var permissionStatus: MicrophonePermissionStatus = .undetermined
     @Published var status: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
@@ -136,7 +136,7 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
+    open func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
         #if DEBUG
         print("[MicrophoneService] [\(runID ?? "none")] startRecording called. status: \(status)")
         #endif
@@ -233,7 +233,7 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    func stopRecording() {
+    open func stopRecording() {
         #if DEBUG
         print("[MicrophoneService] stopRecording called.")
         #endif
@@ -253,7 +253,7 @@ class MicrophoneService: ObservableObject {
         isStartingRecording = false
     }
 
-    func cancelPendingOperationsAndStop() {
+    open func cancelPendingOperationsAndStop() {
         cancelPendingOperations()
         stopRecording()
     }
