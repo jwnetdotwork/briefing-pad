@@ -175,8 +175,10 @@ class SessionViewModel: ObservableObject {
                     } else {
                         self.debugLog("micService.status -> \(status)")
                     }
-                    Task {
-                        await self.stopTranscription()
+                    if !self.isFinalizing {
+                        Task {
+                            await self.stopTranscription()
+                        }
                     }
                     self.stopTimer()
                 }
@@ -260,10 +262,11 @@ class SessionViewModel: ObservableObject {
         }
 
         let part = sessions[sessionIndex].parts[partIndex]
+        let partId = part.id
 
         do {
             // 1. LLM Analysis
-            let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
+            let fullTranscript = (sessionState.partStates[partId]?.transcript ?? [])
                 .filter { $0.isFinal }
                 .map { $0.text }
                 .joined(separator: "\n")
@@ -275,22 +278,44 @@ class SessionViewModel: ObservableObject {
             )
 
             // 2. Merge Results into analysisState
-            var updatedPart = part
+            // Re-fetch latest part to avoid overwriting changes from finishPart()
+            guard let currentSessionIndex = sessions.firstIndex(where: { $0.id == sessionId }),
+                  partIndex < sessions[currentSessionIndex].parts.count else { return }
+
+            var latestPart = sessions[currentSessionIndex].parts[partIndex]
             let now = clock.now
 
-            updatedPart.analysisState.observationItemStates = mergeMatches(
-                existingStates: part.analysisState.observationItemStates,
+            latestPart.analysisState.observationItemStates = mergeMatches(
+                existingStates: latestPart.analysisState.observationItemStates,
                 matches: result.observationMatches,
                 now: now
             )
-            updatedPart.analysisState.positiveItemStates = mergeMatches(
-                existingStates: part.analysisState.positiveItemStates,
+            latestPart.analysisState.positiveItemStates = mergeMatches(
+                existingStates: latestPart.analysisState.positiveItemStates,
                 matches: result.positiveMatches,
                 now: now
             )
 
+            // Update aiMemo only if not finished
+            let isFinished = sessionState.partStates[partId]?.isFinished ?? false
+            if !isFinished {
+                let positives = getSummarizedItems(
+                    items: latestPart.positiveItems,
+                    states: latestPart.analysisState.positiveItemStates
+                )
+                let observations = getSummarizedItems(
+                    items: latestPart.observationItems,
+                    states: latestPart.analysisState.observationItemStates
+                )
+                latestPart.aiMemo = formatFinalMemo(
+                    positives: positives,
+                    observations: observations,
+                    oneLiner: nil
+                )
+            }
+
             // Update local state immediately for UI responsiveness
-            self.updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
+            self.updateLocalPart(latestPart, sessionId: sessionId, partIndex: partIndex)
 
             // Record LLM Result
             let llmResult = LLMResult(
@@ -301,18 +326,15 @@ class SessionViewModel: ObservableObject {
                 sourceChunkStartTime: chunk.startTime,
                 sourceChunkEndTime: chunk.endTime
             )
-            sessionState.partStates[part.id]?.llmResults.append(llmResult)
+            sessionState.partStates[partId]?.llmResults.append(llmResult)
 
             saveCurrentSession()
 
             // 3. Notion Update
-            if let blockId = updatedPart.aiMemoBlockId {
-                let finalMemo = formatFinalMemo(
-                    positives: getSummarizedItems(items: updatedPart.positiveItems, states: updatedPart.analysisState.positiveItemStates),
-                    observations: getSummarizedItems(items: updatedPart.observationItems, states: updatedPart.analysisState.observationItemStates),
-                    oneLiner: nil // Don't include one-liner in live updates
-                )
-                triggerNotionSync(blockId: blockId, content: finalMemo, partId: part.id)
+            if let blockId = latestPart.aiMemoBlockId {
+                // If finished, use the already stored aiMemo (which has the one-liner)
+                let memoToSync = latestPart.aiMemo
+                triggerNotionSync(blockId: blockId, content: memoToSync, partId: partId)
             }
         } catch {
             print("Failed to process chunk: \(error)")
