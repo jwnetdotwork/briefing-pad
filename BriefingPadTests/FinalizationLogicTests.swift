@@ -81,6 +81,74 @@ final class FinalizationLogicTests: XCTestCase {
     }
 
     @MainActor
+    func testAnalysisUpdateAfterFinishPart_ShouldNotOverwriteMemo() async {
+        let mockLLM = ControlledMockLLM()
+        let mockNotion = MockNotionService()
+        let viewModel = SessionViewModel(
+            llmService: mockLLM,
+            notionService: mockNotion,
+            transcriptionService: MockSpeechTranscriptionService(),
+            micService: MicrophoneService(),
+            clock: MockClock()
+        )
+
+        let partId = viewModel.currentPart?.id ?? ""
+
+        // 1. Start an analysis chunk process (will hang in mockLLM)
+        let chunkTask = Task {
+            await viewModel.processTranscriptChunk("Test chunk")
+        }
+
+        // Give the task a moment to start and reach the await point
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // 2. Schedule resume to happen after finishPart() starts waiting for the queue
+        Task.detached {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+            await mockLLM.resume()
+        }
+
+        // 3. Finish the part (this should populate aiMemo and mark as finished)
+        // finishPart() will wait for the chunkQueue to be empty.
+        await viewModel.finishPart()
+
+        let memoAfterFinish = viewModel.sessions[0].parts[0].aiMemo
+        XCTAssertFalse(memoAfterFinish.isEmpty, "Memo should be populated after finishPart")
+        XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
+
+        // 4. Ensure analysis chunk finished
+        await chunkTask.value
+
+        // 4. Verify aiMemo is NOT overwritten/cleared by the late chunk
+        let memoAfterLateChunk = viewModel.sessions[0].parts[0].aiMemo
+        XCTAssertEqual(memoAfterLateChunk, memoAfterFinish, "Memo should not be overwritten by late analysis results")
+        XCTAssertFalse(memoAfterLateChunk.isEmpty)
+    }
+
+    private actor ControlledMockLLM: LLMServiceProtocol {
+        private var continuation: CheckedContinuation<Void, Never>?
+
+        func resume() {
+            continuation?.resume()
+            continuation = nil
+        }
+
+        func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition) async throws -> AnalysisResult {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+            return AnalysisResult(
+                observationMatches: [],
+                positiveMatches: []
+            )
+        }
+
+        func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+            return "Mock One-Liner"
+        }
+    }
+
+    @MainActor
     func testFinishPartFlow() async {
         let mockLLM = MockLLMService(delayNanoseconds: 0)
         let mockNotion = MockNotionService()
