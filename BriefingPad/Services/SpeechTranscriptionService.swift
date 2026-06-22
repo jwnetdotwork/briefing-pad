@@ -9,7 +9,7 @@ protocol SpeechTranscribing {
     var results: AsyncStream<TranscriptSegment> { get }
     var isAvailable: Bool { get async }
     func checkAvailability() async throws
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) async throws
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws
     func stopTranscription() async
 }
 
@@ -87,7 +87,10 @@ class SpeechTranscriptionService: SpeechTranscribing {
         #endif
     }
 
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) async throws {
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws {
+        #if DEBUG
+        print("[SpeechTranscriptionService] startTranscription called. runID: \(runID ?? "nil")")
+        #endif
         try await checkAvailability()
 
         #if canImport(Speech)
@@ -101,12 +104,21 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
             // 資産の準備（日本語モデルの準備）
             if let assetRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                #if DEBUG
+                print("[SpeechTranscriptionService] [\(runID ?? "none")] Requesting asset installation...")
+                #endif
                 try await assetRequest.downloadAndInstall()
+                #if DEBUG
+                print("[SpeechTranscriptionService] [\(runID ?? "none")] Asset installation completed.")
+                #endif
             }
 
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
             analyzerTask = Task {
+                #if DEBUG
+                print("[SpeechTranscriptionService] [\(runID ?? "none")] Analyzer task started.")
+                #endif
                 var utteranceIds: [Int64: UUID] = [:]
 
                 do {
@@ -203,10 +215,20 @@ class SpeechTranscriptionService: SpeechTranscribing {
                     async let analysis: CMTime? = analyzer.analyzeSequence(inputSequence)
 
                     for try await result in transcriber.results {
-                        if Task.isCancelled { break }
+                        if Task.isCancelled {
+                            #if DEBUG
+                            print("[SpeechTranscriptionService] [\(runID ?? "none")] transcriber.results loop cancelled.")
+                            #endif
+                            break
+                        }
                         
                         let text = String(result.text.characters)
                                 .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                        #if DEBUG
+                        let duration = result.range.end.seconds - result.range.start.seconds
+                        print("[SpeechTranscriptionService] [\(runID ?? "none")] Result: isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s, text=\"\(text)\"")
+                        #endif
 
                         guard !text.isEmpty else { continue }
 
@@ -241,7 +263,17 @@ class SpeechTranscriptionService: SpeechTranscribing {
                     }
 
                     _ = try await analysis
+                    #if DEBUG
+                    print("[SpeechTranscriptionService] [\(runID ?? "none")] Analyzer task finished normally.")
+                    #endif
                 } catch {
+                    #if DEBUG
+                    if error is CancellationError {
+                        print("[SpeechTranscriptionService] [\(runID ?? "none")] Analyzer task cancelled.")
+                    } else {
+                        print("[SpeechTranscriptionService] [\(runID ?? "none")] Analyzer task failed: \(error)")
+                    }
+                    #endif
                     print("SpeechAnalyzer failed: \(error)")
                     let segment = TranscriptSegment(
                         id: UUID(),
@@ -266,6 +298,9 @@ class SpeechTranscriptionService: SpeechTranscribing {
     }
 
     func stopTranscription() async {
+        #if DEBUG
+        print("[SpeechTranscriptionService] stopTranscription called.")
+        #endif
         analyzerTask?.cancel()
         analyzerTask = nil
     }
@@ -293,7 +328,10 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
 
     private var mockTask: Task<Void, Never>?
 
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) async throws {
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws {
+        #if DEBUG
+        print("[MockSpeechTranscriptionService] startTranscription called. runID: \(runID ?? "nil")")
+        #endif
         mockTask?.cancel()
         mockTask = nil
 
@@ -308,11 +346,15 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     let chunkNum = count / 20
 
                     // 1st provisional
+                    let text1 = "（認識中...）発話チャンク \(chunkNum)"
+                    #if DEBUG
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=false, text=\"\(text1)\"")
+                    #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
                         sessionId: "",
                         partId: "",
-                        text: "（認識中...）発話チャンク \(chunkNum)",
+                        text: text1,
                         isFinal: false,
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0
@@ -322,11 +364,15 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     if Task.isCancelled { return }
 
                     // 2nd provisional (update)
+                    let text2 = "（認識中...）確定間近 \(chunkNum)"
+                    #if DEBUG
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=false, text=\"\(text2)\"")
+                    #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
                         sessionId: "",
                         partId: "",
-                        text: "（認識中...）確定間近 \(chunkNum)",
+                        text: text2,
                         isFinal: false,
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0 + 0.5
@@ -335,11 +381,15 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     // Shortly after yield final
                     try? await Task.sleep(nanoseconds: 400_000_000)
                     if Task.isCancelled { return }
+                    let text3 = "確定した発話 \(chunkNum)"
+                    #if DEBUG
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=true, text=\"\(text3)\"")
+                    #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
                         sessionId: "",
                         partId: "",
-                        text: "確定した発話 \(chunkNum)",
+                        text: text3,
                         isFinal: true,
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0 + 1.0
@@ -350,6 +400,9 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
     }
 
     func stopTranscription() async {
+        #if DEBUG
+        print("[MockSpeechTranscriptionService] stopTranscription called.")
+        #endif
         mockTask?.cancel()
         mockTask = nil
     }

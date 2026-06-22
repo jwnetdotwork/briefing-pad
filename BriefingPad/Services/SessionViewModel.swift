@@ -62,6 +62,26 @@ class SessionViewModel: ObservableObject {
     }
     @Published private var activeRecordingContext: RecordingContext?
 
+    private var currentRunID: String?
+
+    private func debugLog(_ event: String, extra: String? = nil) {
+        #if DEBUG
+        let runID = currentRunID ?? "none"
+        let sessionId = selectedSessionId
+        let partId = currentPart?.id ?? "none"
+        let micStatusStr = "\(micStatus)"
+        let contextStr = activeRecordingContext != nil ? "\(activeRecordingContext!.sessionId):\(activeRecordingContext!.partId)" : "nil"
+        let transcriptCount = sessionState.partStates[partId]?.transcript.count ?? 0
+        let queueCount = chunkQueue.count
+
+        var message = "[SessionViewModel] [\(runID)] \(event) | sess: \(sessionId), part: \(partId), mic: \(micStatusStr), ctx: \(contextStr), transcript: \(transcriptCount), queue: \(queueCount)"
+        if let extra = extra {
+            message += " | \(extra)"
+        }
+        print(message)
+        #endif
+    }
+
     init(
         llmService: LLMServiceProtocol = MockLLMService(),
         notionService: NotionServiceProtocol = MockNotionService(),
@@ -146,9 +166,15 @@ class SessionViewModel: ObservableObject {
                 guard let self = self else { return }
                 self.micStatus = status
                 if status == .recording {
-                    self.startTranscription(audioStream: self.micService.createAudioBufferStream())
+                    self.debugLog("micService.status -> .recording")
+                    self.startTranscription(audioStream: self.micService.createAudioBufferStream(runID: self.currentRunID))
                     self.startTimer()
                 } else {
+                    if status == .idle {
+                        self.debugLog("micService.status -> .idle")
+                    } else {
+                        self.debugLog("micService.status -> \(status)")
+                    }
                     Task {
                         await self.stopTranscription()
                     }
@@ -307,6 +333,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectSession(id: String) {
+        debugLog("selectSession", extra: "target: \(id)")
         let oldPartId = currentPart?.id
         let oldSessionId = selectedSessionId
 
@@ -511,6 +538,11 @@ class SessionViewModel: ObservableObject {
     // MARK: - Recording Operations
 
     func startRecording() {
+        #if DEBUG
+        let newRunID = String(UUID().uuidString.prefix(8))
+        self.currentRunID = newRunID
+        #endif
+        debugLog("startRecording")
         guard let partId = currentPart?.id else { return }
         let isFinished = sessionState.partStates[partId]?.isFinished ?? false
         guard !isFinished else { return }
@@ -523,10 +555,11 @@ class SessionViewModel: ObservableObject {
         partState.audioFileName = audioURL.lastPathComponent
         sessionState.partStates[partId] = partState
 
-        micService.startRecording(audioFileURL: audioURL)
+        micService.startRecording(audioFileURL: audioURL, runID: currentRunID)
     }
 
     func pauseRecording() {
+        debugLog("pauseRecording")
         Task {
             await stopTranscription() // This ensures segments are finalized
             micService.stopRecording()
@@ -625,6 +658,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectPart(index: Int) {
+        debugLog("selectPart", extra: "index: \(index)")
         guard let session = selectedSession,
               index >= 0,
               index < session.parts.count else { return }
@@ -678,6 +712,7 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>) {
+        debugLog("startTranscription")
         transcriptionError = nil
         transcriptionTask?.cancel()
 
@@ -690,7 +725,7 @@ class SessionViewModel: ObservableObject {
         transcriptionTask = Task {
             do {
                 await transcriptionService.stopTranscription()
-                try await transcriptionService.startTranscription(audioStream: audioStream)
+                try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
 
                 for await segment in transcriptionService.results {
                     // Only process segments if they match the context when they were received
@@ -717,6 +752,7 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func stopTranscription(sessionId: String? = nil, partId: String? = nil) async {
+        debugLog("stopTranscription")
         let targetPartId = partId ?? activeRecordingContext?.partId ?? currentPart?.id
         let targetSessionId = sessionId ?? activeRecordingContext?.sessionId ?? selectedSessionId
 
@@ -846,6 +882,7 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func handleTranscriptSegment(_ segment: TranscriptSegment) async {
+        debugLog("handleTranscriptSegment", extra: "segId: \(segment.id), segPartId: \(segment.partId), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
         let partId = segment.partId
         guard !partId.isEmpty else { return }
 
