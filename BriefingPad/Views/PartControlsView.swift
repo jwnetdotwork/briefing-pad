@@ -28,6 +28,7 @@ struct PartControlsView: View {
 
                     statusView
                 }
+                .frame(minWidth: 200)
 
                 Button(action: { viewModel.moveToNextPart() }) {
                     Text("[次へ]")
@@ -91,6 +92,7 @@ struct PartControlsView: View {
                 HStack(spacing: 4) {
                     Text("● 録音中")
                     Text("/ 音量: \(viewModel.audioLevel.rawValue)")
+                        .frame(width: 80, alignment: .leading)
                 }
                 .font(.caption)
                 .foregroundColor(.red)
