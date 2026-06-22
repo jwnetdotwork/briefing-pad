@@ -97,7 +97,7 @@ class OpenAILLMService: LLMServiceProtocol {
                 ["role": "user", "content": userPrompt]
             ],
             "temperature": 0.7,
-            "max_tokens": 100
+            "max_completion_tokens": 1024
         ]
 
         var request = URLRequest(url: url)
