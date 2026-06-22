@@ -31,17 +31,17 @@ class SpeechTranscriptionService: SpeechTranscribing {
         get async {
             #if canImport(Speech)
             if #available(macOS 26.0, *) {
-                return SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
+                return await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
             }
             #endif
             return false
         }
     }
 
-    private func resolveLocale() throws -> Locale {
+    private func resolveLocale() async throws -> Locale {
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            guard let locale = SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
+            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 2,
@@ -61,16 +61,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
     func checkAvailability() async throws {
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            _ = try resolveLocale()
-
-            let authStatus = SFSpeechRecognizer.authorizationStatus()
-            if authStatus == .denied || authStatus == .restricted {
-                throw NSError(
-                    domain: "SpeechTranscriptionService",
-                    code: 3,
-                    userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
-                )
-            }
+            _ = try await resolveLocale()
 
             let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
             if micStatus == .denied || micStatus == .restricted {
@@ -101,29 +92,17 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            let locale = try resolveLocale()
-
-            // 資産の準備（日本語モデルの準備）
-            let assetRequest = AssetInventory.assetInstallationRequest(supporting: locale)
-            if assetRequest.status != .installed {
-                // ダウンロードが必要な場合は、完了まで待機する
-                for await _ in assetRequest.progress {
-                    if assetRequest.status == .installed { break }
-                }
-
-                guard assetRequest.status == .installed else {
-                    throw NSError(
-                        domain: "SpeechTranscriptionService",
-                        code: 7,
-                        userInfo: [NSLocalizedDescriptionKey: "音声認識モデルの準備に失敗しました"]
-                    )
-                }
-            }
+            let locale = try await resolveLocale()
 
             let transcriber = SpeechTranscriber(
                 locale: locale,
                 preset: .timeIndexedProgressiveTranscription
             )
+
+            // 資産の準備（日本語モデルの準備）
+            if let assetRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+                try await assetRequest.downloadAndInstall()
+            }
 
             let analyzer = SpeechAnalyzer(modules: [transcriber])
 
@@ -141,7 +120,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
                                 // ターゲットフォーマットの取得とコンバーターの初期化
                                 if targetFormat == nil {
-                                    targetFormat = SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: buffer.format)
+                                    targetFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: buffer.format)
                                     if let target = targetFormat {
                                         converter = AVAudioConverter(from: buffer.format, to: target)
                                     }
