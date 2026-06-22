@@ -2,7 +2,8 @@ import SwiftUI
 
 struct PartListView: View {
     let parts: [PartDefinition]
-    @Binding var selectedPartIndex: Int
+    let selectedPartIndex: Int
+    var onSelect: (Int) -> Void
 
     var body: some View {
         SectionContainer("パート一覧") {
@@ -16,7 +17,7 @@ struct PartListView: View {
                             let part = parts[index]
 
                             Button {
-                                selectedPartIndex = index
+                                onSelect(index)
                             } label: {
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("Part \(part.number)")
@@ -60,7 +61,8 @@ struct PartListView_Previews: PreviewProvider {
     static var previews: some View {
         PartListView(
             parts: LocalBriefingDataStore.fallbackSessions[0].parts,
-            selectedPartIndex: .constant(1)
+            selectedPartIndex: 1,
+            onSelect: { _ in }
         )
     }
 }

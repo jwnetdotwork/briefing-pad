@@ -48,7 +48,10 @@ struct ContentView: View {
                     if let session = viewModel.selectedSession {
                         PartListView(
                             parts: session.parts,
-                            selectedPartIndex: $viewModel.currentPartIndex
+                            selectedPartIndex: viewModel.currentPartIndex,
+                            onSelect: { index in
+                                viewModel.selectPart(index: index)
+                            }
                         )
 
                         if let part = viewModel.currentPart {
