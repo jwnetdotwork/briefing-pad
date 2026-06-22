@@ -107,8 +107,16 @@ class SpeechTranscriptionService: SpeechTranscribing {
             let assetRequest = AssetInventory.assetInstallationRequest(supporting: locale)
             if assetRequest.status != .installed {
                 // ダウンロードが必要な場合は、完了まで待機する
-                for await status in assetRequest.progress {
-                    if status == .installed { break }
+                for await _ in assetRequest.progress {
+                    if assetRequest.status == .installed { break }
+                }
+
+                guard assetRequest.status == .installed else {
+                    throw NSError(
+                        domain: "SpeechTranscriptionService",
+                        code: 7,
+                        userInfo: [NSLocalizedDescriptionKey: "音声認識モデルの準備に失敗しました"]
+                    )
                 }
             }
 
@@ -188,6 +196,23 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                         }
 
                                         continuation.yield(AnalyzerInput(buffer: outputBuffer))
+                                    } else {
+                                        let error = NSError(
+                                            domain: "SpeechTranscriptionService",
+                                            code: 6,
+                                            userInfo: [NSLocalizedDescriptionKey: "バッファの作成に失敗しました"]
+                                        )
+                                        self.transcriptionContinuation?.yield(TranscriptSegment(
+                                            id: UUID(),
+                                            sessionId: "",
+                                            partId: "",
+                                            text: "Error: \(error.localizedDescription)",
+                                            isFinal: true,
+                                            startTime: 0,
+                                            endTime: 0
+                                        ))
+                                        continuation.finish()
+                                        return
                                     }
                                 }
                             }
