@@ -264,7 +264,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
                         let yieldResult = transcriptionContinuation?.yield(segment)
                         #if DEBUG
-                        print("[SpeechTranscriptionService] [\(runID ?? "none")] yield result: \(String(describing: yieldResult)), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
+//                        print("[SpeechTranscriptionService] [\(runID ?? "none")] yield result: \(String(describing: yieldResult)), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
                         #endif
 
                         if result.isFinal {

@@ -334,11 +334,18 @@ class SessionViewModel: ObservableObject {
 
             saveCurrentSession()
 
+           
+            
             // 3. Notion Update
             if let blockId = latestPart.aiMemoBlockId {
-                // If finished, use the already stored aiMemo (which has the one-liner)
                 let memoToSync = latestPart.aiMemo
+//                debugLog("memoToSync:\(memoToSync)")
+                // ① そもそもここに到達しているか
+//                debugLog("[NotionSync] blockId found: \(blockId), partId: \(partId)")
                 triggerNotionSync(blockId: blockId, content: memoToSync, partId: partId)
+            } else {
+                // ② aiMemoBlockId が nil でスキップされていないか
+                debugLog("[NotionSync] SKIPPED - aiMemoBlockId is nil for partId: \(partId)")
             }
         } catch {
             print("Failed to process chunk: \(error)")
@@ -595,7 +602,7 @@ class SessionViewModel: ObservableObject {
         let newRunID = String(UUID().uuidString.prefix(8))
         self.currentRunID = newRunID
         #endif
-        debugLog("startRecording", extra: "oldPartId: \(oldPartId)")
+//        debugLog("startRecording", extra: "oldPartId: \(oldPartId)")
         guard let partId = currentPart?.id else { return }
         let isFinished = sessionState.partStates[partId]?.isFinished ?? false
         guard !isFinished else { return }
@@ -612,7 +619,7 @@ class SessionViewModel: ObservableObject {
     }
 
     func pauseRecording() {
-        debugLog("pauseRecording")
+//        debugLog("pauseRecording")
         Task {
             await stopTranscription(caller: "pauseRecording") // This ensures segments are finalized
             micService.stopRecording()
@@ -712,7 +719,7 @@ class SessionViewModel: ObservableObject {
 
     func selectPart(index: Int) {
         let oldPartId = currentPart?.id ?? "none"
-        debugLog("selectPart", extra: "targetIndex: \(index), oldPartId: \(oldPartId)")
+//        debugLog("selectPart", extra: "targetIndex: \(index), oldPartId: \(oldPartId)")
         guard let session = selectedSession,
               index >= 0,
               index < session.parts.count else { return }
@@ -730,12 +737,12 @@ class SessionViewModel: ObservableObject {
                 await stopTranscription(sessionId: oldSessionId, partId: oldPartId, caller: "selectPart")
             } else {
                 // Not recording, but should still flush
-                debugLog("selectPart -> flush (not recording)")
+//                debugLog("selectPart -> flush (not recording)")
                 chunker?.flush()
             }
 
             currentPartIndex = index
-            debugLog("selectPart -> index updated", extra: "newPartId: \(targetPartId)")
+//            debugLog("selectPart -> index updated", extra: "newPartId: \(targetPartId)")
             partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
         }
     }
@@ -777,26 +784,26 @@ class SessionViewModel: ObservableObject {
         )
         activeRecordingContext = context
 
-        debugLog("startTranscription -> Task creation", extra: "ctx: \(context.sessionId):\(context.partId)")
+//        debugLog("startTranscription -> Task creation", extra: "ctx: \(context.sessionId):\(context.partId)")
         transcriptionTask = Task {
             do {
-                debugLog("startTranscription -> await transcriptionService.stopTranscription")
+//                debugLog("startTranscription -> await transcriptionService.stopTranscription")
                 await transcriptionService.stopTranscription()
-                debugLog("startTranscription -> await transcriptionService.startTranscription")
+//                debugLog("startTranscription -> await transcriptionService.startTranscription")
                 let results = try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
 
-                debugLog("startTranscription -> Entering results loop")
+//                debugLog("startTranscription -> Entering results loop")
                 var count = 0
                 for await segment in results {
                     count += 1
                     if count == 1 {
-                        debugLog("startTranscription -> Received first segment")
+//                        debugLog("startTranscription -> Received first segment")
                     }
 
                     // Only process segments if they match the context when they were received
                     guard let activeContext = self.activeRecordingContext,
                           activeContext == context else {
-                        debugLog("startTranscription -> Dropped segment due to context mismatch", extra: "segPartId: \(segment.partId), currentCtx: \(self.activeRecordingContext?.partId ?? "nil")")
+//                        debugLog("startTranscription -> Dropped segment due to context mismatch", extra: "segPartId: \(segment.partId), currentCtx: \(self.activeRecordingContext?.partId ?? "nil")")
                         continue
                     }
 
@@ -812,9 +819,9 @@ class SessionViewModel: ObservableObject {
                     )
                     await handleTranscriptSegment(segmentWithContext)
                 }
-                debugLog("startTranscription -> Results loop finished normally", extra: "isCancelled: \(Task.isCancelled), count: \(count)")
+//                debugLog("startTranscription -> Results loop finished normally", extra: "isCancelled: \(Task.isCancelled), count: \(count)")
             } catch {
-                debugLog("startTranscription -> Task failed", extra: "error: \(error)")
+//                debugLog("startTranscription -> Task failed", extra: "error: \(error)")
                 self.transcriptionError = error.localizedDescription
             }
         }
@@ -824,17 +831,17 @@ class SessionViewModel: ObservableObject {
     func stopTranscription(sessionId: String? = nil, partId: String? = nil, caller: String? = nil) async {
         let callerInfo = caller != nil ? "caller: \(caller!)" : "caller: unknown"
         let ctxInfo = activeRecordingContext != nil ? "activeCtx: \(activeRecordingContext!.sessionId):\(activeRecordingContext!.partId)" : "activeCtx: nil"
-        debugLog("stopTranscription", extra: "\(callerInfo) | \(ctxInfo)")
+//        debugLog("stopTranscription", extra: "\(callerInfo) | \(ctxInfo)")
 
         let targetPartId = partId ?? activeRecordingContext?.partId ?? currentPart?.id
         let targetSessionId = sessionId ?? activeRecordingContext?.sessionId ?? selectedSessionId
 
         activeRecordingContext = nil
 
-        debugLog("stopTranscription -> await transcriptionService.stopTranscription")
+//        debugLog("stopTranscription -> await transcriptionService.stopTranscription")
         await transcriptionService.stopTranscription()
 
-        debugLog("stopTranscription -> chunker.flush")
+//        debugLog("stopTranscription -> chunker.flush")
         chunker?.flush()
 
         // Finalize remaining provisional segments as final
@@ -860,18 +867,18 @@ class SessionViewModel: ObservableObject {
                 }
             }
             if hasChanges {
-                debugLog("stopTranscription -> segments finalized", extra: "count: \(updatedSegments.count)")
+//                debugLog("stopTranscription -> segments finalized", extra: "count: \(updatedSegments.count)")
                 sessionState.partStates[partId]?.transcript = updatedSegments
                 chunker?.flush()
             }
         }
 
         if transcriptionTask != nil {
-            debugLog("stopTranscription -> transcriptionTask.cancel")
+//            debugLog("stopTranscription -> transcriptionTask.cancel")
             transcriptionTask?.cancel()
             transcriptionTask = nil
         } else {
-            debugLog("stopTranscription -> transcriptionTask was nil")
+//            debugLog("stopTranscription -> transcriptionTask was nil")
         }
     }
 
@@ -879,7 +886,7 @@ class SessionViewModel: ObservableObject {
 
     func triggerNotionSync(blockId: String, content: String, partId: String) {
         pendingAIMemoUpdate = content
-
+//        debugLog("content: \(content)")
         guard notionSyncTask == nil else { return }
 
         notionSyncTask = Task { @MainActor in
@@ -921,7 +928,9 @@ class SessionViewModel: ObservableObject {
                 expectedLastEditedTime: part.lastSyncedTime,
                 expectedContentHash: part.lastSyncedHash
             )
-
+            #if DEBUG
+            print("result: \(result)")
+            #endif
             switch result {
             case .success(let time, let hash):
                 sessions[sessionIndex].parts[partIndex].lastSyncedTime = time
@@ -967,7 +976,7 @@ class SessionViewModel: ObservableObject {
 //        debugLog("handleTranscriptSegment", extra: "segId: \(segment.id), segPartId: \(segment.partId), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
         let partId = segment.partId
         guard !partId.isEmpty else {
-            debugLog("handleTranscriptSegment -> Dropped: partId is empty", extra: "segId: \(segment.id)")
+//            debugLog("handleTranscriptSegment -> Dropped: partId is empty", extra: "segId: \(segment.id)")
             return
         }
 
