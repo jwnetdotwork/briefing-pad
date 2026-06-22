@@ -934,7 +934,7 @@ class SessionViewModel: ObservableObject {
 
     @MainActor
     func handleTranscriptSegment(_ segment: TranscriptSegment) async {
-        debugLog("handleTranscriptSegment", extra: "segId: \(segment.id), segPartId: \(segment.partId), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
+//        debugLog("handleTranscriptSegment", extra: "segId: \(segment.id), segPartId: \(segment.partId), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
         let partId = segment.partId
         guard !partId.isEmpty else {
             debugLog("handleTranscriptSegment -> Dropped: partId is empty", extra: "segId: \(segment.id)")
@@ -990,7 +990,7 @@ class SessionViewModel: ObservableObject {
 
         sessionState.partStates[partId] = partState
         let countAfter = partState.transcript.count
-        debugLog("handleTranscriptSegment -> Done", extra: "branch: \(branch), chunkerCalled: \(chunkerCalled), count: \(countBefore) -> \(countAfter)")
+//        debugLog("handleTranscriptSegment -> Done", extra: "branch: \(branch), chunkerCalled: \(chunkerCalled), count: \(countBefore) -> \(countAfter)")
 
         if shouldSave {
             saveCurrentSession()
