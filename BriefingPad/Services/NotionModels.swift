@@ -50,6 +50,7 @@ struct NotionUser: Decodable {
 
 struct NotionHeading: Decodable {
     let rich_text: [NotionRichText]
+    let is_toggleable: Bool?
 }
 
 struct NotionTextContent: Decodable {

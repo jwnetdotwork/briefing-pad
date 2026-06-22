@@ -32,20 +32,50 @@ class NotionService: NotionServiceProtocol {
     ) async throws -> NotionUpdateResult {
         do {
             // 1. Fetch current AI Memo header block
-            let headerBlock = try await client.fetchBlock(blockId: blockId)
+            var headerBlock = try await client.fetchBlock(blockId: blockId)
             let parentId = headerBlock.parent?.block_id ?? headerBlock.parent?.page_id
             guard let parentId = parentId else {
                 return .failure("Parent ID not found")
             }
 
-            // 2. Conflict Detection
+            // 2. Conflict Detection & Normalization
             let currentLastEditedTime = headerBlock.last_edited_time ?? ""
+            let isToggle = headerBlock.heading_3?.is_toggleable ?? false
 
-            // We need to fetch the existing frame blocks to calculate the hash of what is currently on Notion
-            let allBlocks = try await client.fetchBlocks(blockId: parentId)
-            let frame = findFrame(headerId: blockId, allBlocks: allBlocks)
-            let existingNotionContent = frame.blocks.map { getPlainText($0) }.joined(separator: "\n")
-            let existingNotionHash = CryptoUtils.calculateHash(content: existingNotionContent)
+            var existingNotionContent = ""
+            var blocksToDelete: [String] = []
+
+            if isToggle {
+                // Fetch children if it's already a toggle
+                let children = try await client.fetchBlocks(blockId: blockId)
+                existingNotionContent = children.map { getPlainText($0) }.joined(separator: "\n")
+                blocksToDelete = children.map { $0.id }
+            } else {
+                // Migration: Fetch siblings to find the old-style frame
+                let allBlocks = try await client.fetchBlocks(blockId: parentId)
+                let frame = findFrame(headerId: blockId, allBlocks: allBlocks)
+                // In old style, the header was part of the frame and gets replaced/moved.
+                // But we want to KEEP the header and just convert it.
+                // Frame includes the header itself as the first element.
+                existingNotionContent = frame.blocks.dropFirst().map { getPlainText($0) }.joined(separator: "\n")
+                blocksToDelete = frame.blocks.dropFirst().map { $0.id }
+
+                // Convert header to toggle
+                // We must include the existing rich_text to avoid losing it
+                let existingRichText = headerBlock.heading_3?.rich_text.map { rt in
+                    ["type": "text", "text": ["content": rt.plain_text]]
+                } ?? []
+
+                headerBlock = try await client.updateBlock(blockId: blockId, content: [
+                    "heading_3": [
+                        "rich_text": existingRichText,
+                        "is_toggleable": true
+                    ]
+                ])
+            }
+
+            let existingNotionHash = CryptoUtils.calculateHash(content: normalizeContent(existingNotionContent))
+            let currentContentHash = CryptoUtils.calculateHash(content: normalizeContent(content))
 
             let isModifiedExternally: Bool
             if let expectedTime = expectedLastEditedTime, let expectedHash = expectedContentHash {
@@ -60,37 +90,31 @@ class NotionService: NotionServiceProtocol {
                 isModifiedExternally = false
             }
 
-            // 3. Prepare Blocks
-            let blocksToAppend = prepareBlocks(content: content)
+            // 3. Update Content
+            // Delete old content blocks
+            for id in blocksToDelete {
+                try await client.deleteBlock(blockId: id)
+            }
 
+            // Prepare content (excluding the header which we already have)
+            let contentBlocks = prepareContentBlocks(content: content)
+
+            // Append as children of the header toggle
+            let newBlocks = try await client.appendBlocks(blockId: blockId, children: contentBlocks)
+
+            // Note: User requested to always overwrite even if conflict.
+            // We just return externalModification if we detected one, but we already performed the overwrite.
             if isModifiedExternally {
-                // Conflict: Append at the end of the frame
-                let newBlocks = try await client.appendBlocks(blockId: parentId, children: blocksToAppend)
-                if let newHeader = newBlocks.first {
-                    return .externalModification(
-                        newBlockId: newHeader.id,
-                        lastEditedTime: newHeader.last_edited_time ?? "",
-                        contentHash: CryptoUtils.calculateHash(content: content)
-                    )
-                }
-                return .failure("Failed to append new blocks")
+                return .externalModification(
+                    newBlockId: blockId, // blockId doesn't change anymore!
+                    lastEditedTime: headerBlock.last_edited_time ?? "",
+                    contentHash: currentContentHash
+                )
             } else {
-                // No conflict: Replace frame content
-                // Delete existing blocks in frame (including the old header)
-                for block in frame.blocks {
-                    try await client.deleteBlock(blockId: block.id)
-                }
-
-                // Append new blocks
-                let newBlocks = try await client.appendBlocks(blockId: parentId, children: blocksToAppend)
-
-                if let newHeader = newBlocks.first {
-                    return .success(
-                        lastEditedTime: newHeader.last_edited_time ?? "",
-                        contentHash: CryptoUtils.calculateHash(content: content)
-                    )
-                }
-                return .failure("Failed to append blocks")
+                return .success(
+                    lastEditedTime: headerBlock.last_edited_time ?? "",
+                    contentHash: currentContentHash
+                )
             }
         } catch {
             return .failure(error.localizedDescription)
@@ -126,19 +150,8 @@ class NotionService: NotionServiceProtocol {
         return (header, frameBlocks)
     }
 
-    private func prepareBlocks(content: String) -> [[String: Any]] {
+    private func prepareContentBlocks(content: String) -> [[String: Any]] {
         var blocks: [[String: Any]] = []
-
-        // Header
-        blocks.append([
-            "object": "block",
-            "type": "heading_3",
-            "heading_3": [
-                "rich_text": [
-                    ["type": "text", "text": ["content": "🤖AIメモ"]]
-                ]
-            ]
-        ])
 
         // The content format from formatFinalMemo:
         // ◎ 短評で使えそう
@@ -183,6 +196,19 @@ class NotionService: NotionServiceProtocol {
         }
 
         return blocks
+    }
+
+    private func normalizeContent(_ content: String) -> String {
+        return content.components(separatedBy: .newlines)
+            .map { line -> String in
+                var l = line.trimmingCharacters(in: .whitespaces)
+                if l.hasPrefix("- ") {
+                    l = String(l.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+                }
+                return l
+            }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 
     private func getPlainText(_ block: NotionBlock) -> String {
