@@ -731,13 +731,22 @@ class SessionViewModel: ObservableObject {
                 debugLog("startTranscription -> await transcriptionService.stopTranscription")
                 await transcriptionService.stopTranscription()
                 debugLog("startTranscription -> await transcriptionService.startTranscription")
-                try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
+                let results = try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
 
                 debugLog("startTranscription -> Entering results loop")
-                for await segment in transcriptionService.results {
+                var count = 0
+                for await segment in results {
+                    count += 1
+                    if count == 1 {
+                        debugLog("startTranscription -> Received first segment")
+                    }
+
                     // Only process segments if they match the context when they were received
                     guard let activeContext = self.activeRecordingContext,
-                          activeContext == context else { continue }
+                          activeContext == context else {
+                        debugLog("startTranscription -> Dropped segment due to context mismatch", extra: "segPartId: \(segment.partId), currentCtx: \(self.activeRecordingContext?.partId ?? "nil")")
+                        continue
+                    }
 
                     let segmentWithContext = TranscriptSegment(
                         id: segment.id,
@@ -751,7 +760,7 @@ class SessionViewModel: ObservableObject {
                     )
                     await handleTranscriptSegment(segmentWithContext)
                 }
-                debugLog("startTranscription -> Results loop finished normally")
+                debugLog("startTranscription -> Results loop finished normally", extra: "isCancelled: \(Task.isCancelled), count: \(count)")
             } catch {
                 debugLog("startTranscription -> Task failed", extra: "error: \(error)")
                 self.transcriptionError = error.localizedDescription
