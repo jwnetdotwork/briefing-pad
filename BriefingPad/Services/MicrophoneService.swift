@@ -84,7 +84,10 @@ class MicrophoneService: ObservableObject {
     private var isStartingRecording = false
     private var audioFile: AVAudioFile?
 
-    func createAudioBufferStream() -> AsyncStream<AVAudioPCMBuffer> {
+    func createAudioBufferStream(runID: String? = nil) -> AsyncStream<AVAudioPCMBuffer> {
+        #if DEBUG
+        print("[MicrophoneService] [\(runID ?? "none")] createAudioBufferStream called.")
+        #endif
         let id = UUID()
         return AsyncStream(AVAudioPCMBuffer.self, bufferingPolicy: .bufferingNewest(50)) { continuation in
             objc_sync_enter(self)
@@ -133,20 +136,23 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    func startRecording(audioFileURL: URL? = nil) {
+    func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
+        #if DEBUG
+        print("[MicrophoneService] [\(runID ?? "none")] startRecording called. status: \(status)")
+        #endif
         guard status != .recording && !isStartingRecording else { return }
         isStartingRecording = true
         status = .starting
 
         switch permissionStatus {
         case .granted:
-            performStartRecording(audioFileURL: audioFileURL)
+            performStartRecording(audioFileURL: audioFileURL, runID: runID)
         case .undetermined:
             let requestID = currentPermissionRequestID
             requestPermission { [weak self] granted in
                 guard let self = self, self.currentPermissionRequestID == requestID else { return }
                 if granted {
-                    self.performStartRecording(audioFileURL: audioFileURL)
+                    self.performStartRecording(audioFileURL: audioFileURL, runID: runID)
                 } else {
                     self.isStartingRecording = false
                     self.status = .error("マイクの使用が許可されていません")
@@ -158,7 +164,7 @@ class MicrophoneService: ObservableObject {
         }
     }
 
-    private func performStartRecording(audioFileURL: URL?) {
+    private func performStartRecording(audioFileURL: URL?, runID: String?) {
         do {
             let recordingFormat = audioEngine.inputNodeFormat
 
@@ -178,8 +184,15 @@ class MicrophoneService: ObservableObject {
                 audioFile = try AVAudioFile(forWriting: url, settings: settings)
             }
 
+            var isFirstBuffer = true
             audioEngine.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] (buffer, when) in
                 guard let self = self else { return }
+                #if DEBUG
+                if isFirstBuffer {
+                    print("[MicrophoneService] [\(runID ?? "none")] First audio buffer received in tap.")
+                    isFirstBuffer = false
+                }
+                #endif
                 self.processAudioBuffer(buffer)
 
                 // Write to file if recording
@@ -204,6 +217,9 @@ class MicrophoneService: ObservableObject {
             try audioEngine.start()
 
             DispatchQueue.main.async {
+                #if DEBUG
+                print("[MicrophoneService] [\(runID ?? "none")] Transitioning to .recording status.")
+                #endif
                 self.isStartingRecording = false
                 self.status = .recording
             }
@@ -218,6 +234,9 @@ class MicrophoneService: ObservableObject {
     }
 
     func stopRecording() {
+        #if DEBUG
+        print("[MicrophoneService] stopRecording called.")
+        #endif
         cancelPendingOperations()
         audioEngine.stop()
         audioEngine.removeTap(onBus: 0)
