@@ -310,26 +310,24 @@ class SessionViewModel: ObservableObject {
         let oldPartId = currentPart?.id
         let oldSessionId = selectedSessionId
 
-        if micStatus == .recording || micStatus == .starting {
-            if micStatus == .starting {
-                micService.cancelPendingOperationsAndStop()
-            } else {
-                micService.stopRecording()
-            }
-            Task {
+        Task { @MainActor in
+            if micStatus == .recording || micStatus == .starting {
+                if micStatus == .starting {
+                    micService.cancelPendingOperationsAndStop()
+                } else {
+                    micService.stopRecording()
+                }
                 await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            } else {
+                // Not recording, but should still flush
+                chunker?.flush()
             }
-        } else {
-            // Not recording, but should still flush
-            chunker?.flush()
-        }
 
-        selectedSessionId = id
-        currentPartIndex = 0
-        transcriptionError = nil
-        partElapsedTime = 0
+            selectedSessionId = id
+            currentPartIndex = 0
+            transcriptionError = nil
+            partElapsedTime = 0
 
-        Task {
             await loadSavedSession()
         }
     }
@@ -634,23 +632,23 @@ class SessionViewModel: ObservableObject {
         let oldPartId = currentPart?.id
         let oldSessionId = selectedSessionId
 
-        if micStatus == .recording || micStatus == .starting {
-            if micStatus == .starting {
-                micService.cancelPendingOperationsAndStop()
-            } else {
-                micService.stopRecording()
-            }
-            Task {
+        Task { @MainActor in
+            if micStatus == .recording || micStatus == .starting {
+                if micStatus == .starting {
+                    micService.cancelPendingOperationsAndStop()
+                } else {
+                    micService.stopRecording()
+                }
                 await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+            } else {
+                // Not recording, but should still flush
+                chunker?.flush()
             }
-        } else {
-            // Not recording, but should still flush
-            chunker?.flush()
-        }
 
-        currentPartIndex = index
-        let partId = session.parts[index].id
-        partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+            currentPartIndex = index
+            let partId = session.parts[index].id
+            partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+        }
     }
 
     // MARK: - Timer
@@ -872,10 +870,10 @@ class SessionViewModel: ObservableObject {
             if segment.isFinal || !existing.isFinal {
                 let wasFinal = existing.isFinal
                 partState.transcript[duplicateIndex] = segment
+                shouldSave = true
 
                 if segment.isFinal && !wasFinal {
                     chunker?.processSegment(segment)
-                    shouldSave = true
                 }
             }
         } else {

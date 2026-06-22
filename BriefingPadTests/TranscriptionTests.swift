@@ -223,6 +223,9 @@ final class TranscriptionTests: XCTestCase {
         await viewModel.handleTranscriptSegment(segment2)
 
         XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 1, "Should merge duplicates even with different IDs")
+        let merged = viewModel.sessionState.partStates[partId]?.transcript.first
+        XCTAssertEqual(merged?.text, "こんにちは世界")
+        XCTAssertEqual(merged?.startTime, 10.1, "Should have updated to latest segment values")
 
         // 3. Add same text but distant time
         let segment3 = TranscriptSegment(
@@ -237,6 +240,7 @@ final class TranscriptionTests: XCTestCase {
         await viewModel.handleTranscriptSegment(segment3)
 
         XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 2, "Should not merge if time is distant")
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.last?.startTime, 20.0)
 
         // 4. Add slightly different text but close time
         let segment4 = TranscriptSegment(
@@ -251,5 +255,6 @@ final class TranscriptionTests: XCTestCase {
         await viewModel.handleTranscriptSegment(segment4)
 
         XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.count, 2, "Should merge slightly different text (e.g. punctuation)")
+        XCTAssertEqual(viewModel.sessionState.partStates[partId]?.transcript.last?.text, "こんにちは世界。", "Should have updated to latest segment text")
     }
 }
