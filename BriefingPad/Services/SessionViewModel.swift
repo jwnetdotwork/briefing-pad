@@ -538,11 +538,12 @@ class SessionViewModel: ObservableObject {
     // MARK: - Recording Operations
 
     func startRecording() {
+        let oldPartId = currentPart?.id ?? "none"
         #if DEBUG
         let newRunID = String(UUID().uuidString.prefix(8))
         self.currentRunID = newRunID
         #endif
-        debugLog("startRecording")
+        debugLog("startRecording", extra: "oldPartId: \(oldPartId)")
         guard let partId = currentPart?.id else { return }
         let isFinished = sessionState.partStates[partId]?.isFinished ?? false
         guard !isFinished else { return }
@@ -561,7 +562,7 @@ class SessionViewModel: ObservableObject {
     func pauseRecording() {
         debugLog("pauseRecording")
         Task {
-            await stopTranscription() // This ensures segments are finalized
+            await stopTranscription(caller: "pauseRecording") // This ensures segments are finalized
             micService.stopRecording()
             saveCurrentSession()
         }
@@ -579,7 +580,7 @@ class SessionViewModel: ObservableObject {
 
         // 1. Stop recording and flush
         micService.stopRecording()
-        await stopTranscription(sessionId: targetSessionId, partId: part.id)
+        await stopTranscription(sessionId: targetSessionId, partId: part.id, caller: "finishPart")
 
         // 2. Wait for queue to settle
         while !chunkQueue.isEmpty || isProcessing {
@@ -658,12 +659,13 @@ class SessionViewModel: ObservableObject {
     }
 
     func selectPart(index: Int) {
-        debugLog("selectPart", extra: "index: \(index)")
+        let oldPartId = currentPart?.id ?? "none"
+        debugLog("selectPart", extra: "targetIndex: \(index), oldPartId: \(oldPartId)")
         guard let session = selectedSession,
               index >= 0,
               index < session.parts.count else { return }
 
-        let oldPartId = currentPart?.id
+        let targetPartId = session.parts[index].id
         let oldSessionId = selectedSessionId
 
         Task { @MainActor in
@@ -673,15 +675,16 @@ class SessionViewModel: ObservableObject {
                 } else {
                     micService.stopRecording()
                 }
-                await stopTranscription(sessionId: oldSessionId, partId: oldPartId)
+                await stopTranscription(sessionId: oldSessionId, partId: oldPartId, caller: "selectPart")
             } else {
                 // Not recording, but should still flush
+                debugLog("selectPart -> flush (not recording)")
                 chunker?.flush()
             }
 
             currentPartIndex = index
-            let partId = session.parts[index].id
-            partElapsedTime = sessionState.partStates[partId]?.elapsedTime ?? 0
+            debugLog("selectPart -> index updated", extra: "newPartId: \(targetPartId)")
+            partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
         }
     }
 
@@ -722,11 +725,15 @@ class SessionViewModel: ObservableObject {
         )
         activeRecordingContext = context
 
+        debugLog("startTranscription -> Task creation", extra: "ctx: \(context.sessionId):\(context.partId)")
         transcriptionTask = Task {
             do {
+                debugLog("startTranscription -> await transcriptionService.stopTranscription")
                 await transcriptionService.stopTranscription()
+                debugLog("startTranscription -> await transcriptionService.startTranscription")
                 try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
 
+                debugLog("startTranscription -> Entering results loop")
                 for await segment in transcriptionService.results {
                     // Only process segments if they match the context when they were received
                     guard let activeContext = self.activeRecordingContext,
@@ -744,21 +751,29 @@ class SessionViewModel: ObservableObject {
                     )
                     await handleTranscriptSegment(segmentWithContext)
                 }
+                debugLog("startTranscription -> Results loop finished normally")
             } catch {
+                debugLog("startTranscription -> Task failed", extra: "error: \(error)")
                 self.transcriptionError = error.localizedDescription
             }
         }
     }
 
     @MainActor
-    func stopTranscription(sessionId: String? = nil, partId: String? = nil) async {
-        debugLog("stopTranscription")
+    func stopTranscription(sessionId: String? = nil, partId: String? = nil, caller: String? = nil) async {
+        let callerInfo = caller != nil ? "caller: \(caller!)" : "caller: unknown"
+        let ctxInfo = activeRecordingContext != nil ? "activeCtx: \(activeRecordingContext!.sessionId):\(activeRecordingContext!.partId)" : "activeCtx: nil"
+        debugLog("stopTranscription", extra: "\(callerInfo) | \(ctxInfo)")
+
         let targetPartId = partId ?? activeRecordingContext?.partId ?? currentPart?.id
         let targetSessionId = sessionId ?? activeRecordingContext?.sessionId ?? selectedSessionId
 
         activeRecordingContext = nil
 
+        debugLog("stopTranscription -> await transcriptionService.stopTranscription")
         await transcriptionService.stopTranscription()
+
+        debugLog("stopTranscription -> chunker.flush")
         chunker?.flush()
 
         // Finalize remaining provisional segments as final
@@ -784,13 +799,19 @@ class SessionViewModel: ObservableObject {
                 }
             }
             if hasChanges {
+                debugLog("stopTranscription -> segments finalized", extra: "count: \(updatedSegments.count)")
                 sessionState.partStates[partId]?.transcript = updatedSegments
                 chunker?.flush()
             }
         }
 
-        transcriptionTask?.cancel()
-        transcriptionTask = nil
+        if transcriptionTask != nil {
+            debugLog("stopTranscription -> transcriptionTask.cancel")
+            transcriptionTask?.cancel()
+            transcriptionTask = nil
+        } else {
+            debugLog("stopTranscription -> transcriptionTask was nil")
+        }
     }
 
     // MARK: - Notion Sync logic
@@ -884,12 +905,20 @@ class SessionViewModel: ObservableObject {
     func handleTranscriptSegment(_ segment: TranscriptSegment) async {
         debugLog("handleTranscriptSegment", extra: "segId: \(segment.id), segPartId: \(segment.partId), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
         let partId = segment.partId
-        guard !partId.isEmpty else { return }
+        guard !partId.isEmpty else {
+            debugLog("handleTranscriptSegment -> Dropped: partId is empty", extra: "segId: \(segment.id)")
+            return
+        }
 
         var partState = sessionState.partStates[partId] ?? PartState()
+        let countBefore = partState.transcript.count
 
         var shouldSave = false
+        var branch = "none"
+        var chunkerCalled = false
+
         if let index = partState.transcript.firstIndex(where: { $0.id == segment.id }) {
+            branch = "id_match"
             // Update existing segment by ID (Standard case)
             let wasFinal = partState.transcript[index].isFinal
             partState.transcript[index] = segment
@@ -897,9 +926,11 @@ class SessionViewModel: ObservableObject {
             // Only process if it just became final
             if segment.isFinal && !wasFinal {
                 chunker?.processSegment(segment)
+                chunkerCalled = true
                 shouldSave = true
             }
         } else if let duplicateIndex = findDuplicateIndex(for: segment, in: partState.transcript) {
+            branch = "duplicate_match"
             // Update existing segment by similarity
             let existing = partState.transcript[duplicateIndex]
 
@@ -911,19 +942,25 @@ class SessionViewModel: ObservableObject {
 
                 if segment.isFinal && !wasFinal {
                     chunker?.processSegment(segment)
+                    chunkerCalled = true
                 }
             }
         } else {
+            branch = "append"
             // Append new segment
             partState.transcript.append(segment)
 
             if segment.isFinal {
                 chunker?.processSegment(segment)
+                chunkerCalled = true
                 shouldSave = true
             }
         }
 
         sessionState.partStates[partId] = partState
+        let countAfter = partState.transcript.count
+        debugLog("handleTranscriptSegment -> Done", extra: "branch: \(branch), chunkerCalled: \(chunkerCalled), count: \(countBefore) -> \(countAfter)")
+
         if shouldSave {
             saveCurrentSession()
         }

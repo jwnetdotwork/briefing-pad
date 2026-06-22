@@ -214,6 +214,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
                     async let analysis: CMTime? = analyzer.analyzeSequence(inputSequence)
 
+                    var isFirstResult = true
                     for try await result in transcriber.results {
                         if Task.isCancelled {
                             #if DEBUG
@@ -227,7 +228,12 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
                         #if DEBUG
                         let duration = result.range.end.seconds - result.range.start.seconds
-                        print("[SpeechTranscriptionService] [\(runID ?? "none")] Result: isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s, text=\"\(text)\"")
+                        if isFirstResult || result.isFinal {
+                            print("[SpeechTranscriptionService] [\(runID ?? "none")] Result (\(isFirstResult ? "FIRST" : "FINAL")): isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s, text=\"\(text)\"")
+                            isFirstResult = false
+                        } else {
+                            print("[SpeechTranscriptionService] [\(runID ?? "none")] Result (INTER): isFinal=\(result.isFinal), textLen=\(text.count), duration=\(String(format: "%.2f", duration))s")
+                        }
                         #endif
 
                         guard !text.isEmpty else { continue }
@@ -348,7 +354,7 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     // 1st provisional
                     let text1 = "（認識中...）発話チャンク \(chunkNum)"
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=false, text=\"\(text1)\"")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FIRST): isFinal=false, text=\"\(text1)\"")
                     #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
@@ -366,7 +372,7 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     // 2nd provisional (update)
                     let text2 = "（認識中...）確定間近 \(chunkNum)"
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=false, text=\"\(text2)\"")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (INTER): isFinal=false, textLen=\(text2.count)")
                     #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
@@ -383,7 +389,7 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     if Task.isCancelled { return }
                     let text3 = "確定した発話 \(chunkNum)"
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield: isFinal=true, text=\"\(text3)\"")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FINAL): isFinal=true, text=\"\(text3)\"")
                     #endif
                     transcriptionContinuation?.yield(TranscriptSegment(
                         id: id,
