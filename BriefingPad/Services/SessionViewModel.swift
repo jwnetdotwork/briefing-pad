@@ -4,7 +4,7 @@ import CryptoKit
 import AVFoundation
 
 @MainActor
-class SessionViewModel: ObservableObject {
+class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var sessions: [BriefingSession]
     @Published var selectedSessionId: String
     @Published var currentPartIndex: Int = 0
@@ -26,6 +26,11 @@ class SessionViewModel: ObservableObject {
     @Published var micStatus: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
     @Published var partElapsedTime: TimeInterval = 0
+
+    @Published var isPlaying: Bool = false
+    private var audioPlayer: AVAudioPlayer?
+    private var playbackQueue: [URL] = []
+    private var currentPlaybackIndex: Int = 0
 
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
@@ -99,6 +104,8 @@ class SessionViewModel: ObservableObject {
         self.micService = micService
         self.store = store
         self.clock = clock
+
+        super.init()
 
         self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler ?? RealScheduler()) { [weak self] chunk in
             guard let self = self else { return }
@@ -339,6 +346,8 @@ class SessionViewModel: ObservableObject {
         let oldSessionId = selectedSessionId
 
         Task { @MainActor in
+            stopPlayback()
+
             if micStatus == .recording || micStatus == .starting {
                 if micStatus == .starting {
                     micService.cancelPendingOperationsAndStop()
@@ -387,7 +396,7 @@ class SessionViewModel: ObservableObject {
                         elapsedTime: partRun.elapsedTime,
                         llmResults: partRun.llmResults,
                         finalSummary: partRun.finalSummary,
-                        audioFileName: partRun.audioFileName
+                        audioFileNames: partRun.audioFileNames
                     )
                 }
                 self.sessionState = newState
@@ -417,7 +426,7 @@ class SessionViewModel: ObservableObject {
             partRun.isFinished = partState.isFinished
             partRun.llmResults = partState.llmResults
             partRun.finalSummary = partState.finalSummary
-            partRun.audioFileName = partState.audioFileName
+            partRun.audioFileNames = partState.audioFileNames
 
             partRuns[partId] = partRun
         }
@@ -502,6 +511,8 @@ class SessionViewModel: ObservableObject {
         guard let partId = currentPart?.id else { return }
 
         Task { @MainActor in
+            stopPlayback()
+
             // Stop recording/transcription if active for THIS part
             if micStatus == .recording || micStatus == .starting {
                 await stopTranscription()
@@ -531,7 +542,7 @@ class SessionViewModel: ObservableObject {
                 } else {
                     if onlyAudio {
                         try await store.deleteAudio(sessionId: selectedSessionId, partId: partId)
-                        sessionState.partStates[partId]?.audioFileName = nil
+                        sessionState.partStates[partId]?.audioFileNames = []
                     }
                     if onlyTranscript {
                         try await store.deleteTranscript(sessionId: selectedSessionId, partId: partId)
@@ -565,6 +576,7 @@ class SessionViewModel: ObservableObject {
     // MARK: - Recording Operations
 
     func startRecording() {
+        stopPlayback()
         let oldPartId = currentPart?.id ?? "none"
         #if DEBUG
         let newRunID = String(UUID().uuidString.prefix(8))
@@ -580,7 +592,7 @@ class SessionViewModel: ObservableObject {
 
         // Update local state to track this audio file
         var partState = sessionState.partStates[partId] ?? PartState()
-        partState.audioFileName = audioURL.lastPathComponent
+        partState.audioFileNames.append(audioURL.lastPathComponent)
         sessionState.partStates[partId] = partState
 
         micService.startRecording(audioFileURL: audioURL, runID: currentRunID)
@@ -604,6 +616,7 @@ class SessionViewModel: ObservableObject {
         let targetPartIndex = currentPartIndex
 
         isFinalizing = true
+        stopPlayback()
 
         // 1. Stop recording and flush
         micService.stopRecording()
@@ -657,6 +670,8 @@ class SessionViewModel: ObservableObject {
         let oldSessionId = selectedSessionId
 
         Task { @MainActor in
+            stopPlayback()
+
             if micStatus == .recording || micStatus == .starting {
                 if micStatus == .starting {
                     micService.cancelPendingOperationsAndStop()
@@ -673,6 +688,63 @@ class SessionViewModel: ObservableObject {
             currentPartIndex = index
 //            debugLog("selectPart -> index updated", extra: "newPartId: \(targetPartId)")
             partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
+        }
+    }
+
+    // MARK: - Playback
+
+    func startPlayback() {
+        guard let partId = currentPart?.id,
+              let fileNames = sessionState.partStates[partId]?.audioFileNames,
+              !fileNames.isEmpty else { return }
+
+        stopPlayback()
+
+        playbackQueue = fileNames.map { fileName in
+            let partDir = (store as? FileSessionStore)?.getAudioURL(sessionId: selectedSessionId, partId: partId, recordingId: "dummy").deletingLastPathComponent()
+            return partDir?.appendingPathComponent(fileName) ?? URL(fileURLWithPath: fileName)
+        }
+
+        // Filter out non-existent files just in case
+        playbackQueue = playbackQueue.filter { FileManager.default.fileExists(atPath: $0.path) }
+
+        guard !playbackQueue.isEmpty else { return }
+
+        currentPlaybackIndex = 0
+        isPlaying = true
+        playNextInQueue()
+    }
+
+    func stopPlayback() {
+        audioPlayer?.stop()
+        audioPlayer = nil
+        isPlaying = false
+        playbackQueue = []
+        currentPlaybackIndex = 0
+    }
+
+    private func playNextInQueue() {
+        guard currentPlaybackIndex < playbackQueue.count else {
+            stopPlayback()
+            return
+        }
+
+        let url = playbackQueue[currentPlaybackIndex]
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.delegate = self
+            audioPlayer?.play()
+        } catch {
+            print("Failed to play audio: \(error)")
+            currentPlaybackIndex += 1
+            playNextInQueue()
+        }
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in
+            self.currentPlaybackIndex += 1
+            self.playNextInQueue()
         }
     }
 

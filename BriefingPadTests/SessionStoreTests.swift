@@ -115,19 +115,19 @@ final class SessionStoreTests: XCTestCase {
         try "dummy audio".data(using: .utf8)?.write(to: audioURL)
 
         var partRun = PartRun(partId: partId)
-        partRun.audioFileName = audioURL.lastPathComponent
+        partRun.audioFileNames = [audioURL.lastPathComponent]
 
         let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [partId: partRun])
         try await store.saveSession(savedSession)
 
         let loaded = try await store.loadSession(sessionId: sessionId)
-        XCTAssertEqual(loaded?.partRuns[partId]?.audioFileName, audioURL.lastPathComponent)
+        XCTAssertEqual(loaded?.partRuns[partId]?.audioFileNames, [audioURL.lastPathComponent])
         XCTAssertTrue(FileManager.default.fileExists(atPath: audioURL.path))
 
         try await store.deleteAudio(sessionId: sessionId, partId: partId)
         XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
 
         let reloadedAfterDelete = try await store.loadSession(sessionId: sessionId)
-        XCTAssertNil(reloadedAfterDelete?.partRuns[partId]?.audioFileName)
+        XCTAssertTrue(reloadedAfterDelete?.partRuns[partId]?.audioFileNames.isEmpty ?? false)
     }
 }
