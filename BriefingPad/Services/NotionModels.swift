@@ -18,9 +18,10 @@ struct NotionBlock: Decodable {
     let paragraph: NotionTextContent?
     let bulleted_list_item: NotionTextContent?
     let image: NotionImage?
+    var toggle: NotionToggleBlock?
 
     enum CodingKeys: String, CodingKey {
-        case id, type, has_children, last_edited_time, parent, heading_2, heading_3, heading_4, paragraph, bulleted_list_item, image
+        case id, type, has_children, last_edited_time, parent, heading_2, heading_3, heading_4, paragraph, bulleted_list_item, image, toggle
     }
 }
 
@@ -74,4 +75,10 @@ struct NotionExternal: Decodable {
 
 struct NotionFile: Decodable {
     let url: String
+}
+
+struct NotionToggleBlock: Decodable {
+    let rich_text: [NotionRichText]
+    let children: [NotionBlock]?
+    let is_toggleable: Bool?
 }

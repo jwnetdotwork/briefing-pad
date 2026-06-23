@@ -19,6 +19,17 @@ protocol NotionServiceProtocol {
 
 class NotionService: NotionServiceProtocol {
     private let client: NotionClientProtocol
+    
+    private func debugLog(_ event: String, extra: String? = nil) {
+        #if DEBUG
+
+        var message = "[NotionService] \(event)"
+        if let extra = extra {
+            message += " | \(extra)"
+        }
+        print(message)
+        #endif
+    }
 
     init(client: NotionClientProtocol) {
         self.client = client
@@ -32,6 +43,7 @@ class NotionService: NotionServiceProtocol {
     ) async throws -> NotionUpdateResult {
         do {
             // 1. Fetch current AI Memo header block
+            debugLog("[NotionSync] fetchBlock start - blockId: \(blockId)")
             var headerBlock = try await client.fetchBlock(blockId: blockId)
             let parentId = headerBlock.parent?.block_id ?? headerBlock.parent?.page_id
             guard let parentId = parentId else {
@@ -40,7 +52,7 @@ class NotionService: NotionServiceProtocol {
 
             // 2. Conflict Detection & Normalization
             let currentLastEditedTime = headerBlock.last_edited_time ?? ""
-            let isToggle = headerBlock.heading_3?.is_toggleable ?? false
+            let isToggle = (headerBlock.heading_3?.is_toggleable ?? false) || (headerBlock.toggle != nil)
 
             var existingNotionContent = ""
             var blocksToDelete: [String] = []
@@ -51,27 +63,31 @@ class NotionService: NotionServiceProtocol {
                 existingNotionContent = children.map { getPlainText($0) }.joined(separator: "\n")
                 blocksToDelete = children.map { $0.id }
             } else {
+                let children = try await client.fetchBlocks(blockId: blockId)
+                existingNotionContent = children.map { getPlainText($0) }.joined(separator: "\n")
+                blocksToDelete = children.map { $0.id }
                 // Migration: Fetch siblings to find the old-style frame
-                let allBlocks = try await client.fetchBlocks(blockId: parentId)
-                let frame = findFrame(headerId: blockId, allBlocks: allBlocks)
+//                debugLog("[NotionSync] fetchBlock notoggle - blockId: \(parentId)")
+//                let allBlocks = try await client.fetchBlocks(blockId: parentId)
+//                let frame = findFrame(headerId: blockId, allBlocks: allBlocks)
                 // In old style, the header was part of the frame and gets replaced/moved.
                 // But we want to KEEP the header and just convert it.
                 // Frame includes the header itself as the first element.
-                existingNotionContent = frame.blocks.dropFirst().map { getPlainText($0) }.joined(separator: "\n")
-                blocksToDelete = frame.blocks.dropFirst().map { $0.id }
+//                existingNotionContent = frame.blocks.dropFirst().map { getPlainText($0) }.joined(separator: "\n")
+//                blocksToDelete = frame.blocks.dropFirst().map { $0.id }
 
                 // Convert header to toggle
                 // We must include the existing rich_text to avoid losing it
-                let existingRichText = headerBlock.heading_3?.rich_text.map { rt in
-                    ["type": "text", "text": ["content": rt.plain_text]]
-                } ?? []
-
-                headerBlock = try await client.updateBlock(blockId: blockId, content: [
-                    "heading_3": [
-                        "rich_text": existingRichText,
-                        "is_toggleable": true
-                    ]
-                ])
+//                let existingRichText = headerBlock.paragraph?.rich_text.map { rt in
+//                    ["type": "text", "text": ["content": rt.plain_text]]
+//                } ?? []
+//                
+//                debugLog("[NotionSync] fetchBlock update - blockId: \(blockId)")
+//                headerBlock = try await client.updateBlock(blockId: blockId, content: [
+//                    "paragraph": [
+//                        "rich_text": existingRichText
+//                    ]
+//                ])
             }
 
             let existingNotionHash = CryptoUtils.calculateHash(content: normalizeContent(existingNotionContent))
@@ -117,6 +133,10 @@ class NotionService: NotionServiceProtocol {
                 )
             }
         } catch {
+            // error の型と中身を両方出力
+            debugLog("[NotionSync] ERROR type: \(type(of: error))")
+            debugLog("[NotionSync] ERROR dump: \(error)")
+            debugLog("[NotionSync] ERROR localized: \(error.localizedDescription)")
             return .failure(error.localizedDescription)
         }
     }
