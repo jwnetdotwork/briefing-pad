@@ -3,14 +3,13 @@ import Foundation
 struct PromptBuilder {
     static func buildSystemPrompt() -> String {
         return """
-        あなたは接客やコミュニケーションのトレーニングを支援するAIアシスタントです。
+        あなたは「生活と奉仕の集会」の実演に対する短評を準備する補助者です。
         提供された文字起こしデータ（全文および最新の追加分）を分析し、特定の「観察メモ」および「良かった点候補」に該当する箇所があるかを判定してください。
 
         以下の制約を厳守してJSON形式で回答してください：
         1. 指定された itemId 以外は返さないこと。
         2. 各項目について、確信度（confidence: 0.0〜1.0）と、その根拠となる短い証拠（shortEvidence）を抽出すること。
-        3. 以前は検出されていたが最新の文脈で「もう検出されない/否定された」と判断した場合は、confidence を低く（0.0など）設定すること。
-        4. JSONフォーマットは以下の通りとすること：
+        3. JSONフォーマットは以下の通りとすること：
         {
           "observationMatches": [
             { "itemId": "obs-1", "confidence": 0.9, "shortEvidence": "証拠文言" }
@@ -134,7 +133,7 @@ struct PromptBuilder {
             prompt += "(なし)\n"
         } else {
             for item in observations {
-                prompt += "- \(item.text) (根拠: \(item.evidence))\n"
+                prompt += "- \(item.text) \(item.evidence)\n"
             }
         }
 

@@ -243,7 +243,7 @@ struct CommentMaterialView: View {
                             .controlSize(.small)
                     }
                 } else {
-                    Text(aiMemo.isEmpty && !isFinalizing ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
+                    Text(aiMemo.isEmpty && !isFinalizing ? "（パート終了後にAIメモが生成されます）" : aiMemo)
                         .font(.body)
                         .lineSpacing(4)
                 }
