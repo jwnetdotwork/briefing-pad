@@ -11,6 +11,11 @@ struct AnalysisResult: Codable, Hashable {
     let positiveMatches: [ItemMatch]
 }
 
+struct SummarizedItem: Codable, Hashable {
+    let text: String
+    let evidence: String
+}
+
 protocol LLMServiceProtocol {
     func analyzeTranscript(
         fullTranscript: String,
@@ -18,7 +23,13 @@ protocol LLMServiceProtocol {
         partInfo: PartDefinition
     ) async throws -> AnalysisResult
 
-    func generateOneLiner(summarizedPoints: [String]) async throws -> String
+    /// 箇条書きのコメント用素材を生成する
+    func generateOneLiner(
+        partInfo: PartDefinition,
+        fullTranscript: String,
+        positives: [SummarizedItem],
+        observations: [SummarizedItem]
+    ) async throws -> String
 }
 
 class MockLLMService: LLMServiceProtocol {
@@ -46,7 +57,12 @@ class MockLLMService: LLMServiceProtocol {
         )
     }
 
-    func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+    func generateOneLiner(
+        partInfo: PartDefinition,
+        fullTranscript: String,
+        positives: [SummarizedItem],
+        observations: [SummarizedItem]
+    ) async throws -> String {
         try await Task.sleep(nanoseconds: delayNanoseconds)
         return "素晴らしい対応でした。特に相手の状況を汲み取った発言が印象的です。"
     }

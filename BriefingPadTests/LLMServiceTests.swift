@@ -36,6 +36,41 @@ final class LLMServiceTests: XCTestCase {
         XCTAssertTrue(userPrompt.contains(newChunk))
     }
 
+    func testOneLinerPromptBuilder() {
+        let partInfo = PartDefinition(
+            id: "test-part",
+            number: 1,
+            title: "Test Part",
+            durationMinutes: 5,
+            setting: "Test Setting",
+            rawMarkdown: "",
+            learningPoints: [LearningPoint(id: "lp1", text: "Point 1")],
+            observationItems: [],
+            positiveItems: []
+        )
+
+        let fullTranscript = "Full transcript text."
+        let positives = [SummarizedItem(text: "Good point", evidence: "He smiled")]
+        let observations = [SummarizedItem(text: "Observed", evidence: "He sat down")]
+
+        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
+        let userPrompt = PromptBuilder.buildOneLinerUserPrompt(
+            partInfo: partInfo,
+            fullTranscript: fullTranscript,
+            positives: positives,
+            observations: observations
+        )
+
+        XCTAssertTrue(systemPrompt.contains("箇条書き"))
+        XCTAssertTrue(userPrompt.contains("Test Part"))
+        XCTAssertTrue(userPrompt.contains("Point 1"))
+        XCTAssertTrue(userPrompt.contains("Good point"))
+        XCTAssertTrue(userPrompt.contains("He smiled"))
+        XCTAssertTrue(userPrompt.contains("Observed"))
+        XCTAssertTrue(userPrompt.contains("He sat down"))
+        XCTAssertTrue(userPrompt.contains(fullTranscript))
+    }
+
     func testAnalysisResultParsing() throws {
         let json = """
         {

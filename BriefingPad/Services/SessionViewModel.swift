@@ -300,24 +300,6 @@ class SessionViewModel: ObservableObject {
                 now: now
             )
 
-            // Update aiMemo only if not finished
-            let isFinished = sessionState.partStates[partId]?.isFinished ?? false
-            if !isFinished {
-                let positives = getSummarizedItems(
-                    items: latestPart.positiveItems,
-                    states: latestPart.analysisState.positiveItemStates
-                )
-                let observations = getSummarizedItems(
-                    items: latestPart.observationItems,
-                    states: latestPart.analysisState.observationItemStates
-                )
-                latestPart.aiMemo = formatFinalMemo(
-                    positives: positives,
-                    observations: observations,
-                    oneLiner: nil
-                )
-            }
-
             // Update local state immediately for UI responsiveness
             self.updateLocalPart(latestPart, sessionId: sessionId, partIndex: partIndex)
 
@@ -333,20 +315,6 @@ class SessionViewModel: ObservableObject {
             sessionState.partStates[partId]?.llmResults.append(llmResult)
 
             saveCurrentSession()
-
-           
-            
-            // 3. Notion Update
-            if let blockId = latestPart.aiMemoBlockId {
-                let memoToSync = latestPart.aiMemo
-//                debugLog("memoToSync:\(memoToSync)")
-                // ① そもそもここに到達しているか
-//                debugLog("[NotionSync] blockId found: \(blockId), partId: \(partId)")
-                triggerNotionSync(blockId: blockId, content: memoToSync, partId: partId)
-            } else {
-                // ② aiMemoBlockId が nil でスキップされていないか
-                debugLog("[NotionSync] SKIPPED - aiMemoBlockId is nil for partId: \(partId)")
-            }
         } catch {
             print("Failed to process chunk: \(error)")
             // Mark as failed in queue if we had a way to show it, but for now we just remove it.
@@ -655,6 +623,11 @@ class SessionViewModel: ObservableObject {
         }
         let latestPart = session.parts[targetPartIndex]
 
+        let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
+            .filter { $0.isFinal }
+            .map { $0.text }
+            .joined(separator: "\n")
+
         let positives = getSummarizedItems(
             items: latestPart.positiveItems,
             states: latestPart.analysisState.positiveItemStates
@@ -664,40 +637,39 @@ class SessionViewModel: ObservableObject {
             states: latestPart.analysisState.observationItemStates
         )
 
-        var oneLiner: String? = nil
-        let summarizedTextList = positives.map { "良: \($0.text)" } + observations.map { "観: \($0.text)" }
-
-        if !summarizedTextList.isEmpty {
+        var finalMemo: String? = nil
+        if !positives.isEmpty || !observations.isEmpty || !fullTranscript.isEmpty {
             do {
-                oneLiner = try await llmService.generateOneLiner(summarizedPoints: summarizedTextList)
+                finalMemo = try await llmService.generateOneLiner(
+                    partInfo: latestPart,
+                    fullTranscript: fullTranscript,
+                    positives: positives,
+                    observations: observations
+                )
             } catch {
-                print("Failed to generate one-liner: \(error)")
-                // Continue with deterministic part
+                print("Failed to generate comment material: \(error)")
+                // If generation fails, we don't update aiMemo and don't sync with Notion
             }
         }
 
-        let finalMemo = formatFinalMemo(
-            positives: positives,
-            observations: observations,
-            oneLiner: oneLiner
-        )
+        // 4. Update local state and Notion
+        if let finalMemo = finalMemo {
+            var updatedPart = latestPart
+            updatedPart.aiMemo = finalMemo
+            updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
 
-        // 4. Update local state
-        var updatedPart = latestPart
-        updatedPart.aiMemo = finalMemo
-        updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
+            // Record Final Summary
+            let finalSummary = FinalSummary(
+                text: finalMemo,
+                adoptedItemIds: positives.map { $0.text } + observations.map { $0.text },
+                sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
+            )
+            sessionState.partStates[part.id]?.finalSummary = finalSummary
 
-        // Record Final Summary
-        let finalSummary = FinalSummary(
-            text: finalMemo,
-            adoptedItemIds: positives.map { $0.text } + observations.map { $0.text },
-            sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
-        )
-        sessionState.partStates[part.id]?.finalSummary = finalSummary
-
-        // 5. Notion Update (Wait for final sync)
-        if let blockId = updatedPart.aiMemoBlockId {
-            await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
+            // 5. Notion Update (Wait for final sync)
+            if let blockId = updatedPart.aiMemoBlockId {
+                await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
+            }
         }
 
         // 6. Mark as finished
@@ -956,17 +928,10 @@ class SessionViewModel: ObservableObject {
         guard let part = currentPart, let blockId = part.aiMemoBlockId else { return }
 
         // Use the stored aiMemo which might already have one-liner if part was finished.
-        // If empty, generate from current analysis.
-        let content: String
-        if part.aiMemo.isEmpty {
-             content = formatFinalMemo(
-                positives: getSummarizedItems(items: part.positiveItems, states: part.analysisState.positiveItemStates),
-                observations: getSummarizedItems(items: part.observationItems, states: part.analysisState.observationItemStates),
-                oneLiner: nil
-            )
-        } else {
-            content = part.aiMemo
-        }
+        // If empty, it means finalization (generation) hasn't happened or failed.
+        // We only retry if we have content.
+        let content = part.aiMemo
+        guard !content.isEmpty else { return }
 
         triggerNotionSync(blockId: blockId, content: content, partId: part.id)
     }
@@ -1122,11 +1087,6 @@ class SessionViewModel: ObservableObject {
 
     // MARK: - Finalization Logic
 
-    struct SummarizedItem {
-        let text: String
-        let evidence: String
-    }
-
     func getSummarizedItems<T: SummaryItemProtocol>(
         items: [T],
         states: [String: AnalysisItemState]
@@ -1146,40 +1106,9 @@ class SessionViewModel: ObservableObject {
                 }
                 return a.state.confidence > b.state.confidence
             }
-            .prefix(2)
             .map { SummarizedItem(text: $0.text, evidence: $0.state.shortEvidence) }
     }
 
-    func formatFinalMemo(
-        positives: [SummarizedItem],
-        observations: [SummarizedItem],
-        oneLiner: String?
-    ) -> String {
-        var lines: [String] = []
-
-        if !positives.isEmpty {
-            lines.append("◎ 短評で使えそう")
-            for item in positives {
-                lines.append("- \(item.text): \(item.evidence)")
-            }
-            lines.append("")
-        }
-
-        if !observations.isEmpty {
-            lines.append("👀 根拠になりそうな観察")
-            for item in observations {
-                lines.append("- \(item.text): \(item.evidence)")
-            }
-            lines.append("")
-        }
-
-        if let oneLiner = oneLiner, !oneLiner.isEmpty {
-            lines.append("💡 言えそうな一言")
-            lines.append(oneLiner)
-        }
-
-        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 
     // For debugging and manual injection (legacy support)
     @MainActor

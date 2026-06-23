@@ -63,10 +63,10 @@ struct PromptBuilder {
     static func buildOneLinerSystemPrompt() -> String {
         return """
         あなたは「生活と奉仕の集会」の実演に対する短評を準備する補助者です。
-        以下に渡す「事前準備メモ」と「実演の文字起こし原稿」を基に、約1分間の短評に使える素材をコンパクトに箇条書きでまとめてください。
+        提供されるパート情報、学習ポイント、および実演の文字起こし原稿、そして分析によって得られた「良かった点」や「観察事項」の候補を基に、約1分間の短評に使える「コメント用素材」をコンパクトに箇条書きでまとめてください。
 
         # 出力してほしいもの
-        - 約1分間の短評に使える素材を箇条書きで出力する。
+        - 約1分間の短評に使える素材（箇条書き）を出力する。
         - 次の流れを意識する。
           1. 最初の温かい褒め言葉
           2. どこがどのように良かったか
@@ -103,12 +103,46 @@ struct PromptBuilder {
         """
     }
 
-    static func buildOneLinerUserPrompt(summarizedPoints: [String]) -> String {
-        var prompt = "## 事前準備メモ\n"
-        for point in summarizedPoints {
-            prompt += "- \(point)\n"
+    static func buildOneLinerUserPrompt(
+        partInfo: PartDefinition,
+        fullTranscript: String,
+        positives: [SummarizedItem],
+        observations: [SummarizedItem]
+    ) -> String {
+        var prompt = "## 現在のパート情報\n"
+        prompt += "タイトル: \(partInfo.title)\n"
+        if let setting = partInfo.setting {
+            prompt += "設定: \(setting)\n"
         }
-        prompt += "\n## 実演の文字起こし原稿"
+
+        prompt += "\n## 学習ポイント\n"
+        for lp in partInfo.learningPoints {
+            prompt += "- \(lp.text)\n"
+        }
+
+        prompt += "\n## 分析済みの候補（良かった点）\n"
+        if positives.isEmpty {
+            prompt += "(なし)\n"
+        } else {
+            for item in positives {
+                prompt += "- \(item.text) (根拠: \(item.evidence))\n"
+            }
+        }
+
+        prompt += "\n## 分析済みの候補（観察事項）\n"
+        if observations.isEmpty {
+            prompt += "(なし)\n"
+        } else {
+            for item in observations {
+                prompt += "- \(item.text) (根拠: \(item.evidence))\n"
+            }
+        }
+
+        prompt += "\n## 実演の文字起こし原稿（全文）\n"
+        prompt += fullTranscript + "\n"
+
+        prompt += "\n## 回答\n箇条書きのコメント用素材のみを出力してください。"
+
         return prompt
     }
 }
