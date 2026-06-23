@@ -4,6 +4,11 @@ import XCTest
 @MainActor
 final class FinalizationLogicTests: XCTestCase {
 
+    func testSummarizedItemModel() {
+        let item = SummarizedItem(id: "id1", text: "Text", evidence: "Evidence")
+        XCTAssertEqual(item.id, "id1")
+    }
+
     func testGetSummarizedItems_Prioritization() {
         let viewModel = SessionViewModel(
             llmService: MockLLMService(),
@@ -29,55 +34,10 @@ final class FinalizationLogicTests: XCTestCase {
 
         let summarized = viewModel.getSummarizedItems(items: items, states: states)
 
-        XCTAssertEqual(summarized.count, 2)
+        XCTAssertEqual(summarized.count, 3)
         XCTAssertEqual(summarized[0].text, "Item 3") // strong, 0.99
         XCTAssertEqual(summarized[1].text, "Item 1") // strong, 0.9
-    }
-
-    func testFormatFinalMemo_Full() {
-        let viewModel = SessionViewModel()
-
-        let positives = [
-            SessionViewModel.SummarizedItem(text: "P1", evidence: "PE1"),
-            SessionViewModel.SummarizedItem(text: "P2", evidence: "PE2")
-        ]
-        let observations = [
-            SessionViewModel.SummarizedItem(text: "O1", evidence: "OE1")
-        ]
-        let oneLiner = "Excellent work!"
-
-        let memo = viewModel.formatFinalMemo(positives: positives, observations: observations, oneLiner: oneLiner)
-
-        let expected = """
-        ◎ 短評で使えそう
-        - P1: PE1
-        - P2: PE2
-
-        👀 根拠になりそうな観察
-        - O1: OE1
-
-        💡 言えそうな一言
-        Excellent work!
-        """
-        XCTAssertEqual(memo, expected)
-    }
-
-    func testFormatFinalMemo_MissingSections() {
-        let viewModel = SessionViewModel()
-
-        let positives: [SessionViewModel.SummarizedItem] = []
-        let observations = [
-            SessionViewModel.SummarizedItem(text: "O1", evidence: "OE1")
-        ]
-        let oneLiner = ""
-
-        let memo = viewModel.formatFinalMemo(positives: positives, observations: observations, oneLiner: oneLiner)
-
-        let expected = """
-        👀 根拠になりそうな観察
-        - O1: OE1
-        """
-        XCTAssertEqual(memo, expected)
+        XCTAssertEqual(summarized[2].text, "Item 2") // candidate, 0.95
     }
 
     @MainActor
@@ -143,7 +103,12 @@ final class FinalizationLogicTests: XCTestCase {
             )
         }
 
-        func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+        func generateOneLiner(
+            partInfo: PartDefinition,
+            fullTranscript: String,
+            positives: [SummarizedItem],
+            observations: [SummarizedItem]
+        ) async throws -> String {
             return "Mock One-Liner"
         }
     }
@@ -177,8 +142,8 @@ final class FinalizationLogicTests: XCTestCase {
 
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
         XCTAssertFalse(viewModel.sessions[0].parts[0].aiMemo.isEmpty)
-        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("◎ 短評で使えそう"))
-        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("💡 言えそうな一言"))
+        // Note: MockLLMService returns a fixed string, not the formatted memo anymore
+        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("素晴らしい対応でした"))
     }
 
     @MainActor

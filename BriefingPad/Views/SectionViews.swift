@@ -205,6 +205,7 @@ struct PositiveItemsView: View {
 
 struct CommentMaterialView: View {
     let aiMemo: String
+    let generationError: String?
     let isFinalizing: Bool
     let syncStatus: SessionViewModel.NotionSyncStatus
     let onRetry: () -> Void
@@ -228,9 +229,24 @@ struct CommentMaterialView: View {
                     syncStatusView
                 }
 
-                Text(aiMemo.isEmpty && !isFinalizing ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
-                    .font(.body)
-                    .lineSpacing(4)
+                if let error = generationError, aiMemo.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Image(systemName: "exclamationmark.circle.fill")
+                                .foregroundColor(.red)
+                            Text("メモ生成失敗: \(error)")
+                                .font(.caption)
+                                .foregroundColor(.red)
+                        }
+                        Button("再試行", action: onRetry)
+                            .buttonStyle(.borderless)
+                            .controlSize(.small)
+                    }
+                } else {
+                    Text(aiMemo.isEmpty && !isFinalizing ? "（文字起こしが進むとここにAIメモが表示されます）" : aiMemo)
+                        .font(.body)
+                        .lineSpacing(4)
+                }
             }
         }
     }
@@ -332,6 +348,7 @@ struct SectionViews_Previews: PreviewProvider {
             )
             CommentMaterialView(
                 aiMemo: "AIメモ",
+                generationError: nil,
                 isFinalizing: false,
                 syncStatus: .success,
                 onRetry: {}

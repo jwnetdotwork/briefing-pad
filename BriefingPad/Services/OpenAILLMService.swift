@@ -82,13 +82,24 @@ class OpenAILLMService: LLMServiceProtocol {
         }
     }
 
-    func generateOneLiner(summarizedPoints: [String]) async throws -> String {
+    /// 箇条書きのコメント用素材を生成する
+    func generateOneLiner(
+        partInfo: PartDefinition,
+        fullTranscript: String,
+        positives: [SummarizedItem],
+        observations: [SummarizedItem]
+    ) async throws -> String {
         guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 
         let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
-        let userPrompt = PromptBuilder.buildOneLinerUserPrompt(summarizedPoints: summarizedPoints)
+        let userPrompt = PromptBuilder.buildOneLinerUserPrompt(
+            partInfo: partInfo,
+            fullTranscript: fullTranscript,
+            positives: positives,
+            observations: observations
+        )
 
         let requestBody: [String: Any] = [
             "model": model,
