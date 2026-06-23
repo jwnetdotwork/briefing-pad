@@ -18,10 +18,10 @@ final class BriefingPadUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Part 1. 挨拶をする"].exists)
 
         // Check for Controls
-        XCTAssertTrue(app.buttons["[前へ]"].exists)
-        XCTAssertTrue(app.buttons["[次へ]"].exists)
-        XCTAssertTrue(app.buttons["[開始]"].exists)
-        XCTAssertTrue(app.buttons["[終了]"].exists)
+        XCTAssertTrue(app.buttons["前へ"].exists)
+        XCTAssertTrue(app.buttons["次へ"].exists)
+        XCTAssertTrue(app.buttons["開始"].exists)
+        XCTAssertTrue(app.buttons["パート終了"].exists)
 
         // Check for Section Titles
         XCTAssertTrue(app.staticTexts["文字起こし"].exists)
@@ -36,13 +36,13 @@ final class BriefingPadUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let nextButton = app.buttons["[次へ]"]
+        let nextButton = app.buttons["次へ"]
         XCTAssertTrue(nextButton.isEnabled)
         nextButton.click()
 
         XCTAssertTrue(app.staticTexts["Part 4. 会話を始める"].exists)
 
-        let prevButton = app.buttons["[前へ]"]
+        let prevButton = app.buttons["前へ"]
         XCTAssertTrue(prevButton.isEnabled)
         prevButton.click()
 
