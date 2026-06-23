@@ -20,11 +20,11 @@ enum AnalysisItemStatus: String, Codable, Hashable, Comparable {
     var displayLabel: String {
         switch self {
         case .hidden:
-            return "非表示 hidden"
+            return "ー"
         case .candidate:
-            return "○ candidate"
+            return "🟠"
         case .strong:
-            return "◎ strong"
+            return "🟢"
         }
     }
 }

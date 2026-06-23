@@ -127,7 +127,7 @@ struct ObservationItemsView: View {
                         let isCandidate = itemState.status == .candidate
 
                         HStack(alignment: .firstTextBaseline) {
-                            let evidence = itemState.shortEvidence.isEmpty ? "" : "（\(itemState.shortEvidence)）"
+                            let evidence = itemState.shortEvidence.isEmpty ? "" : itemState.shortEvidence
                             Text("・\(item.text)\(evidence)")
                                 .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
                                 .lineLimit(2)
@@ -172,7 +172,7 @@ struct PositiveItemsView: View {
                 } else {
                     ForEach(displayItems, id: \.item.id) { pair in
                         HStack(alignment: .firstTextBaseline) {
-                            let evidence = pair.state.shortEvidence.isEmpty ? "" : "（\(pair.state.shortEvidence)）"
+                            let evidence = pair.state.shortEvidence.isEmpty ? "" : pair.state.shortEvidence
                             Text("・\(pair.item.text)\(evidence)")
                                 .font(.body.bold())
                                 .lineLimit(2)
