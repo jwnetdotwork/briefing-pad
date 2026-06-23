@@ -126,25 +126,19 @@ struct ObservationItemsView: View {
                         let isStrong = itemState.status == .strong
                         let isCandidate = itemState.status == .candidate
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("・\(item.text)")
-                                    .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
+                        HStack(alignment: .firstTextBaseline) {
+                            let evidence = itemState.shortEvidence.isEmpty ? "" : "（\(itemState.shortEvidence)）"
+                            Text("・\(item.text)\(evidence)")
+                                .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
+                                .lineLimit(2)
 
-                                Spacer(minLength: 12)
+                            Spacer(minLength: 12)
 
-                                if isStrong || isCandidate {
-                                    Text(itemState.status.displayLabel)
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-
-                            if !itemState.shortEvidence.isEmpty && (isStrong || isCandidate) {
-                                Text(itemState.shortEvidence)
-                                    .font(.caption)
+                            if isStrong || isCandidate {
+                                Text(itemState.status.displayLabel)
+                                    .font(.caption2)
                                     .foregroundColor(.secondary)
-                                    .lineLimit(1)
+                                    .fixedSize()
                             }
                         }
                     }
@@ -177,24 +171,18 @@ struct PositiveItemsView: View {
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(displayItems, id: \.item.id) { pair in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(alignment: .firstTextBaseline) {
-                                Text("・\(pair.item.text)")
-                                    .font(.body.bold())
+                        HStack(alignment: .firstTextBaseline) {
+                            let evidence = pair.state.shortEvidence.isEmpty ? "" : "（\(pair.state.shortEvidence)）"
+                            Text("・\(pair.item.text)\(evidence)")
+                                .font(.body.bold())
+                                .lineLimit(2)
 
-                                Spacer(minLength: 12)
+                            Spacer(minLength: 12)
 
-                                Text(pair.state.status.displayLabel)
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            if !pair.state.shortEvidence.isEmpty {
-                                Text(pair.state.shortEvidence)
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(1)
-                            }
+                            Text(pair.state.status.displayLabel)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                                .fixedSize()
                         }
                     }
                 }
