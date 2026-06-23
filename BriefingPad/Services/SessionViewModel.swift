@@ -706,7 +706,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
               index >= 0,
               index < session.parts.count else { return }
 
-        let oldPartId = currentPart?.id ?? "none"
+        let oldPartId = currentPart?.id
         let targetPartId = session.parts[index].id
         let oldSessionId = selectedSessionId
 
@@ -829,10 +829,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 await transcriptionService.stopTranscription()
                 let results = try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
 
-                var count = 0
                 for await segment in results {
-                    count += 1
-
                     // Only process segments if they match the context when they were received
                     guard let activeContext = self.activeRecordingContext,
                           activeContext == context else {
@@ -852,6 +849,10 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     await handleTranscriptSegment(segmentWithContext)
                 }
             } catch {
+                if error is CancellationError { return }
+                guard let activeContext = self.activeRecordingContext,
+                      activeContext == context else { return }
+
                 self.transcriptionError = error.localizedDescription
             }
         }
@@ -862,9 +863,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let targetPartId = partId ?? activeRecordingContext?.partId ?? currentPart?.id
         let targetSessionId = sessionId ?? activeRecordingContext?.sessionId ?? selectedSessionId
 
-        activeRecordingContext = nil
-
         await transcriptionService.stopTranscription()
+
+        activeRecordingContext = nil
 
         chunker?.flush()
 
@@ -1033,14 +1034,20 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             // Update existing segment by similarity
             let existing = partState.transcript[duplicateIndex]
 
-            // Priority: Final over Provisional
+            // Only overwrite if incoming is final OR existing is provisional
             if segment.isFinal || !existing.isFinal {
                 let wasFinal = existing.isFinal
+
+                // Only save/process if it's becoming final OR text changed (for provisional)
+                // BUT following ID-match pattern: only set shouldSave if it just became final.
+                // Wait, ID-match only sets shouldSave if (segment.isFinal && !wasFinal).
+                // Let's align exactly.
+
                 partState.transcript[duplicateIndex] = segment
-                shouldSave = true
 
                 if segment.isFinal && !wasFinal {
                     chunker?.processSegment(segment)
+                    shouldSave = true
                 }
             }
         } else {
