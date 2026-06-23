@@ -44,9 +44,8 @@ class NotionService: NotionServiceProtocol {
         do {
             // 1. Fetch current AI Memo header block
             debugLog("[NotionSync] fetchBlock start - blockId: \(blockId)")
-            var headerBlock = try await client.fetchBlock(blockId: blockId)
-            let parentId = headerBlock.parent?.block_id ?? headerBlock.parent?.page_id
-            guard let parentId = parentId else {
+            let headerBlock = try await client.fetchBlock(blockId: blockId)
+            guard (headerBlock.parent?.block_id ?? headerBlock.parent?.page_id) != nil else {
                 return .failure("Parent ID not found")
             }
 
@@ -116,7 +115,7 @@ class NotionService: NotionServiceProtocol {
             let contentBlocks = prepareContentBlocks(content: content)
 
             // Append as children of the header toggle
-            let newBlocks = try await client.appendBlocks(blockId: blockId, children: contentBlocks)
+            _ = try await client.appendBlocks(blockId: blockId, children: contentBlocks)
 
             // Note: User requested to always overwrite even if conflict.
             // We just return externalModification if we detected one, but we already performed the overwrite.

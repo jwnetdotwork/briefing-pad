@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 
 #if canImport(Speech)
 import Speech
@@ -262,7 +262,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                             endTime: endTime
                         )
 
-                        let yieldResult = transcriptionContinuation?.yield(segment)
+                        _ = transcriptionContinuation?.yield(segment)
                         #if DEBUG
 //                        print("[SpeechTranscriptionService] [\(runID ?? "none")] yield result: \(String(describing: yieldResult)), isFinal: \(segment.isFinal), text: \"\(segment.text)\"")
                         #endif
@@ -295,9 +295,9 @@ class SpeechTranscriptionService: SpeechTranscribing {
                         startTime: 0,
                         endTime: 0
                     )
-                    let yieldResult = transcriptionContinuation?.yield(segment)
+                    _ = transcriptionContinuation?.yield(segment)
                     #if DEBUG
-                    print("[SpeechTranscriptionService] [\(runID ?? "none")] Error segment yield result: \(String(describing: yieldResult))")
+                    print("[SpeechTranscriptionService] [\(runID ?? "none")] Error segment yielded.")
                     #endif
                     self.transcriptionContinuation?.finish()
                 }
@@ -377,9 +377,9 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0
                     )
-                    let yieldResult1 = transcriptionContinuation?.yield(segment1)
+                    _ = transcriptionContinuation?.yield(segment1)
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FIRST): result=\(String(describing: yieldResult1)), text=\"\(text1)\"")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FIRST): text=\"\(text1)\"")
                     #endif
 
                     try? await Task.sleep(nanoseconds: 300_000_000)
@@ -396,9 +396,9 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0 + 0.5
                     )
-                    let yieldResult2 = transcriptionContinuation?.yield(segment2)
+                    _ = transcriptionContinuation?.yield(segment2)
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (INTER): result=\(String(describing: yieldResult2)), textLen=\(text2.count)")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (INTER): textLen=\(text2.count)")
                     #endif
 
                     // Shortly after yield final
@@ -414,9 +414,9 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                         startTime: Double(count) / 10.0,
                         endTime: Double(count) / 10.0 + 1.0
                     )
-                    let yieldResult3 = transcriptionContinuation?.yield(segment3)
+                    _ = transcriptionContinuation?.yield(segment3)
                     #if DEBUG
-                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FINAL): result=\(String(describing: yieldResult3)), text=\"\(text3)\"")
+                    print("[MockSpeechTranscriptionService] [\(runID ?? "none")] Yield (FINAL): text=\"\(text3)\"")
                     #endif
                 }
             }
