@@ -22,51 +22,45 @@ struct PartControlsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 40) {
-                Button(action: { viewModel.moveToPreviousPart() }) {
-                    Text("前へ")
-                }
-                .disabled(viewModel.currentPartIndex == 0 || totalParts <= 1 || viewModel.isFinalizing)
-
-                VStack {
-                    Text(formatTime(viewModel.partElapsedTime))
-                        .font(.system(.title2, design: .monospaced))
-
-                    statusView
-                }
-                .frame(minWidth: 200)
-
-                Button(action: { viewModel.moveToNextPart() }) {
-                    Text("次へ")
-                }
-                .disabled(viewModel.currentPartIndex >= (totalParts - 1) || totalParts <= 1 || viewModel.isFinalizing)
+        HStack(spacing: 20) {
+            // 左半分: タイマーとステータス
+            VStack(alignment: .leading, spacing: 4) {
+                Text(formatTime(viewModel.partElapsedTime))
+                    .font(.system(.title, design: .monospaced))
+                statusView
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            HStack(spacing: 40) {
+            // 右半分: アクションボタン
+            HStack(spacing: 12) {
                 if viewModel.micStatus == .recording {
                     Button(action: { viewModel.pauseRecording() }) {
                         Text("停止")
-                            .frame(width: 80)
+                            .frame(minWidth: 80, minHeight: 44)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
                 } else {
                     Button(action: { viewModel.startRecording() }) {
                         Text("開始")
-                            .frame(width: 80)
+                            .frame(minWidth: 80, minHeight: 44)
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing)
                 }
 
                 if viewModel.isPlaying {
                     Button(action: { viewModel.stopPlayback() }) {
                         Text("再生停止")
-                            .frame(width: 80)
+                            .frame(minWidth: 80, minHeight: 44)
                     }
+                    .buttonStyle(.bordered)
                 } else {
                     Button(action: { viewModel.startPlayback() }) {
                         Text("再生")
-                            .frame(width: 80)
+                            .frame(minWidth: 80, minHeight: 44)
                     }
+                    .buttonStyle(.bordered)
                     .disabled(!hasAudio || viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.isFinalizing)
                 }
 
@@ -76,8 +70,9 @@ struct PartControlsView: View {
                     }
                 }) {
                     Text("パート終了")
-                        .frame(width: 80)
+                        .frame(minWidth: 80, minHeight: 44)
                 }
+                .buttonStyle(.bordered)
                 .disabled(isFinished || viewModel.isFinalizing)
             }
         }

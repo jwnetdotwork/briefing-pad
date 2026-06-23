@@ -5,16 +5,27 @@ struct PartHeaderView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Part \(part.number). \(part.title)")
-                .font(.headline)
-            Text("持ち時間: \(part.durationMinutes.map { "\($0)分" } ?? "未設定")")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("Part \(part.number). \(part.title)")
+                    .font(.headline)
+                Spacer()
+                Text(part.durationMinutes.map { "\($0)分" } ?? "未設定")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+            }
+
             if let setting = part.setting, !setting.isEmpty {
                 Text("場面設定: \(setting)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
+
+            let lpText = part.learningPoints.isEmpty
+                ? "なし"
+                : part.learningPoints.map { $0.text }.joined(separator: "、")
+            Text("学習ポイント: \(lpText)")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
