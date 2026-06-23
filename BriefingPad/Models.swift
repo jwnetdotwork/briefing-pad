@@ -212,7 +212,54 @@ struct PartState: Codable, Hashable {
     var elapsedTime: TimeInterval = 0
     var llmResults: [LLMResult] = []
     var finalSummary: FinalSummary?
-    var audioFileName: String?
+    var audioFileNames: [String] = []
+
+    enum CodingKeys: String, CodingKey {
+        case transcript, isFinished, elapsedTime, llmResults, finalSummary, audioFileNames, audioFileName
+    }
+
+    init(
+        transcript: [TranscriptSegment] = [],
+        isFinished: Bool = false,
+        elapsedTime: TimeInterval = 0,
+        llmResults: [LLMResult] = [],
+        finalSummary: FinalSummary? = nil,
+        audioFileNames: [String] = []
+    ) {
+        self.transcript = transcript
+        self.isFinished = isFinished
+        self.elapsedTime = elapsedTime
+        self.llmResults = llmResults
+        self.finalSummary = finalSummary
+        self.audioFileNames = audioFileNames
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        transcript = try container.decode([TranscriptSegment].self, forKey: .transcript)
+        isFinished = try container.decode(Bool.self, forKey: .isFinished)
+        elapsedTime = try container.decode(TimeInterval.self, forKey: .elapsedTime)
+        llmResults = try container.decode([LLMResult].self, forKey: .llmResults)
+        finalSummary = try container.decodeIfPresent(FinalSummary.self, forKey: .finalSummary)
+
+        if let names = try container.decodeIfPresent([String].self, forKey: .audioFileNames) {
+            audioFileNames = names
+        } else if let oldName = try container.decodeIfPresent(String.self, forKey: .audioFileName) {
+            audioFileNames = [oldName]
+        } else {
+            audioFileNames = []
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(transcript, forKey: .transcript)
+        try container.encode(isFinished, forKey: .isFinished)
+        try container.encode(elapsedTime, forKey: .elapsedTime)
+        try container.encode(llmResults, forKey: .llmResults)
+        try container.encodeIfPresent(finalSummary, forKey: .finalSummary)
+        try container.encode(audioFileNames, forKey: .audioFileNames)
+    }
 }
 
 struct SessionState: Codable, Hashable {

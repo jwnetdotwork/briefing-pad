@@ -14,6 +14,13 @@ struct PartControlsView: View {
         return false
     }
 
+    private var hasAudio: Bool {
+        if let partId = viewModel.currentPart?.id {
+            return !((viewModel.sessionState.partStates[partId]?.audioFileNames.isEmpty) ?? true)
+        }
+        return false
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             HStack(spacing: 40) {
@@ -48,6 +55,19 @@ struct PartControlsView: View {
                             .frame(width: 80)
                     }
                     .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing)
+                }
+
+                if viewModel.isPlaying {
+                    Button(action: { viewModel.stopPlayback() }) {
+                        Text("再生停止")
+                            .frame(width: 80)
+                    }
+                } else {
+                    Button(action: { viewModel.startPlayback() }) {
+                        Text("再生")
+                            .frame(width: 80)
+                    }
+                    .disabled(!hasAudio || viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.isFinalizing)
                 }
 
                 Button(action: {
