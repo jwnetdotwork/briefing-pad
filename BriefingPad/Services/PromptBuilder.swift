@@ -6,6 +6,10 @@ struct PromptBuilder {
         あなたは「生活と奉仕の集会」の実演に対する短評を準備する補助者です。
         提供された文字起こしデータ（全文および最新の追加分）を分析し、特定の「観察メモ」および「良かった点候補」に該当する箇所があるかを判定してください。
 
+        提供されるユーザープロンプトには、これまでの判定結果が含まれています。
+        既判定の項目は土台として扱い、必要な場合のみ更新してください。
+        未判定の項目を優先して確認し、既存の判定は新しい材料がある場合のみ見直してください。
+
         以下の制約を厳守してJSON形式で回答してください：
         1. 指定された itemId 以外は返さないこと。
         2. 各項目について、確信度（confidence: 0.0〜1.0）と、その根拠となる短い証拠（shortEvidence）を抽出すること。
@@ -38,14 +42,26 @@ struct PromptBuilder {
             prompt += "- \(lp.text)\n"
         }
 
-        prompt += "\n## 判定対象：観察メモ (observationItems)\n"
+        prompt += "\n## これまでの判定結果：観察メモ (observationItems)\n"
         for item in partInfo.observationItems {
-            prompt += "- id: \(item.id), 内容: \(item.text)\n"
+            let state = partInfo.analysisState.observationItemStates[item.id] ?? .hidden()
+            prompt += "- id: \(item.id), 内容: \(item.text), "
+            if state.status == .hidden {
+                prompt += "状態: hidden (未判定)\n"
+            } else {
+                prompt += "状態: \(state.status.rawValue), 確信度: \(state.confidence), 根拠: \(state.shortEvidence)\n"
+            }
         }
 
-        prompt += "\n## 判定対象：良かった点候補 (positiveItems)\n"
+        prompt += "\n## これまでの判定結果：良かった点候補 (positiveItems)\n"
         for item in partInfo.positiveItems {
-            prompt += "- id: \(item.id), 内容: \(item.text)\n"
+            let state = partInfo.analysisState.positiveItemStates[item.id] ?? .hidden()
+            prompt += "- id: \(item.id), 内容: \(item.text), "
+            if state.status == .hidden {
+                prompt += "状態: hidden (未判定)\n"
+            } else {
+                prompt += "状態: \(state.status.rawValue), 確信度: \(state.confidence), 根拠: \(state.shortEvidence)\n"
+            }
         }
 
         prompt += "\n## 現在までの文字起こし全文\n"

@@ -18,7 +18,7 @@ struct PartControlsView: View {
         VStack(spacing: 16) {
             HStack(spacing: 40) {
                 Button(action: { viewModel.moveToPreviousPart() }) {
-                    Text("[前へ]")
+                    Text("前へ")
                 }
                 .disabled(viewModel.currentPartIndex == 0 || totalParts <= 1 || viewModel.isFinalizing)
 
@@ -31,7 +31,7 @@ struct PartControlsView: View {
                 .frame(minWidth: 200)
 
                 Button(action: { viewModel.moveToNextPart() }) {
-                    Text("[次へ]")
+                    Text("次へ")
                 }
                 .disabled(viewModel.currentPartIndex >= (totalParts - 1) || totalParts <= 1 || viewModel.isFinalizing)
             }
@@ -39,12 +39,12 @@ struct PartControlsView: View {
             HStack(spacing: 40) {
                 if viewModel.micStatus == .recording {
                     Button(action: { viewModel.pauseRecording() }) {
-                        Text("[停止]")
+                        Text("停止")
                             .frame(width: 80)
                     }
                 } else {
                     Button(action: { viewModel.startRecording() }) {
-                        Text("[開始]")
+                        Text("開始")
                             .frame(width: 80)
                     }
                     .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing)
@@ -55,7 +55,7 @@ struct PartControlsView: View {
                         await viewModel.finishPart()
                     }
                 }) {
-                    Text("[パート終了]")
+                    Text("パート終了")
                         .frame(width: 80)
                 }
                 .disabled(isFinished || viewModel.isFinalizing)
