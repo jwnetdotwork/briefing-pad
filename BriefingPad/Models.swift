@@ -102,6 +102,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
     var aiMemoBlockId: String?
     var lastSyncedHash: String?
     var lastSyncedTime: String?
+    var aiMemoGenerationError: String?
     var analysisState: PartAnalysisState
 
     init(
@@ -118,6 +119,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         aiMemoBlockId: String? = nil,
         lastSyncedHash: String? = nil,
         lastSyncedTime: String? = nil,
+        aiMemoGenerationError: String? = nil,
         analysisState: PartAnalysisState? = nil
     ) {
         self.id = id
@@ -133,6 +135,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
         self.aiMemoBlockId = aiMemoBlockId
         self.lastSyncedHash = lastSyncedHash
         self.lastSyncedTime = lastSyncedTime
+        self.aiMemoGenerationError = aiMemoGenerationError
         self.analysisState = analysisState ?? PartAnalysisState.initial(
             observationItems: observationItems,
             positiveItems: positiveItems

@@ -623,54 +623,11 @@ class SessionViewModel: ObservableObject {
         }
         let latestPart = session.parts[targetPartIndex]
 
-        let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
-            .filter { $0.isFinal }
-            .map { $0.text }
-            .joined(separator: "\n")
-
-        let positives = getSummarizedItems(
-            items: latestPart.positiveItems,
-            states: latestPart.analysisState.positiveItemStates
+        await generateAndSyncAIMemo(
+            part: latestPart,
+            sessionId: targetSessionId,
+            partIndex: targetPartIndex
         )
-        let observations = getSummarizedItems(
-            items: latestPart.observationItems,
-            states: latestPart.analysisState.observationItemStates
-        )
-
-        var finalMemo: String? = nil
-        if !positives.isEmpty || !observations.isEmpty || !fullTranscript.isEmpty {
-            do {
-                finalMemo = try await llmService.generateOneLiner(
-                    partInfo: latestPart,
-                    fullTranscript: fullTranscript,
-                    positives: positives,
-                    observations: observations
-                )
-            } catch {
-                print("Failed to generate comment material: \(error)")
-                // If generation fails, we don't update aiMemo and don't sync with Notion
-            }
-        }
-
-        // 4. Update local state and Notion
-        if let finalMemo = finalMemo {
-            var updatedPart = latestPart
-            updatedPart.aiMemo = finalMemo
-            updateLocalPart(updatedPart, sessionId: targetSessionId, partIndex: targetPartIndex)
-
-            // Record Final Summary
-            let finalSummary = FinalSummary(
-                text: finalMemo,
-                adoptedItemIds: positives.map { $0.text } + observations.map { $0.text },
-                sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
-            )
-            sessionState.partStates[part.id]?.finalSummary = finalSummary
-
-            // 5. Notion Update (Wait for final sync)
-            if let blockId = updatedPart.aiMemoBlockId {
-                await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
-            }
-        }
 
         // 6. Mark as finished
         var partState = sessionState.partStates[part.id] ?? PartState()
@@ -928,9 +885,22 @@ class SessionViewModel: ObservableObject {
         guard let part = currentPart, let blockId = part.aiMemoBlockId else { return }
 
         // Use the stored aiMemo which might already have one-liner if part was finished.
-        // If empty, it means finalization (generation) hasn't happened or failed.
-        // We only retry if we have content.
         let content = part.aiMemo
+        if content.isEmpty && part.aiMemoGenerationError != nil {
+            // Generation failed previously, retry generation
+            let targetSessionId = selectedSessionId
+            let targetPartIndex = currentPartIndex
+            Task {
+                await generateAndSyncAIMemo(
+                    part: part,
+                    sessionId: targetSessionId,
+                    partIndex: targetPartIndex
+                )
+            }
+            return
+        }
+
+        // If we have content, retry sync
         guard !content.isEmpty else { return }
 
         triggerNotionSync(blockId: blockId, content: content, partId: part.id)
@@ -1087,6 +1057,67 @@ class SessionViewModel: ObservableObject {
 
     // MARK: - Finalization Logic
 
+    @MainActor
+    private func generateAndSyncAIMemo(
+        part: PartDefinition,
+        sessionId: String,
+        partIndex: Int
+    ) async {
+        let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
+            .filter { $0.isFinal }
+            .map { $0.text }
+            .joined(separator: "\n")
+
+        let positives = getSummarizedItems(
+            items: part.positiveItems,
+            states: part.analysisState.positiveItemStates
+        )
+        let observations = getSummarizedItems(
+            items: part.observationItems,
+            states: part.analysisState.observationItemStates
+        )
+
+        var finalMemo: String? = nil
+        var generationError: String? = nil
+
+        if !positives.isEmpty || !observations.isEmpty || !fullTranscript.isEmpty {
+            do {
+                finalMemo = try await llmService.generateOneLiner(
+                    partInfo: part,
+                    fullTranscript: fullTranscript,
+                    positives: positives,
+                    observations: observations
+                )
+            } catch {
+                print("Failed to generate comment material: \(error)")
+                generationError = error.localizedDescription
+            }
+        }
+
+        // Update local state
+        var updatedPart = part
+        updatedPart.aiMemo = finalMemo ?? ""
+        updatedPart.aiMemoGenerationError = generationError
+        updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
+
+        if let finalMemo = finalMemo {
+            // Record Final Summary
+            let finalSummary = FinalSummary(
+                text: finalMemo,
+                adoptedItemIds: positives.map { $0.id } + observations.map { $0.id },
+                sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
+            )
+            sessionState.partStates[part.id]?.finalSummary = finalSummary
+
+            // Notion Update (Wait for final sync)
+            if let blockId = updatedPart.aiMemoBlockId {
+                await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
+            }
+        }
+
+        saveCurrentSession()
+    }
+
     func getSummarizedItems<T: SummaryItemProtocol>(
         items: [T],
         states: [String: AnalysisItemState]
@@ -1095,7 +1126,7 @@ class SessionViewModel: ObservableObject {
 
         for item in items {
             if let state = states[item.id], state.status != .hidden {
-                sortableItems.append(SortableItem(text: item.text, state: state))
+                sortableItems.append(SortableItem(id: item.id, text: item.text, state: state))
             }
         }
 
@@ -1106,7 +1137,7 @@ class SessionViewModel: ObservableObject {
                 }
                 return a.state.confidence > b.state.confidence
             }
-            .map { SummarizedItem(text: $0.text, evidence: $0.state.shortEvidence) }
+            .map { SummarizedItem(id: $0.id, text: $0.text, evidence: $0.state.shortEvidence) }
     }
 
 
@@ -1130,6 +1161,7 @@ class SessionViewModel: ObservableObject {
 }
 
 private struct SortableItem {
+    let id: String
     let text: String
     let state: AnalysisItemState
 }

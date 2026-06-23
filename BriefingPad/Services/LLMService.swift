@@ -12,6 +12,7 @@ struct AnalysisResult: Codable, Hashable {
 }
 
 struct SummarizedItem: Codable, Hashable {
+    let id: String
     let text: String
     let evidence: String
 }

@@ -4,6 +4,11 @@ import XCTest
 @MainActor
 final class FinalizationLogicTests: XCTestCase {
 
+    func testSummarizedItemModel() {
+        let item = SummarizedItem(id: "id1", text: "Text", evidence: "Evidence")
+        XCTAssertEqual(item.id, "id1")
+    }
+
     func testGetSummarizedItems_Prioritization() {
         let viewModel = SessionViewModel(
             llmService: MockLLMService(),
