@@ -27,6 +27,7 @@ struct PartControlsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(formatTime(viewModel.partElapsedTime))
                     .font(.system(.title, design: .monospaced))
+                    .foregroundColor(viewModel.isCurrentPartOvertime ? .orange : .primary)
                 statusView
             }
             .frame(maxWidth: .infinity, alignment: .leading)

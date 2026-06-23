@@ -245,6 +245,96 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(viewModel.selectedSessionId, "")
         XCTAssertNil(viewModel.selectedSession)
     }
+
+    @MainActor
+    func testDeletePartDataResetsTimerInAllModes() async {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewModel = SessionViewModel(store: store)
+        let part1Id = "p1"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        // Helper to set and verify reset
+        let testReset: ( (SessionViewModel) -> Void ) = { vm in
+            vm.partElapsedTime = 100
+            vm.sessionState.partStates[part1Id]?.elapsedTime = 100
+
+            // Trigger deletion (async internally)
+            vm.deleteCurrentPartData()
+        }
+
+        // 1. Full deletion
+        testReset(viewModel)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
+
+        // 2. Only Audio
+        viewModel.partElapsedTime = 100
+        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        viewModel.deleteCurrentPartData(onlyAudio: true)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
+
+        // 3. Only Transcript
+        viewModel.partElapsedTime = 100
+        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        viewModel.deleteCurrentPartData(onlyTranscript: true)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
+
+        // 4. Only LLM
+        viewModel.partElapsedTime = 100
+        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        viewModel.deleteCurrentPartData(onlyLLM: true)
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
+    }
+
+    @MainActor
+    func testOvertimeDetection() {
+        let (store, tempDir) = makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewModel = SessionViewModel(store: store)
+        let part1Id = "p1"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        // 5 minutes = 300 seconds
+        viewModel.partElapsedTime = 299
+        XCTAssertFalse(viewModel.isCurrentPartOvertime)
+
+        viewModel.partElapsedTime = 300
+        XCTAssertTrue(viewModel.isCurrentPartOvertime, "Overtime should trigger exactly at the limit (>=)")
+
+        viewModel.partElapsedTime = 301
+        XCTAssertTrue(viewModel.isCurrentPartOvertime)
+
+        // No duration set
+        let part2Id = "p2"
+        let session2 = BriefingSession(id: "s2", name: "S2", parts: [
+            PartDefinition(id: part2Id, number: 1, title: "P2", durationMinutes: nil, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions.append(session2)
+        viewModel.selectedSessionId = "s2"
+        viewModel.currentPartIndex = 0
+        viewModel.partElapsedTime = 1000
+        XCTAssertFalse(viewModel.isCurrentPartOvertime, "Should not be overtime if duration is nil")
+    }
 }
 
 class MockMicrophoneService: MicrophoneService {

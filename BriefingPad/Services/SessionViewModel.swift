@@ -202,6 +202,13 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             .store(in: &cancellables)
     }
 
+    var isCurrentPartOvertime: Bool {
+        guard let part = currentPart, let durationMinutes = part.durationMinutes else {
+            return false
+        }
+        return partElapsedTime >= Double(durationMinutes * 60)
+    }
+
     var selectedSession: BriefingSession? {
         sessions.first(where: { $0.id == selectedSessionId })
     }
@@ -519,6 +526,12 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 micService.stopRecording()
             }
 
+            // Always reset elapsed time on deletion
+            partElapsedTime = 0
+            if sessionState.partStates[partId] != nil {
+                sessionState.partStates[partId]?.elapsedTime = 0
+            }
+
             do {
                 if !onlyAudio && !onlyTranscript && !onlyLLM {
                     // Delete all for this part
@@ -526,7 +539,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     try await store.deleteTranscript(sessionId: selectedSessionId, partId: partId)
                     try await store.deleteLLMResults(sessionId: selectedSessionId, partId: partId)
 
-                    // Reset local state for this part
+                    // Reset local state for this part (elapsedTime was already reset above, but PartState() also has 0)
                     sessionState.partStates[partId] = PartState()
                     if let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
                        let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) {
