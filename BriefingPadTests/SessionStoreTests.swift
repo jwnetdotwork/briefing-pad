@@ -130,4 +130,65 @@ final class SessionStoreTests: XCTestCase {
         let reloadedAfterDelete = try await store.loadSession(sessionId: sessionId)
         XCTAssertTrue(reloadedAfterDelete?.partRuns[partId]?.audioFileNames.isEmpty ?? false)
     }
+
+    func testBackwardCompatibility() async throws {
+        let sessionId = "backward-test"
+        let partId = "part-1"
+        let template = BriefingSession(id: sessionId, name: "Test", parts: [
+            PartDefinition(id: partId, number: 1, title: "P1", durationMinutes: 1, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+
+        // Manually create a JSON with the old format
+        let oldJson = """
+        {
+            "sessionId": "\(sessionId)",
+            "updatedAt": "2023-01-01T00:00:00Z",
+            "templateSnapshot": {
+                "id": "\(sessionId)",
+                "name": "Test",
+                "parts": [
+                    {
+                        "id": "\(partId)",
+                        "number": 1,
+                        "title": "P1",
+                        "durationMinutes": 1,
+                        "rawMarkdown": "",
+                        "learningPoints": [],
+                        "observationItems": [],
+                        "positiveItems": [],
+                        "aiMemo": "",
+                        "analysisState": {
+                            "observationItemStates": {},
+                            "positiveItemStates": {}
+                        }
+                    }
+                ]
+            },
+            "partRuns": {
+                "\(partId)": {
+                    "partId": "\(partId)",
+                    "audioFileName": "old_audio.m4a",
+                    "elapsedTime": 0,
+                    "isFinished": false,
+                    "transcript": [],
+                    "llmResults": []
+                }
+            }
+        }
+        """
+
+        let sessionDir = tempDir.appendingPathComponent(sessionId)
+        try FileManager.default.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+        let manifestURL = sessionDir.appendingPathComponent("manifest.json")
+        try oldJson.data(using: .utf8)?.write(to: manifestURL)
+
+        // Create the dummy audio file so it's not filtered out
+        let partDir = sessionDir.appendingPathComponent("parts/\(partId)")
+        try FileManager.default.createDirectory(at: partDir, withIntermediateDirectories: true)
+        try "dummy".data(using: .utf8)?.write(to: partDir.appendingPathComponent("old_audio.m4a"))
+
+        let loaded = try await store.loadSession(sessionId: sessionId)
+        XCTAssertNotNil(loaded)
+        XCTAssertEqual(loaded?.partRuns[partId]?.audioFileNames, ["old_audio.m4a"])
+    }
 }

@@ -700,9 +700,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         stopPlayback()
 
+        let partDir = store.getPartDirectory(sessionId: selectedSessionId, partId: partId)
         playbackQueue = fileNames.map { fileName in
-            let partDir = (store as? FileSessionStore)?.getAudioURL(sessionId: selectedSessionId, partId: partId, recordingId: "dummy").deletingLastPathComponent()
-            return partDir?.appendingPathComponent(fileName) ?? URL(fileURLWithPath: fileName)
+            partDir.appendingPathComponent(fileName)
         }
 
         // Filter out non-existent files just in case

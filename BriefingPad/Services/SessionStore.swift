@@ -99,6 +99,7 @@ protocol SessionStoreProtocol {
     func deleteTranscript(sessionId: String, partId: String) async throws
     func deleteLLMResults(sessionId: String, partId: String) async throws
     func getAudioURL(sessionId: String, partId: String, recordingId: String) -> URL
+    func getPartDirectory(sessionId: String, partId: String) -> URL
 }
 
 class FileSessionStore: SessionStoreProtocol {
@@ -144,6 +145,10 @@ class FileSessionStore: SessionStoreProtocol {
 
     func getAudioURL(sessionId: String, partId: String, recordingId: String) -> URL {
         partDirectory(for: sessionId, partId: partId).appendingPathComponent("audio_\(sanitize(recordingId)).m4a")
+    }
+
+    func getPartDirectory(sessionId: String, partId: String) -> URL {
+        partDirectory(for: sessionId, partId: partId)
     }
 
     func loadSession(sessionId: String) async throws -> SavedSession? {
