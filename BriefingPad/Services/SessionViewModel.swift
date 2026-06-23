@@ -10,6 +10,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var currentPartIndex: Int = 0
     @Published var isProcessing = false
     @Published var isFinalizing = false
+    @Published var isGeneratingAIMemo = false
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
 
@@ -456,7 +457,13 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var pendingSave: SavedSession?
 
     private var notionSyncTask: Task<Void, Never>?
-    private var pendingAIMemoUpdate: String?
+    private struct PendingSync: Equatable {
+        let blockId: String
+        let content: String
+        let sessionId: String
+        let partId: String
+    }
+    private var pendingAIMemoUpdate: PendingSync?
 
     @MainActor
     private func enqueueSave(_ session: SavedSession) async {
@@ -622,7 +629,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     @MainActor
     func finishPart() async {
-        guard !isFinalizing else { return }
+        guard !isFinalizing, !isGeneratingAIMemo else { return }
         guard let part = currentPart else { return }
 
         let targetSessionId = selectedSessionId
@@ -652,7 +659,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         await generateAndSyncAIMemo(
             part: latestPart,
             sessionId: targetSessionId,
-            partIndex: targetPartIndex
+            partIndex: targetPartIndex,
+            isManual: false
         )
 
         // 6. Mark as finished
@@ -662,6 +670,30 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         saveCurrentSession()
         isFinalizing = false
+    }
+
+    func regenerateAIMemo() {
+        guard let part = currentPart, !isGeneratingAIMemo, !isFinalizing else { return }
+
+        let targetSessionId = selectedSessionId
+        let targetPartIndex = currentPartIndex
+        let transcript = getCurrentTranscript(for: part.id)
+
+        Task {
+            await generateAndSyncAIMemo(
+                part: part,
+                sessionId: targetSessionId,
+                partIndex: targetPartIndex,
+                transcriptOverride: transcript,
+                isManual: true
+            )
+        }
+    }
+
+    private func getCurrentTranscript(for partId: String) -> String {
+        return (sessionState.partStates[partId]?.transcript ?? [])
+            .map { $0.text }
+            .joined(separator: "\n")
     }
 
     func moveToNextPart() {
@@ -898,38 +930,38 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     // MARK: - Notion Sync logic
 
-    func triggerNotionSync(blockId: String, content: String, partId: String) {
-        pendingAIMemoUpdate = content
+    func triggerNotionSync(blockId: String, content: String, sessionId: String, partId: String) {
+        pendingAIMemoUpdate = PendingSync(blockId: blockId, content: content, sessionId: sessionId, partId: partId)
 //        debugLog("content: \(content)")
         guard notionSyncTask == nil else { return }
 
         notionSyncTask = Task { @MainActor in
-            while let contentToSync = pendingAIMemoUpdate {
+            while let sync = pendingAIMemoUpdate {
                 // Throttle: if same content as last synced, skip
-                if let session = selectedSession,
-                   let part = session.parts.first(where: { $0.id == partId }),
-                   part.lastSyncedHash == CryptoUtils.calculateHash(content: contentToSync) {
+                if let session = sessions.first(where: { $0.id == sync.sessionId }),
+                   let part = session.parts.first(where: { $0.id == sync.partId }),
+                   part.lastSyncedHash == CryptoUtils.calculateHash(content: sync.content) {
                     pendingAIMemoUpdate = nil
                     break
                 }
 
                 pendingAIMemoUpdate = nil
-                await performNotionSync(blockId: blockId, content: contentToSync, partId: partId)
+                await performNotionSync(blockId: sync.blockId, content: sync.content, sessionId: sync.sessionId, partId: sync.partId)
             }
             notionSyncTask = nil
         }
     }
 
-    private func syncNotionImmediately(blockId: String, content: String, partId: String) async {
+    private func syncNotionImmediately(blockId: String, content: String, sessionId: String, partId: String) async {
         pendingAIMemoUpdate = nil
         notionSyncTask?.cancel()
         notionSyncTask = nil
-        await performNotionSync(blockId: blockId, content: content, partId: partId)
+        await performNotionSync(blockId: blockId, content: content, sessionId: sessionId, partId: partId)
     }
 
     @MainActor
-    private func performNotionSync(blockId: String, content: String, partId: String) async {
-        guard let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+    private func performNotionSync(blockId: String, content: String, sessionId: String, partId: String) async {
+        guard let sessionIndex = sessions.firstIndex(where: { $0.id == sessionId }),
               let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == partId }) else { return }
 
         let part = sessions[sessionIndex].parts[partIndex]
@@ -979,7 +1011,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 await generateAndSyncAIMemo(
                     part: part,
                     sessionId: targetSessionId,
-                    partIndex: targetPartIndex
+                    partIndex: targetPartIndex,
+                    isManual: false
                 )
             }
             return
@@ -988,7 +1021,18 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         // If we have content, retry sync
         guard !content.isEmpty else { return }
 
-        triggerNotionSync(blockId: blockId, content: content, partId: part.id)
+        let positives = getSummarizedItems(
+            items: part.positiveItems,
+            states: part.analysisState.positiveItemStates
+        )
+        let observationsForAll = part.observationItems.map { item in
+            let state = part.analysisState.observationItemStates[item.id] ?? .hidden()
+            return SummarizedItem(id: item.id, text: item.text, evidence: state.shortEvidence)
+        }
+
+        let fullContent = buildNotionContent(positives: positives, observations: observationsForAll, aiMemo: content)
+
+        triggerNotionSync(blockId: blockId, content: fullContent, sessionId: selectedSessionId, partId: part.id)
     }
 
     @MainActor
@@ -1146,12 +1190,15 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private func generateAndSyncAIMemo(
         part: PartDefinition,
         sessionId: String,
-        partIndex: Int
+        partIndex: Int,
+        transcriptOverride: String? = nil,
+        isManual: Bool = false
     ) async {
-        let fullTranscript = (sessionState.partStates[part.id]?.transcript ?? [])
-            .filter { $0.isFinal }
-            .map { $0.text }
-            .joined(separator: "\n")
+        guard !isGeneratingAIMemo else { return }
+        isGeneratingAIMemo = true
+        defer { isGeneratingAIMemo = false }
+
+        let fullTranscript = transcriptOverride ?? getCurrentTranscript(for: part.id)
 
         let positives = getSummarizedItems(
             items: part.positiveItems,
@@ -1161,6 +1208,14 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             items: part.observationItems,
             states: part.analysisState.observationItemStates
         )
+
+        // For Notion output, we want all displayed items.
+        // Observations: all items are displayed in the UI.
+        // Positives: only non-hidden items are displayed.
+        let observationsForAll = part.observationItems.map { item in
+            let state = part.analysisState.observationItemStates[item.id] ?? .hidden()
+            return SummarizedItem(id: item.id, text: item.text, evidence: state.shortEvidence)
+        }
 
         var finalMemo: String? = nil
         var generationError: String? = nil
@@ -1180,27 +1235,63 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
 
         // Update local state
-        var updatedPart = part
+        // Re-fetch latest part definition to preserve concurrent analysis updates
+        guard var updatedPart = sessions.first(where: { $0.id == sessionId })?.parts.first(where: { $0.id == part.id }) else { return }
+
         updatedPart.aiMemo = finalMemo ?? ""
         updatedPart.aiMemoGenerationError = generationError
         updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
 
         if let finalMemo = finalMemo {
-            // Record Final Summary
-            let finalSummary = FinalSummary(
-                text: finalMemo,
-                adoptedItemIds: positives.map { $0.id } + observations.map { $0.id },
-                sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
-            )
-            sessionState.partStates[part.id]?.finalSummary = finalSummary
+            if !isManual {
+                // Record Final Summary
+                let finalSummary = FinalSummary(
+                    text: finalMemo,
+                    adoptedItemIds: positives.map { $0.id } + observations.map { $0.id },
+                    sourceLLMResultIds: sessionState.partStates[part.id]?.llmResults.map { $0.id } ?? []
+                )
+                sessionState.partStates[part.id]?.finalSummary = finalSummary
+            }
 
             // Notion Update (Wait for final sync)
             if let blockId = updatedPart.aiMemoBlockId {
-                await syncNotionImmediately(blockId: blockId, content: finalMemo, partId: part.id)
+                let fullContent = buildNotionContent(positives: positives, observations: observationsForAll, aiMemo: finalMemo)
+                await syncNotionImmediately(blockId: blockId, content: fullContent, sessionId: sessionId, partId: part.id)
             }
         }
 
-        saveCurrentSession()
+        if sessionId == selectedSessionId {
+            saveCurrentSession()
+        }
+    }
+
+    private func buildNotionContent(
+        positives: [SummarizedItem],
+        observations: [SummarizedItem],
+        aiMemo: String
+    ) -> String {
+        var sections: [String] = []
+
+        // 1. 良かった点候補
+        var positiveSection = "◎ 良かった点候補"
+        for item in positives {
+            positiveSection += "\n- \(item.text)\(item.evidence)"
+        }
+        sections.append(positiveSection)
+
+        // 2. 観察メモ
+        var observationSection = "👀 観察メモ"
+        for item in observations {
+            observationSection += "\n- \(item.text)\(item.evidence)"
+        }
+        sections.append(observationSection)
+
+        // 3. コメント素材
+        if !aiMemo.isEmpty {
+            sections.append("🤖 コメント素材\n\(aiMemo)")
+        }
+
+        return sections.joined(separator: "\n\n")
     }
 
     func getSummarizedItems<T: SummaryItemProtocol>(
