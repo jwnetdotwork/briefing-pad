@@ -21,13 +21,18 @@ final class AIMemoManualGenerationTests: XCTestCase {
         // 1. Manually regenerate
         viewModel.regenerateAIMemo()
 
-        // Wait for task to complete (since regenerateAIMemo uses Task internally)
-        // We can poll isGeneratingAIMemo or just wait a bit.
-        // Since it's a mock with 0 delay, it should be fast.
-        var limit = 0
-        while viewModel.isGeneratingAIMemo && limit < 10 {
+        // Wait for task to start
+        var startLimit = 0
+        while !viewModel.isGeneratingAIMemo && startLimit < 50 {
             try? await Task.sleep(nanoseconds: 10_000_000)
-            limit += 1
+            startLimit += 1
+        }
+
+        // Wait for task to complete
+        var endLimit = 0
+        while viewModel.isGeneratingAIMemo && endLimit < 50 {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+            endLimit += 1
         }
 
         // 2. Verify aiMemo is populated but isFinished is still false
@@ -77,9 +82,9 @@ final class AIMemoManualGenerationTests: XCTestCase {
         }
 
         XCTAssertTrue(syncedContent.contains("◎ 良かった点候補"))
-        XCTAssertTrue(syncedContent.contains("・\(viewModel.sessions[0].parts[0].positiveItems[0].text) (PosEvidence)"))
+        XCTAssertTrue(syncedContent.contains("- \(viewModel.sessions[0].parts[0].positiveItems[0].text) (PosEvidence)"))
         XCTAssertTrue(syncedContent.contains("👀 観察メモ"))
-        XCTAssertTrue(syncedContent.contains("・\(viewModel.sessions[0].parts[0].observationItems[0].text) (ObsEvidence)"))
+        XCTAssertTrue(syncedContent.contains("- \(viewModel.sessions[0].parts[0].observationItems[0].text) (ObsEvidence)"))
         XCTAssertTrue(syncedContent.contains("🤖 コメント素材"))
         XCTAssertTrue(syncedContent.contains("素晴らしい対応でした"))
     }

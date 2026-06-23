@@ -457,7 +457,13 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var pendingSave: SavedSession?
 
     private var notionSyncTask: Task<Void, Never>?
-    private var pendingAIMemoUpdate: String?
+    private struct PendingSync: Equatable {
+        let blockId: String
+        let content: String
+        let sessionId: String
+        let partId: String
+    }
+    private var pendingAIMemoUpdate: PendingSync?
 
     @MainActor
     private func enqueueSave(_ session: SavedSession) async {
@@ -686,7 +692,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     private func getCurrentTranscript(for partId: String) -> String {
         return (sessionState.partStates[partId]?.transcript ?? [])
-            .filter { $0.isFinal }
             .map { $0.text }
             .joined(separator: "\n")
     }
@@ -926,22 +931,22 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     // MARK: - Notion Sync logic
 
     func triggerNotionSync(blockId: String, content: String, sessionId: String, partId: String) {
-        pendingAIMemoUpdate = content
+        pendingAIMemoUpdate = PendingSync(blockId: blockId, content: content, sessionId: sessionId, partId: partId)
 //        debugLog("content: \(content)")
         guard notionSyncTask == nil else { return }
 
         notionSyncTask = Task { @MainActor in
-            while let contentToSync = pendingAIMemoUpdate {
+            while let sync = pendingAIMemoUpdate {
                 // Throttle: if same content as last synced, skip
-                if let session = sessions.first(where: { $0.id == sessionId }),
-                   let part = session.parts.first(where: { $0.id == partId }),
-                   part.lastSyncedHash == CryptoUtils.calculateHash(content: contentToSync) {
+                if let session = sessions.first(where: { $0.id == sync.sessionId }),
+                   let part = session.parts.first(where: { $0.id == sync.partId }),
+                   part.lastSyncedHash == CryptoUtils.calculateHash(content: sync.content) {
                     pendingAIMemoUpdate = nil
                     break
                 }
 
                 pendingAIMemoUpdate = nil
-                await performNotionSync(blockId: blockId, content: contentToSync, sessionId: sessionId, partId: partId)
+                await performNotionSync(blockId: sync.blockId, content: sync.content, sessionId: sync.sessionId, partId: sync.partId)
             }
             notionSyncTask = nil
         }
@@ -1189,6 +1194,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         transcriptOverride: String? = nil,
         isManual: Bool = false
     ) async {
+        guard !isGeneratingAIMemo else { return }
         isGeneratingAIMemo = true
         defer { isGeneratingAIMemo = false }
 
@@ -1229,7 +1235,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
 
         // Update local state
-        var updatedPart = part
+        // Re-fetch latest part definition to preserve concurrent analysis updates
+        guard var updatedPart = sessions.first(where: { $0.id == sessionId })?.parts.first(where: { $0.id == part.id }) else { return }
+
         updatedPart.aiMemo = finalMemo ?? ""
         updatedPart.aiMemoGenerationError = generationError
         updateLocalPart(updatedPart, sessionId: sessionId, partIndex: partIndex)
@@ -1252,7 +1260,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
         }
 
-        saveCurrentSession()
+        if sessionId == selectedSessionId {
+            saveCurrentSession()
+        }
     }
 
     private func buildNotionContent(

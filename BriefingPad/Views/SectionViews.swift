@@ -227,7 +227,7 @@ struct CommentMaterialView: View {
                     syncStatusView
                 }
 
-                if let error = generationError, aiMemo.isEmpty {
+                if let error = generationError, aiMemo.isEmpty, !isFinalizing, !isGenerating {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "exclamationmark.circle.fill")
