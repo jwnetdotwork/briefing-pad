@@ -88,8 +88,10 @@ struct ContentView: View {
                                 aiMemo: part.aiMemo,
                                 generationError: part.aiMemoGenerationError,
                                 isFinalizing: viewModel.isFinalizing,
+                                isGenerating: viewModel.isGeneratingAIMemo,
                                 syncStatus: viewModel.notionSyncStatuses[part.id] ?? .idle,
-                                onRetry: { viewModel.retryNotionSync() }
+                                onRetry: { viewModel.retryNotionSync() },
+                                onRegenerate: { viewModel.regenerateAIMemo() }
                             )
                         } else {
                             Text("現在のパートが見つかりません")

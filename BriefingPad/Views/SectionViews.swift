@@ -159,7 +159,6 @@ struct PositiveItemsView: View {
             return (item, itemState)
         }
         .sorted { $0.state.confidence > $1.state.confidence }
-        .prefix(2)
         .map { $0 }
     }
 
@@ -195,24 +194,35 @@ struct CommentMaterialView: View {
     let aiMemo: String
     let generationError: String?
     let isFinalizing: Bool
+    let isGenerating: Bool
     let syncStatus: SessionViewModel.NotionSyncStatus
     let onRetry: () -> Void
+    let onRegenerate: () -> Void
 
     var body: some View {
         SectionContainer("🤖 AIメモ") {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 8) {
-                    if isFinalizing {
+                    if isFinalizing || isGenerating {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("確定メモ生成中...")
+                            Text(isFinalizing ? "確定メモ生成中..." : "メモ生成中...")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
 
                     Spacer()
+
+                    if !isFinalizing && !isGenerating {
+                        Button(action: onRegenerate) {
+                            Label("再生成", systemImage: "arrow.clockwise")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.borderless)
+                        .padding(.trailing, 8)
+                    }
 
                     syncStatusView
                 }
@@ -231,7 +241,7 @@ struct CommentMaterialView: View {
                             .controlSize(.small)
                     }
                 } else {
-                    Text(aiMemo.isEmpty && !isFinalizing ? "（パート終了後にAIメモが生成されます）" : aiMemo)
+                    Text(aiMemo.isEmpty && !isFinalizing && !isGenerating ? "（パート終了後または手動実行で生成されます）" : aiMemo)
                         .font(.body)
                         .lineSpacing(4)
                 }
@@ -338,8 +348,10 @@ struct SectionViews_Previews: PreviewProvider {
                 aiMemo: "AIメモ",
                 generationError: nil,
                 isFinalizing: false,
+                isGenerating: false,
                 syncStatus: .success,
-                onRetry: {}
+                onRetry: {},
+                onRegenerate: {}
             )
         }
     }

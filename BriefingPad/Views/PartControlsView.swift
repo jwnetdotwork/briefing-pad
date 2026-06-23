@@ -47,7 +47,7 @@ struct PartControlsView: View {
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing)
+                    .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
                 }
 
                 if viewModel.isPlaying {
@@ -62,7 +62,7 @@ struct PartControlsView: View {
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
-                    .disabled(!hasAudio || viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.isFinalizing)
+                    .disabled(!hasAudio || viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
                 }
 
                 Button(action: {
@@ -74,7 +74,7 @@ struct PartControlsView: View {
                         .frame(minWidth: 80, minHeight: 44)
                 }
                 .buttonStyle(.bordered)
-                .disabled(isFinished || viewModel.isFinalizing)
+                .disabled(isFinished || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
             }
         }
         .padding()
