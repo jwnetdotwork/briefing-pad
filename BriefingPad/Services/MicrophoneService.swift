@@ -75,6 +75,7 @@ open class MicrophoneService: ObservableObject {
     @Published var audioLevel: AudioLevel = .silent
 
     private var audioBufferContinuations: [UUID: AsyncStream<AVAudioPCMBuffer>.Continuation] = [:]
+    private let continuationsLock = NSLock()
 
     private let audioEngine: AudioEngineProvider
     private let permissionProvider: PermissionProvider
@@ -90,15 +91,15 @@ open class MicrophoneService: ObservableObject {
         #endif
         let id = UUID()
         return AsyncStream(AVAudioPCMBuffer.self, bufferingPolicy: .bufferingNewest(50)) { continuation in
-            objc_sync_enter(self)
+            continuationsLock.lock()
             self.audioBufferContinuations[id] = continuation
-            objc_sync_exit(self)
+            continuationsLock.unlock()
 
             continuation.onTermination = { [weak self] _ in
                 guard let self = self else { return }
-                objc_sync_enter(self)
+                self.continuationsLock.lock()
                 self.audioBufferContinuations.removeValue(forKey: id)
-                objc_sync_exit(self)
+                self.continuationsLock.unlock()
             }
         }
     }
@@ -204,9 +205,9 @@ open class MicrophoneService: ObservableObject {
                     }
                 }
 
-                objc_sync_enter(self)
+                self.continuationsLock.lock()
                 let continuations = Array(self.audioBufferContinuations.values)
-                objc_sync_exit(self)
+                self.continuationsLock.unlock()
 
                 for continuation in continuations {
                     continuation.yield(buffer)

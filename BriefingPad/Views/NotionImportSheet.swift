@@ -31,7 +31,7 @@ struct NotionImportSheet: View {
                 TextField("https://app.notion.com/...", text: $notionURL)
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
-                    .onChange(of: notionURL) { _ in
+                    .onChange(of: notionURL) {
                         preview = nil
                         pageId = nil
                     }

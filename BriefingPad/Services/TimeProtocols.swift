@@ -13,11 +13,13 @@ protocol Scheduler: Sendable {
     func cancel()
 }
 
-@MainActor
-final class RealScheduler: Scheduler {
+final class RealScheduler: Scheduler, @unchecked Sendable {
     private var task: Task<Void, Never>?
+    private let lock = NSLock()
 
     func schedule(after duration: TimeInterval, action: @escaping @Sendable () -> Void) {
+        lock.lock()
+        defer { lock.unlock() }
         task?.cancel()
         task = Task {
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
@@ -28,6 +30,8 @@ final class RealScheduler: Scheduler {
     }
 
     func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
         task?.cancel()
         task = nil
     }
