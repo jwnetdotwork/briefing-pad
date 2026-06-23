@@ -32,8 +32,56 @@ final class LLMServiceTests: XCTestCase {
         XCTAssertTrue(userPrompt.contains("Point 1"))
         XCTAssertTrue(userPrompt.contains("obs1"))
         XCTAssertTrue(userPrompt.contains("pos1"))
+        XCTAssertTrue(userPrompt.contains("状態: hidden (未判定)"))
         XCTAssertTrue(userPrompt.contains(fullTranscript))
         XCTAssertTrue(userPrompt.contains(newChunk))
+    }
+
+    func testPromptBuilderWithCumulativeState() {
+        var partInfo = PartDefinition(
+            id: "test-part",
+            number: 1,
+            title: "Test Part",
+            durationMinutes: 5,
+            setting: "Test Setting",
+            rawMarkdown: "",
+            learningPoints: [LearningPoint(id: "lp1", text: "Point 1")],
+            observationItems: [ObservationItem(id: "obs1", text: "Obs 1")],
+            positiveItems: [PositiveItem(id: "pos1", text: "Pos 1")]
+        )
+
+        // Set some cumulative state
+        partInfo.analysisState.observationItemStates["obs1"] = AnalysisItemState(
+            confidence: 0.8,
+            shortEvidence: "Found evidence for obs1",
+            status: .candidate,
+            lastUpdatedAt: Date()
+        )
+        partInfo.analysisState.positiveItemStates["pos1"] = AnalysisItemState(
+            confidence: 1.0,
+            shortEvidence: "Strong evidence for pos1",
+            status: .strong,
+            lastUpdatedAt: Date()
+        )
+
+        let userPrompt = PromptBuilder.buildUserPrompt(
+            fullTranscript: "Full transcript.",
+            newChunk: "New chunk.",
+            partInfo: partInfo
+        )
+
+        XCTAssertTrue(userPrompt.contains("これまでの判定結果"))
+
+        // Robust assertions for cumulative state
+        XCTAssertTrue(userPrompt.contains("id: obs1"))
+        XCTAssertTrue(userPrompt.contains("内容: Obs 1"))
+        XCTAssertTrue(userPrompt.contains("状態: candidate"))
+        XCTAssertTrue(userPrompt.contains("根拠: Found evidence for obs1"))
+
+        XCTAssertTrue(userPrompt.contains("id: pos1"))
+        XCTAssertTrue(userPrompt.contains("内容: Pos 1"))
+        XCTAssertTrue(userPrompt.contains("状態: strong"))
+        XCTAssertTrue(userPrompt.contains("根拠: Strong evidence for pos1"))
     }
 
     func testOneLinerPromptBuilder() {
