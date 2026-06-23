@@ -108,7 +108,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         super.init()
 
-        self.chunker = TranscriptChunker(clock: clock, scheduler: scheduler ?? RealScheduler()) { [weak self] chunk in
+        self.chunker = TranscriptChunker(clock: self.clock, scheduler: scheduler ?? RealScheduler()) { [weak self] chunk in
             guard let self = self else { return }
             Task { @MainActor in
                 await self.enqueueChunk(chunk)
