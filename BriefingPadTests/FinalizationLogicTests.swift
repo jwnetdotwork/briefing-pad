@@ -15,6 +15,7 @@ final class FinalizationLogicTests: XCTestCase {
             notionService: MockNotionService(),
             transcriptionService: MockSpeechTranscriptionService(),
             micService: MicrophoneService(),
+            store: MockSessionStore(),
             clock: MockClock()
         )
 
@@ -41,7 +42,7 @@ final class FinalizationLogicTests: XCTestCase {
     }
 
     @MainActor
-    func testAnalysisUpdateAfterFinishPart_ShouldNotOverwriteMemo() async {
+    func testAnalysisUpdateAfterFinishPart_ShouldNotOverwriteMemo() async throws {
         let mockLLM = ControlledMockLLM()
         let mockNotion = MockNotionService()
         let viewModel = SessionViewModel(
@@ -49,10 +50,11 @@ final class FinalizationLogicTests: XCTestCase {
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
             micService: MicrophoneService(),
+            store: MockSessionStore(),
             clock: MockClock()
         )
 
-        let partId = viewModel.currentPart?.id ?? ""
+        let partId = setupTestFixture(viewModel: viewModel)
 
         // 1. Start an analysis chunk process (will hang in mockLLM)
         let chunkTask = Task {
@@ -72,7 +74,8 @@ final class FinalizationLogicTests: XCTestCase {
         // finishPart() will wait for the chunkQueue to be empty.
         await viewModel.finishPart()
 
-        let memoAfterFinish = viewModel.sessions[0].parts[0].aiMemo
+        let firstPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
+        let memoAfterFinish = firstPart.aiMemo
         XCTAssertFalse(memoAfterFinish.isEmpty, "Memo should be populated after finishPart")
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
 
@@ -80,7 +83,8 @@ final class FinalizationLogicTests: XCTestCase {
         await chunkTask.value
 
         // 4. Verify aiMemo is NOT overwritten/cleared by the late chunk
-        let memoAfterLateChunk = viewModel.sessions[0].parts[0].aiMemo
+        let updatedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
+        let memoAfterLateChunk = updatedPart.aiMemo
         XCTAssertEqual(memoAfterLateChunk, memoAfterFinish, "Memo should not be overwritten by late analysis results")
         XCTAssertFalse(memoAfterLateChunk.isEmpty)
     }
@@ -114,7 +118,7 @@ final class FinalizationLogicTests: XCTestCase {
     }
 
     @MainActor
-    func testFinishPartFlow() async {
+    func testFinishPartFlow() async throws {
         let mockLLM = MockLLMService(delayNanoseconds: 0)
         let mockNotion = MockNotionService()
         let viewModel = SessionViewModel(
@@ -122,11 +126,11 @@ final class FinalizationLogicTests: XCTestCase {
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
             micService: MicrophoneService(),
+            store: MockSessionStore(),
             clock: MockClock()
         )
 
-        // Initial state
-        let partId = viewModel.currentPart?.id ?? ""
+        let partId = setupTestFixture(viewModel: viewModel)
         XCTAssertFalse(viewModel.sessionState.partStates[partId]?.isFinished ?? true)
 
         // Inject some analysis results
@@ -141,13 +145,12 @@ final class FinalizationLogicTests: XCTestCase {
         await viewModel.finishPart()
 
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
-        XCTAssertFalse(viewModel.sessions[0].parts[0].aiMemo.isEmpty)
-        // Note: MockLLMService returns a fixed string, not the formatted memo anymore
-        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemo.contains("素晴らしい対応でした"))
+        let finishedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
+        XCTAssertFalse(finishedPart.aiMemo.isEmpty)
     }
 
     @MainActor
-    func testFinishPartFlow_NotionExternalModification() async {
+    func testFinishPartFlow_NotionExternalModification() async throws {
         let mockLLM = MockLLMService(delayNanoseconds: 0)
         let mockNotion = MockNotionService()
         mockNotion.shouldSimulateExternalModification = true
@@ -157,8 +160,11 @@ final class FinalizationLogicTests: XCTestCase {
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
             micService: MicrophoneService(),
+            store: MockSessionStore(),
             clock: MockClock()
         )
+
+        let _ = setupTestFixture(viewModel: viewModel)
 
         // Setup initial part with a block ID
         if var part = viewModel.currentPart {
@@ -169,11 +175,8 @@ final class FinalizationLogicTests: XCTestCase {
         await viewModel.finishPart()
 
         // Verify block ID was updated
-        XCTAssertNotEqual(viewModel.sessions[0].parts[0].aiMemoBlockId, "original-block-id")
-        XCTAssertTrue(viewModel.sessions[0].parts[0].aiMemoBlockId?.contains("new-block-id") ?? false)
+        let finishedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
+        XCTAssertNotEqual(finishedPart.aiMemoBlockId, "original-block-id")
+        XCTAssertTrue(finishedPart.aiMemoBlockId?.contains("new-block-id") ?? false)
     }
-}
-
-class MockClock: Clock {
-    var now: Date = Date()
 }

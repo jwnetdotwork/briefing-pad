@@ -27,39 +27,24 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testSessionControlFlow() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let obs1 = ObservationItem(id: "obs1", text: "Obs 1")
-        let part1 = PartDefinition(
-            id: "part1",
-            number: 1,
-            title: "Part 1",
-            durationMinutes: 5,
-            setting: nil,
-            rawMarkdown: "",
-            learningPoints: [],
-            observationItems: [obs1],
-            positiveItems: []
-        )
-        let part2 = PartDefinition(
-            id: "part2",
-            number: 2,
-            title: "Part 2",
-            durationMinutes: 5,
-            setting: nil,
-            rawMarkdown: "",
-            learningPoints: [],
-            observationItems: [],
-            positiveItems: []
-        )
-
-        let session = BriefingSession(id: "s1", name: "Session 1", parts: [part1, part2])
-
         let mockMic = MockMicrophoneService()
-        let viewModel = SessionViewModel(micService: mockMic, store: store)
+        // Use MockSessionStore to avoid file I/O for logic tests
+        let viewModel = SessionViewModel(
+            llmService: MockLLMService(delayNanoseconds: 0),
+            micService: mockMic,
+            store: MockSessionStore()
+        )
+
+        let part1Id = "part1"
+        let part2Id = "part2"
+        let session = BriefingSession(id: "s1", name: "Session 1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "Part 1", durationMinutes: 5, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [ObservationItem(id: "obs1", text: "Obs 1")], positiveItems: []),
+            PartDefinition(id: part2Id, number: 2, title: "Part 2", durationMinutes: 5, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
 
         // 1. Start Recording
         XCTAssertEqual(viewModel.micStatus, .idle)
@@ -91,7 +76,7 @@ final class SessionControlTests: XCTestCase {
 
         // 3. Finish Part
         await viewModel.finishPart()
-        XCTAssertEqual(viewModel.sessionState.partStates["part1"]?.isFinished, true)
+        XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.isFinished, true)
 
         // 4. Move to Next Part
         let (nextPartExpectation, nextPartCancellable) = expectationForPublishedValue(
@@ -103,7 +88,7 @@ final class SessionControlTests: XCTestCase {
         await fulfillment(of: [nextPartExpectation], timeout: 1.0)
         nextPartCancellable.cancel()
         XCTAssertEqual(viewModel.currentPartIndex, 1)
-        XCTAssertEqual(viewModel.currentPart?.id, "part2")
+        XCTAssertEqual(viewModel.currentPart?.id, part2Id)
 
         // 5. Back to Previous Part
         let (previousPartExpectation, previousPartCancellable) = expectationForPublishedValue(
@@ -115,15 +100,12 @@ final class SessionControlTests: XCTestCase {
         await fulfillment(of: [previousPartExpectation], timeout: 1.0)
         previousPartCancellable.cancel()
         XCTAssertEqual(viewModel.currentPartIndex, 0)
-        XCTAssertEqual(viewModel.currentPart?.id, "part1")
+        XCTAssertEqual(viewModel.currentPart?.id, part1Id)
     }
 
     @MainActor
     func testPartSwitchResetsTimer() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let viewModel = SessionViewModel(store: store)
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -185,11 +167,10 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testRecordingContextIsolation() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let mockTranscription = MockSpeechTranscriptionService()
-        let viewModel = SessionViewModel(transcriptionService: mockTranscription, store: store)
+        let viewModel = SessionViewModel(
+            transcriptionService: MockSpeechTranscriptionService(),
+            store: MockSessionStore()
+        )
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -236,6 +217,7 @@ final class SessionControlTests: XCTestCase {
         let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [:])
         try await store.saveSession(savedSession)
 
+        // Here we MUST use FileSessionStore because we are testing loading from it
         let viewModel = SessionViewModel(store: store)
         let (loadedExpectation, loadedCancellable) = expectationForPublishedValue(
             viewModel.$selectedSessionId,
@@ -251,10 +233,7 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let viewModel = SessionViewModel(store: store)
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let session1 = BriefingSession(id: "s1", name: "Session 1", parts: [])
         let session2 = BriefingSession(id: "s2", name: "Session 2", parts: [])
         let session3 = BriefingSession(id: "s3", name: "Session 3", parts: [])
@@ -277,10 +256,7 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testDeleteLastSessionLeavesNoSelection() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let viewModel = SessionViewModel(store: store)
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let session = BriefingSession(id: "s1", name: "Session 1", parts: [])
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
@@ -302,10 +278,7 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testDeletePartDataResetsTimerInAllModes() async {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let viewModel = SessionViewModel(store: store)
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
@@ -380,10 +353,7 @@ final class SessionControlTests: XCTestCase {
 
     @MainActor
     func testOvertimeDetection() {
-        let (store, tempDir) = makeTempStore()
-        defer { try? FileManager.default.removeItem(at: tempDir) }
-
-        let viewModel = SessionViewModel(store: store)
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
