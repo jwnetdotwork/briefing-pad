@@ -24,7 +24,7 @@ final class TranscriptChunkerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Chunk should be flushed after silence")
         var flushedChunks: [TranscriptChunk] = []
         let scheduler = TestScheduler()
-        let chunker = TranscriptChunker(scheduler: scheduler) { chunk in
+        let chunker = TranscriptChunker(clock: RealClock(), scheduler: scheduler) { chunk in
             flushedChunks.append(chunk)
             expectation.fulfill()
         }
@@ -83,7 +83,7 @@ final class TranscriptChunkerTests: XCTestCase {
     @MainActor
     func testCharacterLimit() async {
         var flushedChunks: [TranscriptChunk] = []
-        let chunker = TranscriptChunker(onFlush: { flushedChunks.append($0) })
+        let chunker = TranscriptChunker(clock: RealClock(), scheduler: RealScheduler(), onFlush: { flushedChunks.append($0) })
 
         let longText = String(repeating: "A", count: 121)
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p1", text: longText, isFinal: true, startTime: 10, endTime: 20))
@@ -95,7 +95,7 @@ final class TranscriptChunkerTests: XCTestCase {
     @MainActor
     func testPartChangeFlushes() async {
         var flushedChunks: [TranscriptChunk] = []
-        let chunker = TranscriptChunker(onFlush: { flushedChunks.append($0) })
+        let chunker = TranscriptChunker(clock: RealClock(), scheduler: RealScheduler(), onFlush: { flushedChunks.append($0) })
 
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p1", text: "Part 1", isFinal: true, startTime: 10, endTime: 11))
         chunker.processSegment(TranscriptSegment(sessionId: "s1", partId: "p2", text: "Part 2", isFinal: true, startTime: 12, endTime: 13))
@@ -110,7 +110,7 @@ final class TranscriptChunkerTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Chunk should NOT be flushed")
         expectation.isInverted = true
         let scheduler = TestScheduler()
-        let chunker = TranscriptChunker(scheduler: scheduler) { _ in
+        let chunker = TranscriptChunker(clock: RealClock(), scheduler: scheduler) { _ in
             expectation.fulfill()
         }
 

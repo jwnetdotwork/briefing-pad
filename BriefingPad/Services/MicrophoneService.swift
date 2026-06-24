@@ -74,7 +74,7 @@ open class MicrophoneService: ObservableObject {
     @Published var status: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
 
-    private var audioBufferContinuations: [UUID: AsyncStream<AVAudioPCMBuffer>.Continuation] = [:]
+    nonisolated(unsafe) private var audioBufferContinuations: [UUID: AsyncStream<AVAudioPCMBuffer>.Continuation] = [:]
     private let continuationsLock = NSLock()
 
     private let audioEngine: AudioEngineProvider
