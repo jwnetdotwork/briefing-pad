@@ -43,7 +43,12 @@ class MockSessionStore: SessionStoreProtocol {
 
 @MainActor
 @discardableResult
-func setupTestFixture(viewModel: SessionViewModel) -> String {
+func setupTestFixture(viewModel: SessionViewModel) async throws -> String {
+    // Wait for bootstrap to complete
+    try await waitUntil(message: "ViewModel should be bootstrapped") {
+        viewModel.isBootstrapped
+    }
+
     let pos1 = PositiveItem(id: "pos1", text: "Positive 1")
     let obs1 = ObservationItem(id: "obs1", text: "Observation 1")
     let part1 = PartDefinition(

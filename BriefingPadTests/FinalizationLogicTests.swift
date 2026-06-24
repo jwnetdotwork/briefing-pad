@@ -54,7 +54,7 @@ final class FinalizationLogicTests: XCTestCase {
             clock: MockClock()
         )
 
-        let partId = setupTestFixture(viewModel: viewModel)
+        let partId = try await setupTestFixture(viewModel: viewModel)
 
         // 1. Start an analysis chunk process (will hang in mockLLM)
         let chunkTask = Task {
@@ -71,7 +71,6 @@ final class FinalizationLogicTests: XCTestCase {
         }
 
         // 4. Finish the part (this should populate aiMemo and mark as finished)
-        // finishPart() will wait for the chunkQueue to be empty.
         await viewModel.finishPart()
         await resumeTask.value
 
@@ -80,10 +79,10 @@ final class FinalizationLogicTests: XCTestCase {
         XCTAssertFalse(memoAfterFinish.isEmpty, "Memo should be populated after finishPart")
         XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
 
-        // 4. Ensure analysis chunk finished
+        // 5. Ensure analysis chunk finished
         await chunkTask.value
 
-        // 4. Verify aiMemo is NOT overwritten/cleared by the late chunk
+        // 6. Verify aiMemo is NOT overwritten/cleared by the late chunk
         let updatedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
         let memoAfterLateChunk = updatedPart.aiMemo
         XCTAssertEqual(memoAfterLateChunk, memoAfterFinish, "Memo should not be overwritten by late analysis results")
@@ -144,7 +143,7 @@ final class FinalizationLogicTests: XCTestCase {
             clock: MockClock()
         )
 
-        let partId = setupTestFixture(viewModel: viewModel)
+        let partId = try await setupTestFixture(viewModel: viewModel)
         XCTAssertFalse(viewModel.sessionState.partStates[partId]?.isFinished ?? true)
 
         // Inject some analysis results
@@ -178,7 +177,7 @@ final class FinalizationLogicTests: XCTestCase {
             clock: MockClock()
         )
 
-        let _ = setupTestFixture(viewModel: viewModel)
+        let _ = try await setupTestFixture(viewModel: viewModel)
 
         // Setup initial part with a block ID
         if var part = viewModel.currentPart {
