@@ -50,9 +50,13 @@ final class BriefingPadUITests: XCTestCase {
 
         // Verify that selection moved to Part 1
         let part1 = app.buttons["PartButton-1"]
-        XCTAssertTrue(part1.waitForExistence(timeout: 5))
-        XCTAssertEqual(part1.value as? String, "Selected")
-        XCTAssertEqual(part0.value as? String, "Unselected")
+        let part1Selected = NSPredicate(format: "value == 'Selected'")
+        expectation(for: part1Selected, evaluatedWith: part1, handler: nil)
+
+        let part0Unselected = NSPredicate(format: "value == 'Unselected'")
+        expectation(for: part0Unselected, evaluatedWith: part0, handler: nil)
+
+        waitForExpectations(timeout: 5, handler: nil)
 
         let prevButton = app.buttons["PreviousPartButton"]
         XCTAssertTrue(prevButton.waitForExistence(timeout: 5))
@@ -60,7 +64,12 @@ final class BriefingPadUITests: XCTestCase {
         prevButton.click()
 
         // Verify selection moved back to Part 0
-        XCTAssertEqual(part0.value as? String, "Selected")
-        XCTAssertEqual(part1.value as? String, "Unselected")
+        let part0Selected = NSPredicate(format: "value == 'Selected'")
+        expectation(for: part0Selected, evaluatedWith: part0, handler: nil)
+
+        let part1Unselected = NSPredicate(format: "value == 'Unselected'")
+        expectation(for: part1Unselected, evaluatedWith: part1, handler: nil)
+
+        waitForExpectations(timeout: 5, handler: nil)
     }
 }
