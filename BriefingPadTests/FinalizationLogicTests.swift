@@ -93,6 +93,7 @@ final class FinalizationLogicTests: XCTestCase {
     private actor ControlledMockLLM: LLMServiceProtocol {
         private var continuation: CheckedContinuation<Void, Never>?
         private var startContinuation: CheckedContinuation<Void, Never>?
+        private var didStart = false
 
         func resume() {
             continuation?.resume()
@@ -100,12 +101,14 @@ final class FinalizationLogicTests: XCTestCase {
         }
 
         func waitForStart() async {
+            if didStart { return }
             await withCheckedContinuation { continuation in
                 self.startContinuation = continuation
             }
         }
 
         func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition) async throws -> AnalysisResult {
+            didStart = true
             startContinuation?.resume()
             startContinuation = nil
 

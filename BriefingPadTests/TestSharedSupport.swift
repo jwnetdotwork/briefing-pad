@@ -7,12 +7,14 @@ func waitUntil(
     timeout: TimeInterval = 2.0,
     interval: UInt64 = 10_000_000, // 10ms
     message: String = "Wait timeout",
+    file: StaticString = #file,
+    line: UInt = #line,
     condition: () -> Bool
 ) async throws {
     let start = Date()
     while !condition() {
         if Date().timeIntervalSince(start) > timeout {
-            XCTFail(message)
+            XCTFail(message, file: file, line: line)
             return
         }
         try await Task.sleep(nanoseconds: interval)
