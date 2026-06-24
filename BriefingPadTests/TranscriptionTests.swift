@@ -186,8 +186,10 @@ final class TranscriptionTests: XCTestCase {
         // It should finalize Part 1 even though we are now on Part 2
         await viewModel.stopTranscription()
 
-        // Wait a bit for the Task in stopTranscription to finish
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        // Verify state changes without Task.sleep
+        try await waitUntil(message: "Part 1 should be finalized") {
+            viewModel.sessionState.partStates[part1Id]?.transcript.first?.isFinal ?? false
+        }
 
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count, 1)
         XCTAssertTrue(viewModel.sessionState.partStates[part1Id]?.transcript.first?.isFinal ?? false, "Part 1 should be finalized")

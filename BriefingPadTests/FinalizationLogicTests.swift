@@ -61,18 +61,19 @@ final class FinalizationLogicTests: XCTestCase {
             await viewModel.processTranscriptChunk("Test chunk")
         }
 
-        // Give the task a moment to start and reach the await point
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        // 2. Wait for LLM to actually start
+        await mockLLM.waitForStart()
 
-        // 2. Schedule resume to happen after finishPart() starts waiting for the queue
-        Task.detached {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
+        // 3. Schedule resume to happen after finishPart() starts
+        let resumeTask = Task {
+            try? await waitUntil(message: "Wait for finalization to start") { viewModel.isFinalizing }
             await mockLLM.resume()
         }
 
-        // 3. Finish the part (this should populate aiMemo and mark as finished)
+        // 4. Finish the part (this should populate aiMemo and mark as finished)
         // finishPart() will wait for the chunkQueue to be empty.
         await viewModel.finishPart()
+        await resumeTask.value
 
         let firstPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
         let memoAfterFinish = firstPart.aiMemo
@@ -91,13 +92,26 @@ final class FinalizationLogicTests: XCTestCase {
 
     private actor ControlledMockLLM: LLMServiceProtocol {
         private var continuation: CheckedContinuation<Void, Never>?
+        private var startContinuation: CheckedContinuation<Void, Never>?
+        private var didStart = false
 
         func resume() {
             continuation?.resume()
             continuation = nil
         }
 
+        func waitForStart() async {
+            if didStart { return }
+            await withCheckedContinuation { continuation in
+                self.startContinuation = continuation
+            }
+        }
+
         func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition) async throws -> AnalysisResult {
+            didStart = true
+            startContinuation?.resume()
+            startContinuation = nil
+
             await withCheckedContinuation { continuation in
                 self.continuation = continuation
             }

@@ -28,10 +28,9 @@ final class AIMemoManualGenerationTests: XCTestCase {
         // 1. Manually regenerate
         viewModel.regenerateAIMemo()
 
-        // Wait for aiMemo to be populated (indicating generation is complete)
-        let timeout = Date().addingTimeInterval(5.0)
-        while (viewModel.sessions.first?.parts.first?.aiMemo.isEmpty ?? true) && Date() < timeout {
-            try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+        // Wait for aiMemo to be populated and generation flag to be false
+        try await waitUntil(message: "aiMemo should be populated and generation complete") {
+            !(viewModel.sessions.first?.parts.first?.aiMemo.isEmpty ?? true) && !viewModel.isGeneratingAIMemo
         }
 
         // 2. Verify aiMemo is populated but isFinished is still false

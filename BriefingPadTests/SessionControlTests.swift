@@ -123,20 +123,10 @@ final class SessionControlTests: XCTestCase {
         viewModel.partElapsedTime = 100
 
         // 2. Switch to Part 2
-        let (switchToPart2Expectation, switchToPart2IndexCancellable) = expectationForPublishedValue(
-            viewModel.$currentPartIndex,
-            equals: 1,
-            description: "switches to part 2"
-        )
-        let (switchToPart2TimerExpectation, switchToPart2TimerCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 0,
-            description: "timer resets for part 2"
-        )
         viewModel.selectPart(index: 1)
-        await fulfillment(of: [switchToPart2Expectation, switchToPart2TimerExpectation], timeout: 1.0)
-        switchToPart2IndexCancellable.cancel()
-        switchToPart2TimerCancellable.cancel()
+        try await waitUntil(message: "switches to part 2 and timer resets") {
+            viewModel.currentPartIndex == 1 && viewModel.partElapsedTime == 0
+        }
 
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.partElapsedTime, 0, "Timer should be reset to 0 for a new part with no history")
@@ -148,20 +138,10 @@ final class SessionControlTests: XCTestCase {
         viewModel.partElapsedTime = 50
 
         // 4. Switch back to Part 1
-        let (switchBackExpectation, switchBackIndexCancellable) = expectationForPublishedValue(
-            viewModel.$currentPartIndex,
-            equals: 0,
-            description: "switches back to part 1"
-        )
-        let (restoreTimerExpectation, restoreTimerCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 100,
-            description: "timer restores part 1"
-        )
         viewModel.selectPart(index: 0)
-        await fulfillment(of: [switchBackExpectation, restoreTimerExpectation], timeout: 1.0)
-        switchBackIndexCancellable.cancel()
-        restoreTimerCancellable.cancel()
+        try await waitUntil(message: "switches back to part 1 and timer restores") {
+            viewModel.currentPartIndex == 0 && viewModel.partElapsedTime == 100
+        }
         XCTAssertEqual(viewModel.partElapsedTime, 100, "Timer should restore Part 1's value")
     }
 
@@ -288,65 +268,37 @@ final class SessionControlTests: XCTestCase {
         viewModel.currentPartIndex = 0
 
         // Helper to set and verify reset
-        let testReset: ( (SessionViewModel) -> Void ) = { vm in
+        let setupData: ( (SessionViewModel) -> Void ) = { vm in
             vm.partElapsedTime = 100
+            vm.sessionState.partStates[part1Id] = PartState()
             vm.sessionState.partStates[part1Id]?.elapsedTime = 100
-
-            // Trigger deletion (async internally)
-            vm.deleteCurrentPartData()
         }
 
         // 1. Full deletion
-        let (fullResetExpectation, fullResetCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 0,
-            description: "full deletion resets timer"
-        )
-        testReset(viewModel)
-        await fulfillment(of: [fullResetExpectation], timeout: 1.0)
-        fullResetCancellable.cancel()
+        setupData(viewModel)
+        viewModel.deleteCurrentPartData()
+        try await waitUntil(message: "full deletion resets timer") { viewModel.partElapsedTime == 0 }
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 2. Only Audio
-        viewModel.partElapsedTime = 100
-        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
-        let (audioResetExpectation, audioResetCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 0,
-            description: "audio deletion resets timer"
-        )
+        setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyAudio: true)
-        await fulfillment(of: [audioResetExpectation], timeout: 1.0)
-        audioResetCancellable.cancel()
+        try await waitUntil(message: "audio deletion resets timer") { viewModel.partElapsedTime == 0 }
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 3. Only Transcript
-        viewModel.partElapsedTime = 100
-        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
-        let (transcriptResetExpectation, transcriptResetCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 0,
-            description: "transcript deletion resets timer"
-        )
+        setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyTranscript: true)
-        await fulfillment(of: [transcriptResetExpectation], timeout: 1.0)
-        transcriptResetCancellable.cancel()
+        try await waitUntil(message: "transcript deletion resets timer") { viewModel.partElapsedTime == 0 }
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 4. Only LLM
-        viewModel.partElapsedTime = 100
-        viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
-        let (llmResetExpectation, llmResetCancellable) = expectationForPublishedValue(
-            viewModel.$partElapsedTime,
-            equals: 0,
-            description: "llm deletion resets timer"
-        )
+        setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyLLM: true)
-        await fulfillment(of: [llmResetExpectation], timeout: 1.0)
-        llmResetCancellable.cancel()
+        try await waitUntil(message: "llm deletion resets timer") { viewModel.partElapsedTime == 0 }
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
     }
