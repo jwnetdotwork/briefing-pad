@@ -2,10 +2,12 @@ import SwiftUI
 
 struct SectionContainer<Content: View>: View {
     let title: String
+    let identifier: String?
     let content: Content
 
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: String, identifier: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
+        self.identifier = identifier
         self.content = content()
     }
 
@@ -14,6 +16,7 @@ struct SectionContainer<Content: View>: View {
             Text(title)
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .accessibilityIdentifier(identifier ?? "")
 
             content
                 .padding(8)
@@ -37,7 +40,7 @@ struct TranscriptView: View {
     @State private var isAtBottom = true
 
     var body: some View {
-        SectionContainer("文字起こし") {
+        SectionContainer("文字起こし", identifier: "TranscriptSection") {
             VStack(alignment: .leading, spacing: 4) {
                 if let error = errorMessage {
                     Text(error)
@@ -95,7 +98,7 @@ struct LearningPointsView: View {
     let points: [LearningPoint]
 
     var body: some View {
-        SectionContainer("学習ポイント") {
+        SectionContainer("学習ポイント", identifier: "LearningPointsSection") {
             VStack(alignment: .leading, spacing: 4) {
                 if points.isEmpty {
                     Text("なし")
@@ -115,7 +118,7 @@ struct ObservationItemsView: View {
     let state: [String: AnalysisItemState]
 
     var body: some View {
-        SectionContainer("観察メモ") {
+        SectionContainer("観察メモ", identifier: "ObservationSection") {
             VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
                     Text("なし")
@@ -152,18 +155,8 @@ struct PositiveItemsView: View {
     let items: [PositiveItem]
     let state: [String: AnalysisItemState]
 
-    private var displayItems: [(item: PositiveItem, state: AnalysisItemState)] {
-        items.compactMap { item -> (item: PositiveItem, state: AnalysisItemState)? in
-            let itemState = state[item.id] ?? .hidden()
-            guard itemState.status != .hidden else { return nil }
-            return (item, itemState)
-        }
-        .sorted { $0.state.confidence > $1.state.confidence }
-        .map { $0 }
-    }
-
     var body: some View {
-        SectionContainer("良かった点候補") {
+        SectionContainer("良かった点候補", identifier: "PositiveCandidatesSection") {
             VStack(alignment: .leading, spacing: 8) {
                 if displayItems.isEmpty {
                     Text("（該当なし）")
@@ -188,6 +181,16 @@ struct PositiveItemsView: View {
             }
         }
     }
+
+    private var displayItems: [(item: PositiveItem, state: AnalysisItemState)] {
+        items.compactMap { item -> (item: PositiveItem, state: AnalysisItemState)? in
+            let itemState = state[item.id] ?? .hidden()
+            guard itemState.status != .hidden else { return nil }
+            return (item, itemState)
+        }
+        .sorted { $0.state.confidence > $1.state.confidence }
+        .map { $0 }
+    }
 }
 
 struct CommentMaterialView: View {
@@ -200,7 +203,7 @@ struct CommentMaterialView: View {
     let onRegenerate: () -> Void
 
     var body: some View {
-        SectionContainer("🤖 AIメモ") {
+        SectionContainer("🤖 AIメモ", identifier: "AIMemoSection") {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 8) {
                     if isFinalizing || isGenerating {

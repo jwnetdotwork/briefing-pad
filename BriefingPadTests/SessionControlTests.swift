@@ -124,10 +124,7 @@ final class SessionControlTests: XCTestCase {
 
         // 2. Switch to Part 2
         viewModel.selectPart(index: 1)
-        try await waitUntil(message: "switches to part 2 and timer resets") {
-            viewModel.currentPartIndex == 1 && viewModel.partElapsedTime == 0
-        }
-
+        // Verify immediate state update
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.partElapsedTime, 0, "Timer should be reset to 0 for a new part with no history")
 
@@ -139,9 +136,8 @@ final class SessionControlTests: XCTestCase {
 
         // 4. Switch back to Part 1
         viewModel.selectPart(index: 0)
-        try await waitUntil(message: "switches back to part 1 and timer restores") {
-            viewModel.currentPartIndex == 0 && viewModel.partElapsedTime == 100
-        }
+        // Verify immediate state update
+        XCTAssertEqual(viewModel.currentPartIndex, 0)
         XCTAssertEqual(viewModel.partElapsedTime, 100, "Timer should restore Part 1's value")
     }
 
@@ -167,14 +163,9 @@ final class SessionControlTests: XCTestCase {
         await Task.yield()
 
         // 2. Switch to Part 2 (This should reset context and stop transcription)
-        let (switchExpectation, switchCancellable) = expectationForPublishedValue(
-            viewModel.$currentPartIndex,
-            equals: 1,
-            description: "selectPart completes"
-        )
         viewModel.selectPart(index: 1)
-        await fulfillment(of: [switchExpectation], timeout: 1.0)
-        switchCancellable.cancel()
+        // Verify immediate state update
+        XCTAssertEqual(viewModel.currentPartIndex, 1)
 
         // 3. Assertions
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count ?? 0, 0, "Late segment from old context should be ignored")
@@ -212,7 +203,7 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async {
+    func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
         let session1 = BriefingSession(id: "s1", name: "Session 1", parts: [])
         let session2 = BriefingSession(id: "s2", name: "Session 2", parts: [])
@@ -220,36 +211,28 @@ final class SessionControlTests: XCTestCase {
         viewModel.sessions = [session1, session2, session3]
         viewModel.selectedSessionId = "s2"
 
-        let (expectation, cancellable) = expectationForPublishedValue(
-            viewModel.$selectedSessionId,
-            equals: "s3",
-            description: "selected session moved"
-        )
-
         viewModel.deleteCurrentSession()
-        await fulfillment(of: [expectation], timeout: 1.0)
-        cancellable.cancel()
+
+        try await waitUntil(message: "selected session moved") {
+            viewModel.selectedSessionId == "s3"
+        }
 
         XCTAssertEqual(viewModel.sessions.map(\.id), ["s1", "s3"])
         XCTAssertEqual(viewModel.selectedSessionId, "s3")
     }
 
     @MainActor
-    func testDeleteLastSessionLeavesNoSelection() async {
+    func testDeleteLastSessionLeavesNoSelection() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
         let session = BriefingSession(id: "s1", name: "Session 1", parts: [])
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
 
-        let (expectation, cancellable) = expectationForPublishedValue(
-            viewModel.$selectedSessionId,
-            equals: "",
-            description: "selection cleared"
-        )
-
         viewModel.deleteCurrentSession()
-        await fulfillment(of: [expectation], timeout: 1.0)
-        cancellable.cancel()
+
+        try await waitUntil(message: "selection cleared") {
+            viewModel.selectedSessionId == ""
+        }
 
         XCTAssertTrue(viewModel.sessions.isEmpty)
         XCTAssertEqual(viewModel.selectedSessionId, "")
@@ -277,28 +260,28 @@ final class SessionControlTests: XCTestCase {
         // 1. Full deletion
         setupData(viewModel)
         viewModel.deleteCurrentPartData()
-        try await waitUntil(message: "full deletion resets timer") { viewModel.partElapsedTime == 0 }
+        // Verify immediate state update
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 2. Only Audio
         setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyAudio: true)
-        try await waitUntil(message: "audio deletion resets timer") { viewModel.partElapsedTime == 0 }
+        // Verify immediate state update
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 3. Only Transcript
         setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyTranscript: true)
-        try await waitUntil(message: "transcript deletion resets timer") { viewModel.partElapsedTime == 0 }
+        // Verify immediate state update
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 4. Only LLM
         setupData(viewModel)
         viewModel.deleteCurrentPartData(onlyLLM: true)
-        try await waitUntil(message: "llm deletion resets timer") { viewModel.partElapsedTime == 0 }
+        // Verify immediate state update
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
     }

@@ -353,6 +353,13 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let oldPartId = currentPart?.id
         let oldSessionId = selectedSessionId
 
+        // Immediate synchronous state update
+        selectedSessionId = id
+        currentPartIndex = 0
+        transcriptionError = nil
+        partElapsedTime = 0
+        activeRecordingContext = nil // Invalidate immediately
+
         Task { @MainActor in
             stopPlayback()
 
@@ -367,11 +374,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 // Not recording, but should still flush
                 chunker?.flush()
             }
-
-            selectedSessionId = id
-            currentPartIndex = 0
-            transcriptionError = nil
-            partElapsedTime = 0
 
             await loadSavedSession()
         }
@@ -524,6 +526,12 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     func deleteCurrentPartData(onlyAudio: Bool = false, onlyTranscript: Bool = false, onlyLLM: Bool = false) {
         guard let partId = currentPart?.id else { return }
 
+        // Immediate synchronous state update for timer
+        partElapsedTime = 0
+        if sessionState.partStates[partId] != nil {
+            sessionState.partStates[partId]?.elapsedTime = 0
+        }
+
         Task { @MainActor in
             stopPlayback()
 
@@ -531,12 +539,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             if micStatus == .recording || micStatus == .starting {
                 await stopTranscription()
                 micService.stopRecording()
-            }
-
-            // Always reset elapsed time on deletion
-            partElapsedTime = 0
-            if sessionState.partStates[partId] != nil {
-                sessionState.partStates[partId]?.elapsedTime = 0
             }
 
             do {
@@ -660,10 +662,18 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             isManual: false
         )
 
+        // Re-fetch part and session state once more after AI memo generation to ensure we have everything
+        guard let finalSession = sessions.first(where: { $0.id == targetSessionId }),
+              targetPartIndex < finalSession.parts.count else {
+            isFinalizing = false
+            return
+        }
+        let finalPartId = finalSession.parts[targetPartIndex].id
+
         // 6. Mark as finished
-        var partState = sessionState.partStates[part.id] ?? PartState()
+        var partState = sessionState.partStates[finalPartId] ?? PartState()
         partState.isFinished = true
-        sessionState.partStates[part.id] = partState
+        sessionState.partStates[finalPartId] = partState
 
         saveCurrentSession()
         isFinalizing = false
@@ -710,6 +720,11 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let targetPartId = session.parts[index].id
         let oldSessionId = selectedSessionId
 
+        // Immediate synchronous state update
+        currentPartIndex = index
+        partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
+        activeRecordingContext = nil // Invalidate immediately
+
         Task { @MainActor in
             stopPlayback()
 
@@ -724,9 +739,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 // Not recording, but should still flush
                 chunker?.flush()
             }
-
-            currentPartIndex = index
-            partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
         }
     }
 
