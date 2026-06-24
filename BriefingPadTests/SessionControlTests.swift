@@ -104,7 +104,7 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testPartSwitchResetsTimer() async {
+    func testPartSwitchResetsTimer() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let part2Id = "p2"
@@ -257,7 +257,7 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testDeletePartDataResetsTimerInAllModes() async {
+    func testDeletePartDataResetsTimerInAllModes() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [

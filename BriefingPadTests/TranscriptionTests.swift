@@ -149,7 +149,7 @@ final class TranscriptionTests: XCTestCase {
     }
 
     @MainActor
-    func testStopTranscriptionContextSafety() async {
+    func testStopTranscriptionContextSafety() async throws {
         let viewModel = SessionViewModel()
         let part1Id = "p1"
         let part2Id = "p2"
