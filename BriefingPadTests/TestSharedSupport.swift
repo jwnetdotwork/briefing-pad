@@ -43,9 +43,9 @@ class MockSessionStore: SessionStoreProtocol {
 
 @MainActor
 @discardableResult
-func setupTestFixture(viewModel: SessionViewModel) async -> String {
+func setupTestFixture(viewModel: SessionViewModel) async throws -> String {
     // Wait for bootstrap to complete
-    try? await waitUntil(message: "ViewModel should be bootstrapped") {
+    try await waitUntil(message: "ViewModel should be bootstrapped") {
         viewModel.isBootstrapped
     }
 
