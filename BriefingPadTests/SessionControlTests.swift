@@ -11,6 +11,21 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
+    private func expectationForPublishedValue<T: Equatable>(
+        _ publisher: Published<T>.Publisher,
+        equals expected: T,
+        description: String
+    ) -> (XCTestExpectation, AnyCancellable) {
+        let expectation = XCTestExpectation(description: description)
+        let cancellable = publisher.sink { value in
+            if value == expected {
+                expectation.fulfill()
+            }
+        }
+        return (expectation, cancellable)
+    }
+
+    @MainActor
     func testSessionControlFlow() async {
         let (store, tempDir) = makeTempStore()
         defer { try? FileManager.default.removeItem(at: tempDir) }
@@ -52,23 +67,26 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(mockMic.startRecordingCalled, true)
 
         // Verify mic status updates correctly via subscription
-        let expectation = XCTestExpectation(description: "ViewModel micStatus updates to recording")
-        let cancellable = viewModel.$micStatus
-            .dropFirst() // Initial state is idle
-            .sink { status in
-                if status == .recording {
-                    expectation.fulfill()
-                }
-            }
-
+        let (recordingExpectation, recordingCancellable) = expectationForPublishedValue(
+            viewModel.$micStatus,
+            equals: .recording,
+            description: "ViewModel micStatus updates to recording"
+        )
         mockMic.status = .recording
-        wait(for: [expectation], timeout: 1.0)
-        cancellable.cancel()
+        await fulfillment(of: [recordingExpectation], timeout: 1.0)
+        recordingCancellable.cancel()
 
         XCTAssertEqual(viewModel.micStatus, .recording)
 
         // 2. Pause Recording
+        let (pauseExpectation, pauseCancellable) = expectationForPublishedValue(
+            viewModel.$micStatus,
+            equals: .idle,
+            description: "micStatus becomes idle after pause"
+        )
         viewModel.pauseRecording()
+        await fulfillment(of: [pauseExpectation], timeout: 1.0)
+        pauseCancellable.cancel()
         XCTAssertEqual(mockMic.stopRecordingCalled, true)
 
         // 3. Finish Part
@@ -76,12 +94,26 @@ final class SessionControlTests: XCTestCase {
         XCTAssertEqual(viewModel.sessionState.partStates["part1"]?.isFinished, true)
 
         // 4. Move to Next Part
+        let (nextPartExpectation, nextPartCancellable) = expectationForPublishedValue(
+            viewModel.$currentPartIndex,
+            equals: 1,
+            description: "currentPartIndex updates to next part"
+        )
         viewModel.moveToNextPart()
+        await fulfillment(of: [nextPartExpectation], timeout: 1.0)
+        nextPartCancellable.cancel()
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.currentPart?.id, "part2")
 
         // 5. Back to Previous Part
+        let (previousPartExpectation, previousPartCancellable) = expectationForPublishedValue(
+            viewModel.$currentPartIndex,
+            equals: 0,
+            description: "currentPartIndex updates to previous part"
+        )
         viewModel.moveToPreviousPart()
+        await fulfillment(of: [previousPartExpectation], timeout: 1.0)
+        previousPartCancellable.cancel()
         XCTAssertEqual(viewModel.currentPartIndex, 0)
         XCTAssertEqual(viewModel.currentPart?.id, "part1")
     }
@@ -109,7 +141,20 @@ final class SessionControlTests: XCTestCase {
         viewModel.partElapsedTime = 100
 
         // 2. Switch to Part 2
+        let (switchToPart2Expectation, switchToPart2IndexCancellable) = expectationForPublishedValue(
+            viewModel.$currentPartIndex,
+            equals: 1,
+            description: "switches to part 2"
+        )
+        let (switchToPart2TimerExpectation, switchToPart2TimerCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 0,
+            description: "timer resets for part 2"
+        )
         viewModel.selectPart(index: 1)
+        await fulfillment(of: [switchToPart2Expectation, switchToPart2TimerExpectation], timeout: 1.0)
+        switchToPart2IndexCancellable.cancel()
+        switchToPart2TimerCancellable.cancel()
 
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.partElapsedTime, 0, "Timer should be reset to 0 for a new part with no history")
@@ -121,7 +166,20 @@ final class SessionControlTests: XCTestCase {
         viewModel.partElapsedTime = 50
 
         // 4. Switch back to Part 1
+        let (switchBackExpectation, switchBackIndexCancellable) = expectationForPublishedValue(
+            viewModel.$currentPartIndex,
+            equals: 0,
+            description: "switches back to part 1"
+        )
+        let (restoreTimerExpectation, restoreTimerCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 100,
+            description: "timer restores part 1"
+        )
         viewModel.selectPart(index: 0)
+        await fulfillment(of: [switchBackExpectation, restoreTimerExpectation], timeout: 1.0)
+        switchBackIndexCancellable.cancel()
+        restoreTimerCancellable.cancel()
         XCTAssertEqual(viewModel.partElapsedTime, 100, "Timer should restore Part 1's value")
     }
 
@@ -145,23 +203,19 @@ final class SessionControlTests: XCTestCase {
         viewModel.currentPartIndex = 0
         let audioStream = AsyncStream<AVAudioPCMBuffer> { continuation in continuation.finish() }
         viewModel.startTranscription(audioStream: audioStream)
-
-        // Give the task a moment to start
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await Task.yield()
 
         // 2. Switch to Part 2 (This should reset context and stop transcription)
+        let (switchExpectation, switchCancellable) = expectationForPublishedValue(
+            viewModel.$currentPartIndex,
+            equals: 1,
+            description: "selectPart completes"
+        )
         viewModel.selectPart(index: 1)
+        await fulfillment(of: [switchExpectation], timeout: 1.0)
+        switchCancellable.cancel()
 
-        // 3. Simulate a late segment arriving from the OLD stream
-        // The transcription service loop should be running and checking context.
-        // (Note: In the real implementation, each startTranscription now returns a new stream,
-        // so we'd need to capture the continuation from the first call if we wanted to test this specifically.
-        // But the context check inside SessionViewModel remains a valid safeguard.)
-
-        // Give it a moment to process (or be filtered)
-        try? await Task.sleep(nanoseconds: 50_000_000)
-
-        // 4. Assertions
+        // 3. Assertions
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.transcript.count ?? 0, 0, "Late segment from old context should be ignored")
         XCTAssertEqual(viewModel.sessionState.partStates[part2Id]?.transcript.count ?? 0, 0, "Late segment should not go into new part")
     }
@@ -183,7 +237,13 @@ final class SessionControlTests: XCTestCase {
         try await store.saveSession(savedSession)
 
         let viewModel = SessionViewModel(store: store)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        let (loadedExpectation, loadedCancellable) = expectationForPublishedValue(
+            viewModel.$selectedSessionId,
+            equals: sessionId,
+            description: "saved session loads from store"
+        )
+        await fulfillment(of: [loadedExpectation], timeout: 1.0)
+        loadedCancellable.cancel()
 
         XCTAssertEqual(viewModel.sessions.map(\.id), [sessionId])
         XCTAssertEqual(viewModel.selectedSessionId, sessionId)
@@ -201,17 +261,14 @@ final class SessionControlTests: XCTestCase {
         viewModel.sessions = [session1, session2, session3]
         viewModel.selectedSessionId = "s2"
 
-        let expectation = XCTestExpectation(description: "selected session moved")
-        let cancellable = viewModel.$selectedSessionId
-            .dropFirst()
-            .sink { id in
-                if id == "s3" {
-                    expectation.fulfill()
-                }
-            }
+        let (expectation, cancellable) = expectationForPublishedValue(
+            viewModel.$selectedSessionId,
+            equals: "s3",
+            description: "selected session moved"
+        )
 
         viewModel.deleteCurrentSession()
-        wait(for: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
 
         XCTAssertEqual(viewModel.sessions.map(\.id), ["s1", "s3"])
@@ -228,17 +285,14 @@ final class SessionControlTests: XCTestCase {
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
 
-        let expectation = XCTestExpectation(description: "selection cleared")
-        let cancellable = viewModel.$selectedSessionId
-            .dropFirst()
-            .sink { id in
-                if id.isEmpty {
-                    expectation.fulfill()
-                }
-            }
+        let (expectation, cancellable) = expectationForPublishedValue(
+            viewModel.$selectedSessionId,
+            equals: "",
+            description: "selection cleared"
+        )
 
         viewModel.deleteCurrentSession()
-        wait(for: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
 
         XCTAssertTrue(viewModel.sessions.isEmpty)
@@ -270,32 +324,56 @@ final class SessionControlTests: XCTestCase {
         }
 
         // 1. Full deletion
+        let (fullResetExpectation, fullResetCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 0,
+            description: "full deletion resets timer"
+        )
         testReset(viewModel)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await fulfillment(of: [fullResetExpectation], timeout: 1.0)
+        fullResetCancellable.cancel()
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 2. Only Audio
         viewModel.partElapsedTime = 100
         viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        let (audioResetExpectation, audioResetCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 0,
+            description: "audio deletion resets timer"
+        )
         viewModel.deleteCurrentPartData(onlyAudio: true)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await fulfillment(of: [audioResetExpectation], timeout: 1.0)
+        audioResetCancellable.cancel()
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 3. Only Transcript
         viewModel.partElapsedTime = 100
         viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        let (transcriptResetExpectation, transcriptResetCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 0,
+            description: "transcript deletion resets timer"
+        )
         viewModel.deleteCurrentPartData(onlyTranscript: true)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await fulfillment(of: [transcriptResetExpectation], timeout: 1.0)
+        transcriptResetCancellable.cancel()
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
 
         // 4. Only LLM
         viewModel.partElapsedTime = 100
         viewModel.sessionState.partStates[part1Id]?.elapsedTime = 100
+        let (llmResetExpectation, llmResetCancellable) = expectationForPublishedValue(
+            viewModel.$partElapsedTime,
+            equals: 0,
+            description: "llm deletion resets timer"
+        )
         viewModel.deleteCurrentPartData(onlyLLM: true)
-        try? await Task.sleep(nanoseconds: 50_000_000)
+        await fulfillment(of: [llmResetExpectation], timeout: 1.0)
+        llmResetCancellable.cancel()
         XCTAssertEqual(viewModel.partElapsedTime, 0)
         XCTAssertEqual(viewModel.sessionState.partStates[part1Id]?.elapsedTime, 0)
     }

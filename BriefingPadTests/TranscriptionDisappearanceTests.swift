@@ -22,8 +22,6 @@ final class TranscriptionDisappearanceTests: XCTestCase {
         viewModel.currentPartIndex = 0
         viewModel.startRecording()
 
-        // Mock transcription logic to yield a segment
-        let audioStream = AsyncStream<AVAudioPCMBuffer> { continuation in continuation.finish() }
         // Note: startRecording calls startTranscription internally.
         // We need to wait for the task to start and the results loop to be active.
         try? await Task.sleep(nanoseconds: 100_000_000)
@@ -31,6 +29,8 @@ final class TranscriptionDisappearanceTests: XCTestCase {
         // --- 録音停止とパート切替 ---
         viewModel.pauseRecording()
         viewModel.selectPart(index: 1)
+        // selectPart は Task で currentPartIndex を更新するので、反映を待つ。
+        try? await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.currentPart?.id, part2Id)
