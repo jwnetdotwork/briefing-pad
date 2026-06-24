@@ -1,5 +1,23 @@
 import Foundation
+import XCTest
 @testable import BriefingPad
+
+@MainActor
+func waitUntil(
+    timeout: TimeInterval = 2.0,
+    interval: UInt64 = 10_000_000, // 10ms
+    message: String = "Wait timeout",
+    condition: () -> Bool
+) async throws {
+    let start = Date()
+    while !condition() {
+        if Date().timeIntervalSince(start) > timeout {
+            XCTFail(message)
+            return
+        }
+        try await Task.sleep(nanoseconds: interval)
+    }
+}
 
 final class MockClock: Clock, @unchecked Sendable {
     var now: Date = Date()
