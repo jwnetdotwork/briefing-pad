@@ -1,5 +1,6 @@
 import XCTest
 import AVFoundation
+import Combine
 @testable import BriefingPad
 
 class MockAudioEngineProvider: AudioEngineProvider {

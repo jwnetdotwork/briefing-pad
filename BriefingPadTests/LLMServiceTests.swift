@@ -98,8 +98,8 @@ final class LLMServiceTests: XCTestCase {
         )
 
         let fullTranscript = "Full transcript text."
-        let positives = [SummarizedItem(text: "Good point", evidence: "He smiled")]
-        let observations = [SummarizedItem(text: "Observed", evidence: "He sat down")]
+        let positives = [SummarizedItem(id: "pos1", text: "Good point", evidence: "He smiled")]
+        let observations = [SummarizedItem(id: "obs1", text: "Observed", evidence: "He sat down")]
 
         let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
         let userPrompt = PromptBuilder.buildOneLinerUserPrompt(
