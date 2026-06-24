@@ -27,6 +27,7 @@ struct SessionToolbarView: View {
                 }
             }
             .labelsHidden()
+            .accessibilityIdentifier("SessionPicker")
             .frame(maxWidth: 300)
 
             Button(action: {}) {

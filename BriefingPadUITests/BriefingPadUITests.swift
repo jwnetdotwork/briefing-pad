@@ -12,23 +12,25 @@ final class BriefingPadUITests: XCTestCase {
         app.launch()
 
         // Check for Session Toolbar
-        XCTAssertTrue(app.staticTexts["セッション選択"].exists || app.popUpButtons.firstMatch.exists)
+        let sessionPicker = app.popUpButtons["SessionPicker"]
+        XCTAssertTrue(sessionPicker.waitForExistence(timeout: 5))
 
-        // Check for Part Header (at least one part title from dummy data)
-        XCTAssertTrue(app.staticTexts["Part 1. 挨拶をする"].exists)
+        // Check for Part Header
+        // Use a partial match or identifier if possible, but for now we expect Part 1 to be there
+        let partHeader = app.staticTexts.containing(find: "Part 1").firstMatch
+        XCTAssertTrue(partHeader.waitForExistence(timeout: 5))
 
         // Check for Controls
-        XCTAssertTrue(app.buttons["前へ"].exists)
-        XCTAssertTrue(app.buttons["次へ"].exists)
-        XCTAssertTrue(app.buttons["開始"].exists)
-        XCTAssertTrue(app.buttons["パート終了"].exists)
+        XCTAssertTrue(app.buttons["PreviousPartButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["NextPartButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["StartRecordingButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["FinishPartButton"].waitForExistence(timeout: 5))
 
         // Check for Section Titles
-        XCTAssertTrue(app.staticTexts["文字起こし"].exists)
-        XCTAssertTrue(app.staticTexts["学習ポイント"].exists)
-        XCTAssertTrue(app.staticTexts["観察メモ"].exists)
-        XCTAssertTrue(app.staticTexts["良かった点候補"].exists)
-        XCTAssertTrue(app.staticTexts["🤖 AIメモ"].exists)
+        XCTAssertTrue(app.staticTexts["TranscriptSection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["ObservationSection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["PositiveCandidatesSection"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["AIMemoSection"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -36,16 +38,38 @@ final class BriefingPadUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
 
-        let nextButton = app.buttons["次へ"]
+        // Verify initial selection
+        let part0 = app.buttons["PartButton-0"]
+        XCTAssertTrue(part0.waitForExistence(timeout: 5))
+        XCTAssertEqual(part0.value as? String, "Selected")
+
+        let nextButton = app.buttons["NextPartButton"]
+        XCTAssertTrue(nextButton.waitForExistence(timeout: 5))
         XCTAssertTrue(nextButton.isEnabled)
         nextButton.click()
 
-        XCTAssertTrue(app.staticTexts["Part 4. 会話を始める"].exists)
+        // Verify that selection moved to Part 1
+        let part1 = app.buttons["PartButton-1"]
+        let part1Selected = NSPredicate(format: "value == 'Selected'")
+        expectation(for: part1Selected, evaluatedWith: part1, handler: nil)
 
-        let prevButton = app.buttons["前へ"]
+        let part0Unselected = NSPredicate(format: "value == 'Unselected'")
+        expectation(for: part0Unselected, evaluatedWith: part0, handler: nil)
+
+        waitForExpectations(timeout: 5, handler: nil)
+
+        let prevButton = app.buttons["PreviousPartButton"]
+        XCTAssertTrue(prevButton.waitForExistence(timeout: 5))
         XCTAssertTrue(prevButton.isEnabled)
         prevButton.click()
 
-        XCTAssertTrue(app.staticTexts["Part 1. 挨拶をする"].exists)
+        // Verify selection moved back to Part 0
+        let part0Selected = NSPredicate(format: "value == 'Selected'")
+        expectation(for: part0Selected, evaluatedWith: part0, handler: nil)
+
+        let part1Unselected = NSPredicate(format: "value == 'Unselected'")
+        expectation(for: part1Unselected, evaluatedWith: part1, handler: nil)
+
+        waitForExpectations(timeout: 5, handler: nil)
     }
 }

@@ -41,6 +41,7 @@ struct PartControlsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(.red)
+                    .accessibilityIdentifier("PauseRecordingButton")
                 } else {
                     Button(action: { viewModel.startRecording() }) {
                         Text("開始")
@@ -48,6 +49,7 @@ struct PartControlsView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isFinished || viewModel.micStatus == .starting || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
+                    .accessibilityIdentifier("StartRecordingButton")
                 }
 
                 if viewModel.isPlaying {
@@ -75,6 +77,7 @@ struct PartControlsView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(isFinished || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
+                .accessibilityIdentifier("FinishPartButton")
             }
         }
         .padding()

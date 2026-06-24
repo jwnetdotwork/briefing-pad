@@ -23,6 +23,7 @@ struct PartListView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(selectedPartIndex <= 0)
+                    .accessibilityIdentifier("PreviousPartButton")
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 12) {
@@ -61,6 +62,8 @@ struct PartListView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier("PartButton-\(index)")
+                                .accessibilityValue(index == selectedPartIndex ? "Selected" : "Unselected")
                             }
                         }
                         .padding(.vertical, 4)
@@ -77,6 +80,7 @@ struct PartListView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(selectedPartIndex >= parts.count - 1)
+                    .accessibilityIdentifier("NextPartButton")
                 }
             }
         }
