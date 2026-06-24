@@ -353,6 +353,10 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let oldPartId = currentPart?.id
         let oldSessionId = selectedSessionId
 
+        // Capture recording state synchronously before state change
+        let wasRecording = micStatus == .recording
+        let wasStarting = micStatus == .starting
+
         // Immediate synchronous state update
         selectedSessionId = id
         currentPartIndex = 0
@@ -363,8 +367,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         Task { @MainActor in
             stopPlayback()
 
-            if micStatus == .recording || micStatus == .starting {
-                if micStatus == .starting {
+            if wasRecording || wasStarting {
+                if wasStarting {
                     micService.cancelPendingOperationsAndStop()
                 } else {
                     micService.stopRecording()
@@ -526,6 +530,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     func deleteCurrentPartData(onlyAudio: Bool = false, onlyTranscript: Bool = false, onlyLLM: Bool = false) {
         guard let partId = currentPart?.id else { return }
 
+        // Capture recording state synchronously
+        let needsStop = micStatus == .recording || micStatus == .starting
+
         // Immediate synchronous state update for timer
         partElapsedTime = 0
         if sessionState.partStates[partId] != nil {
@@ -536,7 +543,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             stopPlayback()
 
             // Stop recording/transcription if active for THIS part
-            if micStatus == .recording || micStatus == .starting {
+            if needsStop {
                 await stopTranscription()
                 micService.stopRecording()
             }
@@ -720,6 +727,10 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let targetPartId = session.parts[index].id
         let oldSessionId = selectedSessionId
 
+        // Capture recording state synchronously
+        let wasRecording = micStatus == .recording
+        let wasStarting = micStatus == .starting
+
         // Immediate synchronous state update
         currentPartIndex = index
         partElapsedTime = sessionState.partStates[targetPartId]?.elapsedTime ?? 0
@@ -728,8 +739,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         Task { @MainActor in
             stopPlayback()
 
-            if micStatus == .recording || micStatus == .starting {
-                if micStatus == .starting {
+            if wasRecording || wasStarting {
+                if wasStarting {
                     micService.cancelPendingOperationsAndStop()
                 } else {
                     micService.stopRecording()

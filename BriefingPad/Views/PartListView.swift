@@ -62,6 +62,8 @@ struct PartListView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                                .accessibilityIdentifier("PartButton-\(index)")
+                                .accessibilityValue(index == selectedPartIndex ? "Selected" : "Unselected")
                             }
                         }
                         .padding(.vertical, 4)
