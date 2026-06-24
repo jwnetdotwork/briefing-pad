@@ -19,7 +19,7 @@ final class AIMemoManualGenerationTests: XCTestCase {
         )
 
         // Setup fixture
-        let partId = setupTestFixture(viewModel: viewModel)
+        let partId = await setupTestFixture(viewModel: viewModel)
 
         // Ensure initial state is not finished
         XCTAssertFalse(viewModel.sessionState.partStates[partId]?.isFinished ?? true)
@@ -53,7 +53,7 @@ final class AIMemoManualGenerationTests: XCTestCase {
         )
 
         // Setup fixture
-        let _ = setupTestFixture(viewModel: viewModel)
+        let _ = await setupTestFixture(viewModel: viewModel)
 
         // Additional setup for Notion sync
         if var part = viewModel.currentPart {

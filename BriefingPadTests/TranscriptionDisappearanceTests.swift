@@ -7,7 +7,13 @@ final class TranscriptionDisappearanceTests: XCTestCase {
     @MainActor
     func testTranscriptionWorksAfterPartSwitch() async throws {
         let mockTranscription = MockSpeechTranscriptionService()
-        let viewModel = SessionViewModel(transcriptionService: mockTranscription)
+        let viewModel = SessionViewModel(
+            transcriptionService: mockTranscription,
+            store: MockSessionStore()
+        )
+
+        // Wait for bootstrap
+        try await waitUntil(message: "Wait for bootstrap") { viewModel.isBootstrapped }
 
         let part1Id = "p1"
         let part2Id = "p2"
@@ -22,15 +28,19 @@ final class TranscriptionDisappearanceTests: XCTestCase {
         viewModel.currentPartIndex = 0
         viewModel.startRecording()
 
-        // Note: startRecording calls startTranscription internally.
-        // We need to wait for the task to start and the results loop to be active.
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        // Wait until mic status reflects recording
+        try await waitUntil(message: "Should start recording") { viewModel.micStatus == .recording }
 
         // --- 録音停止とパート切替 ---
         viewModel.pauseRecording()
+        try await waitUntil(message: "Should stop recording") { viewModel.micStatus == .idle }
+
         viewModel.selectPart(index: 1)
-        // selectPart は Task で currentPartIndex を更新するので、反映を待つ。
-        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        // Wait until part switch is reflected
+        try await waitUntil(message: "Should switch to part 2") {
+            viewModel.currentPartIndex == 1 && viewModel.currentPart?.id == part2Id
+        }
 
         XCTAssertEqual(viewModel.currentPartIndex, 1)
         XCTAssertEqual(viewModel.currentPart?.id, part2Id)
@@ -38,8 +48,8 @@ final class TranscriptionDisappearanceTests: XCTestCase {
         // --- 2回目の録音 ---
         viewModel.startRecording()
 
-        // Give it a moment to initialize the second transcription run
-        try? await Task.sleep(nanoseconds: 200_000_000)
+        // Wait until mic status reflects recording again
+        try await waitUntil(message: "Should start recording again") { viewModel.micStatus == .recording }
 
         // Simulate speech recognition yielding a result in the SECOND run
         // (The mock service handles this in its internal task triggered by startTranscription)

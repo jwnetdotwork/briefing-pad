@@ -67,6 +67,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let partId: String
     }
     @Published private var activeRecordingContext: RecordingContext?
+    @Published private(set) var isBootstrapped = false
 
     private var currentRunID: String?
 
@@ -120,6 +121,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         Task {
             await loadSavedSessionsFromStore()
             await loadSavedSession()
+            isBootstrapped = true
         }
     }
 
