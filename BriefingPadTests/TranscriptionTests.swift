@@ -161,6 +161,9 @@ final class TranscriptionTests: XCTestCase {
         viewModel.selectedSessionId = "s1"
         viewModel.currentPartIndex = 0 // Part 1
 
+        // Establish activeRecordingContext for Part 1 before adding provisional segments.
+        viewModel.startTranscription(audioStream: AsyncStream { $0.finish() })
+
         // 1. Add provisional to Part 1
         let segmentId = UUID()
         await viewModel.handleTranscriptSegment(TranscriptSegment(
