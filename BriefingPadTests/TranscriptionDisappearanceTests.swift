@@ -7,8 +7,10 @@ final class TranscriptionDisappearanceTests: XCTestCase {
     @MainActor
     func testTranscriptionWorksAfterPartSwitch() async throws {
         let mockTranscription = MockSpeechTranscriptionService()
+        let mockMic = MockMicrophoneService()
         let viewModel = SessionViewModel(
             transcriptionService: mockTranscription,
+            micService: mockMic,
             store: MockSessionStore()
         )
 
@@ -27,6 +29,7 @@ final class TranscriptionDisappearanceTests: XCTestCase {
         // --- 1回目の録音 ---
         viewModel.currentPartIndex = 0
         viewModel.startRecording()
+        mockMic.status = .recording
 
         // Wait until mic status reflects recording
         try await waitUntil(message: "Should start recording") { viewModel.micStatus == .recording }
@@ -47,6 +50,7 @@ final class TranscriptionDisappearanceTests: XCTestCase {
 
         // --- 2回目の録音 ---
         viewModel.startRecording()
+        mockMic.status = .recording
 
         // Wait until mic status reflects recording again
         try await waitUntil(message: "Should start recording again") { viewModel.micStatus == .recording }

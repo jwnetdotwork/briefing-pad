@@ -319,17 +319,3 @@ final class SessionControlTests: XCTestCase {
         XCTAssertFalse(viewModel.isCurrentPartOvertime, "Should not be overtime if duration is nil")
     }
 }
-
-class MockMicrophoneService: MicrophoneService {
-    var startRecordingCalled = false
-    var stopRecordingCalled = false
-
-    override func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
-        startRecordingCalled = true
-    }
-
-    override func stopRecording() {
-        stopRecordingCalled = true
-        status = .idle
-    }
-}
