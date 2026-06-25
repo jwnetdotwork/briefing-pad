@@ -26,7 +26,7 @@ final class SessionViewModelMergingTests: XCTestCase {
         // or by inspecting the view model state after processing)
 
         let mockLLM = MockLLMServiceWithResult()
-        let viewModel = SessionViewModel(llmService: mockLLM)
+        let viewModel = SessionViewModel(llmService: mockLLM, store: MockSessionStore())
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "session1"
 

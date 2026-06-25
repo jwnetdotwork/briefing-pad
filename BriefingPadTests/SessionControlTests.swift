@@ -190,13 +190,9 @@ final class SessionControlTests: XCTestCase {
 
         // Here we MUST use FileSessionStore because we are testing loading from it
         let viewModel = SessionViewModel(store: store)
-        let (loadedExpectation, loadedCancellable) = expectationForPublishedValue(
-            viewModel.$selectedSessionId,
-            equals: sessionId,
-            description: "saved session loads from store"
-        )
-        await fulfillment(of: [loadedExpectation], timeout: 1.0)
-        loadedCancellable.cancel()
+        try await waitUntil(message: "saved session loads from store") {
+            viewModel.isBootstrapped
+        }
 
         XCTAssertEqual(viewModel.sessions.map(\.id), [sessionId])
         XCTAssertEqual(viewModel.selectedSessionId, sessionId)

@@ -50,7 +50,7 @@ final class TranscriptionTests: XCTestCase {
 
     @MainActor
     func testProvisionalToFinalUpdate() async {
-        let viewModel = SessionViewModel()
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let partId = "test-part"
         let segmentId = UUID()
 
@@ -97,7 +97,7 @@ final class TranscriptionTests: XCTestCase {
 
     @MainActor
     func testMultipleProvisionalUpdates() async {
-        let viewModel = SessionViewModel()
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let partId = "test-part"
         let segmentId = UUID()
 
@@ -150,7 +150,7 @@ final class TranscriptionTests: XCTestCase {
 
     @MainActor
     func testStopTranscriptionContextSafety() async throws {
-        let viewModel = SessionViewModel()
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let part1Id = "p1"
         let part2Id = "p2"
 
@@ -198,7 +198,7 @@ final class TranscriptionTests: XCTestCase {
 
     @MainActor
     func testDuplicateSegmentDetection() async {
-        let viewModel = SessionViewModel()
+        let viewModel = SessionViewModel(store: MockSessionStore())
         let partId = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: partId, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
