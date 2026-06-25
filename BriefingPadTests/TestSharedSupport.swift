@@ -77,3 +77,17 @@ func setupTestFixture(viewModel: SessionViewModel) async throws -> String {
 
     return "part1"
 }
+
+class MockMicrophoneService: MicrophoneService {
+    var startRecordingCalled = false
+    var stopRecordingCalled = false
+
+    override func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
+        startRecordingCalled = true
+    }
+
+    override func stopRecording() {
+        stopRecordingCalled = true
+        status = .idle
+    }
+}
