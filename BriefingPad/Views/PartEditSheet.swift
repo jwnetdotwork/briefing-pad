@@ -56,13 +56,18 @@ struct PartEditSheet: View {
                 Spacer()
                 Button("保存") {
                     let number = Int(numberString)
-                    let duration = Int(durationString)
+                    let finalDuration: Int?
+                    if durationString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        finalDuration = nil
+                    } else {
+                        finalDuration = Int(durationString) ?? part.durationMinutes
+                    }
 
                     viewModel.updatePart(
                         id: part.id,
                         number: number ?? part.number,
                         title: title,
-                        durationMinutes: duration,
+                        durationMinutes: finalDuration,
                         setting: setting.isEmpty ? nil : setting,
                         learningPointsText: learningPointsText,
                         observationItemsText: observationItemsText,

@@ -261,29 +261,22 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let obsChanged = newObservationItemsTexts != part.observationItems.map { $0.text }
         let posChanged = newPositiveItemsTexts != part.positiveItems.map { $0.text }
 
-        let finalObservationItems: [ObservationItem]
-        let finalPositiveItems: [PositiveItem]
-        let newAnalysisState: PartAnalysisState
+        var finalObservationItems = part.observationItems
+        var finalPositiveItems = part.positiveItems
+        var newAnalysisState = part.analysisState
 
         if obsChanged {
             finalObservationItems = newObservationItemsTexts.map { ObservationItem(id: UUID().uuidString, text: $0) }
-        } else {
-            finalObservationItems = part.observationItems
+            newAnalysisState.observationItemStates = Dictionary(
+                uniqueKeysWithValues: finalObservationItems.map { ($0.id, AnalysisItemState.hidden(at: clock.now)) }
+            )
         }
 
         if posChanged {
             finalPositiveItems = newPositiveItemsTexts.map { PositiveItem(id: UUID().uuidString, text: $0) }
-        } else {
-            finalPositiveItems = part.positiveItems
-        }
-
-        if obsChanged || posChanged {
-            newAnalysisState = PartAnalysisState.initial(
-                observationItems: finalObservationItems,
-                positiveItems: finalPositiveItems
+            newAnalysisState.positiveItemStates = Dictionary(
+                uniqueKeysWithValues: finalPositiveItems.map { ($0.id, AnalysisItemState.hidden(at: clock.now)) }
             )
-        } else {
-            newAnalysisState = part.analysisState
         }
 
         let updatedPart = PartDefinition(
