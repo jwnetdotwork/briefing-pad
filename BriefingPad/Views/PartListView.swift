@@ -25,48 +25,56 @@ struct PartListView: View {
                     .disabled(selectedPartIndex <= 0)
                     .accessibilityIdentifier("PreviousPartButton")
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(parts.indices, id: \.self) { index in
-                                let part = parts[index]
+                    ScrollViewReader { proxy in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(parts.indices, id: \.self) { index in
+                                    let part = parts[index]
 
-                                Button {
-                                    onSelect(index)
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Part \(part.number)")
-                                            .font(.caption)
-                                            .foregroundColor(.secondary)
-                                        Text(part.title)
+                                    Button {
+                                        onSelect(index)
+                                    } label: {
+                                        Text("\(part.number). \(part.title)")
                                             .font(.headline)
-                                            .lineLimit(1)
+                                            .lineLimit(2, reservesSpace: true)
+                                            .frame(width: 140, alignment: .leading)
+                                            .padding(10)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .fill(
+                                                        index == selectedPartIndex
+                                                        ? Color.accentColor.opacity(0.15)
+                                                        : Color(NSColor.controlBackgroundColor)
+                                                    )
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .stroke(
+                                                        index == selectedPartIndex
+                                                        ? Color.accentColor
+                                                        : Color.secondary.opacity(0.2),
+                                                        lineWidth: 1
+                                                    )
+                                            )
                                     }
-                                    .frame(width: 140, alignment: .leading)
-                                    .padding(10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .fill(
-                                                index == selectedPartIndex
-                                                ? Color.accentColor.opacity(0.15)
-                                                : Color(NSColor.controlBackgroundColor)
-                                            )
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(
-                                                index == selectedPartIndex
-                                                ? Color.accentColor
-                                                : Color.secondary.opacity(0.2),
-                                                lineWidth: 1
-                                            )
-                                    )
+                                    .buttonStyle(.plain)
+                                    .id(index)
+                                    .accessibilityIdentifier("PartButton-\(index)")
+                                    .accessibilityValue(index == selectedPartIndex ? "Selected" : "Unselected")
                                 }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("PartButton-\(index)")
-                                .accessibilityValue(index == selectedPartIndex ? "Selected" : "Unselected")
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .onChange(of: selectedPartIndex) {
+                            withAnimation {
+                                proxy.scrollTo(selectedPartIndex, anchor: .center)
                             }
                         }
-                        .padding(.vertical, 4)
+                        .onAppear {
+                            withAnimation {
+                                proxy.scrollTo(selectedPartIndex, anchor: .center)
+                            }
+                        }
                     }
 
                     Button {
