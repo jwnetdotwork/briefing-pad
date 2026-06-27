@@ -26,6 +26,9 @@ final class MockClock: Clock, @unchecked Sendable {
 }
 
 class MockSessionStore: SessionStoreProtocol {
+    func deletePart(sessionId: String, partId: String) async throws {
+    }
+    
     func listSessions() async throws -> [String] { return [] }
     func loadSession(sessionId: String) async throws -> SavedSession? { return nil }
     func saveSession(_ session: SavedSession) async throws {}
@@ -78,7 +81,7 @@ func setupTestFixture(viewModel: SessionViewModel) async throws -> String {
     return "part1"
 }
 
-class MockMicrophoneService: MicrophoneService {
+final class MockMicrophoneService: MicrophoneService, @unchecked Sendable {
     var startRecordingCalled = false
     var stopRecordingCalled = false
 
