@@ -13,7 +13,6 @@ final class AIMemoManualGenerationTests: XCTestCase {
             llmService: mockLLM,
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: mockStore,
             clock: MockClock()
         )
@@ -47,7 +46,6 @@ final class AIMemoManualGenerationTests: XCTestCase {
             llmService: mockLLM,
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: mockStore,
             clock: MockClock()
         )

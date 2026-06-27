@@ -9,6 +9,7 @@ struct ContentView: View {
         self.keychainService = keychainService
         let llmService = OpenAILLMService(keychainService: keychainService)
         let transcriptionService = SpeechTranscriptionService()
+        let microphoneService = MicrophoneService()
 
         let notionService: NotionServiceProtocol
         let notionToken = keychainService.load(key: KeychainKeys.notionIntegrationToken)?
@@ -24,7 +25,8 @@ struct ContentView: View {
         _viewModel = StateObject(wrappedValue: SessionViewModel(
             llmService: llmService,
             notionService: notionService,
-            transcriptionService: transcriptionService
+            transcriptionService: transcriptionService,
+            micService: microphoneService
         ))
     }
 

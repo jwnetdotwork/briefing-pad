@@ -14,7 +14,6 @@ final class FinalizationLogicTests: XCTestCase {
             llmService: MockLLMService(),
             notionService: MockNotionService(),
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: MockSessionStore(),
             clock: MockClock()
         )
@@ -49,7 +48,6 @@ final class FinalizationLogicTests: XCTestCase {
             llmService: mockLLM,
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: MockSessionStore(),
             clock: MockClock()
         )
@@ -138,7 +136,6 @@ final class FinalizationLogicTests: XCTestCase {
             llmService: mockLLM,
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: MockSessionStore(),
             clock: MockClock()
         )
@@ -172,7 +169,6 @@ final class FinalizationLogicTests: XCTestCase {
             llmService: mockLLM,
             notionService: mockNotion,
             transcriptionService: MockSpeechTranscriptionService(),
-            micService: MicrophoneService(),
             store: MockSessionStore(),
             clock: MockClock()
         )

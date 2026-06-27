@@ -1,5 +1,7 @@
 import Foundation
 import XCTest
+import Combine
+import AVFoundation
 @testable import BriefingPad
 
 @MainActor
@@ -81,16 +83,68 @@ func setupTestFixture(viewModel: SessionViewModel) async throws -> String {
     return "part1"
 }
 
-final class MockMicrophoneService: MicrophoneService, @unchecked Sendable {
+final class MockMicrophoneService: ObservableObject, MicrophoneServiceProtocol {
+    @Published var status: MicrophoneStatus = .idle
+    @Published var audioLevel: AudioLevel = .silent
+
+    var statusPublisher: AnyPublisher<MicrophoneStatus, Never> {
+        $status.eraseToAnyPublisher()
+    }
+
+    var audioLevelPublisher: AnyPublisher<AudioLevel, Never> {
+        $audioLevel.eraseToAnyPublisher()
+    }
+
     var startRecordingCalled = false
     var stopRecordingCalled = false
+    var cancelPendingOperationsAndStopCalled = false
+    var createAudioBufferStreamCalled = false
 
-    override func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
+    private var audioBufferContinuation: AsyncStream<AVAudioPCMBuffer>.Continuation?
+
+    func createAudioBufferStream(runID: String? = nil) -> AsyncStream<AVAudioPCMBuffer> {
+        createAudioBufferStreamCalled = true
+        return AsyncStream { [weak self] continuation in
+            self?.audioBufferContinuation = continuation
+        }
+    }
+
+    func startRecording(audioFileURL: URL? = nil, runID: String? = nil) {
         startRecordingCalled = true
     }
 
-    override func stopRecording() {
+    func stopRecording() {
         stopRecordingCalled = true
         status = .idle
+        audioLevel = .silent
+        audioBufferContinuation?.finish()
+        audioBufferContinuation = nil
+    }
+
+    func cancelPendingOperationsAndStop() {
+        cancelPendingOperationsAndStopCalled = true
+        stopRecording()
+    }
+}
+
+@MainActor
+extension SessionViewModel {
+    convenience init(
+        llmService: LLMServiceProtocol? = nil,
+        notionService: NotionServiceProtocol? = nil,
+        transcriptionService: SpeechTranscribing? = nil,
+        store: SessionStoreProtocol? = nil,
+        clock: Clock? = nil,
+        scheduler: BriefingPad.Scheduler? = nil
+    ) {
+        self.init(
+            llmService: llmService,
+            notionService: notionService,
+            transcriptionService: transcriptionService,
+            micService: MockMicrophoneService(),
+            store: store,
+            clock: clock,
+            scheduler: scheduler
+        )
     }
 }
