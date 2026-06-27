@@ -59,6 +59,7 @@ struct TranscriptView: View {
     let errorMessage: String?
 
     @State private var isAtBottom = true
+    @State private var showCopyFeedback = false
 
     var body: some View {
         SectionContainer(
@@ -67,8 +68,9 @@ struct TranscriptView: View {
             trailing: {
                 if !segments.isEmpty {
                     Button(action: copyToClipboard) {
-                        Image(systemName: "doc.on.doc")
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
                             .font(.caption)
+                            .foregroundColor(showCopyFeedback ? .green : .accentColor)
                     }
                     .buttonStyle(.borderless)
                     .help("クリップボードにコピー")
@@ -132,6 +134,15 @@ struct TranscriptView: View {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+
+        withAnimation {
+            showCopyFeedback = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showCopyFeedback = false
+            }
+        }
     }
 }
 
@@ -158,8 +169,31 @@ struct ObservationItemsView: View {
     let items: [ObservationItem]
     let state: [String: AnalysisItemState]
 
+    @State private var showCopyFeedback = false
+
+    private var nonHiddenItems: [(item: ObservationItem, state: AnalysisItemState)] {
+        items.compactMap { item in
+            let itemState = state[item.id] ?? .hidden()
+            return itemState.status != .hidden ? (item, itemState) : nil
+        }
+    }
+
     var body: some View {
-        SectionContainer("観察メモ", identifier: "ObservationSection") {
+        SectionContainer(
+            "観察メモ",
+            identifier: "ObservationSection",
+            trailing: {
+                if !nonHiddenItems.isEmpty {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                            .font(.caption)
+                            .foregroundColor(showCopyFeedback ? .green : .accentColor)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("クリップボードにコピー")
+                }
+            }
+        ) {
             VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
                     Text("なし")
@@ -192,14 +226,53 @@ struct ObservationItemsView: View {
             }
         }
     }
+
+    private func copyToClipboard() {
+        let text = nonHiddenItems
+            .map { "- \($0.item.text)\($0.state.shortEvidence)" }
+            .joined(separator: "\n")
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        withAnimation {
+            showCopyFeedback = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showCopyFeedback = false
+            }
+        }
+    }
 }
 
 struct PositiveItemsView: View {
     let items: [PositiveItem]
     let state: [String: AnalysisItemState]
 
+    @State private var showCopyFeedback = false
+
+    private var nonHiddenDisplayItems: [(item: PositiveItem, state: AnalysisItemState)] {
+        displayItems.filter { $0.state.status != .hidden }
+    }
+
     var body: some View {
-        SectionContainer("良かった点候補", identifier: "PositiveCandidatesSection") {
+        SectionContainer(
+            "良かった点候補",
+            identifier: "PositiveCandidatesSection",
+            trailing: {
+                if !nonHiddenDisplayItems.isEmpty {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                            .font(.caption)
+                            .foregroundColor(showCopyFeedback ? .green : .accentColor)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("クリップボードにコピー")
+                }
+            }
+        ) {
             VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
                     Text("なし")
@@ -245,6 +318,25 @@ struct PositiveItemsView: View {
             return $0.state.confidence > $1.state.confidence
         }
     }
+
+    private func copyToClipboard() {
+        let text = nonHiddenDisplayItems
+            .map { "- \($0.item.text)\($0.state.shortEvidence)" }
+            .joined(separator: "\n")
+
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        withAnimation {
+            showCopyFeedback = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showCopyFeedback = false
+            }
+        }
+    }
 }
 
 struct CommentMaterialView: View {
@@ -255,6 +347,8 @@ struct CommentMaterialView: View {
     let syncStatus: SessionViewModel.NotionSyncStatus
     let onRetry: () -> Void
     let onRegenerate: () -> Void
+
+    @State private var showCopyFeedback = false
 
     var body: some View {
         SectionContainer(
@@ -273,6 +367,16 @@ struct CommentMaterialView: View {
                     }
 
                     if !isFinalizing && !isGenerating {
+                        if !aiMemo.isEmpty {
+                            Button(action: copyToClipboard) {
+                                Image(systemName: showCopyFeedback ? "checkmark" : "doc.on.doc")
+                                    .font(.caption2)
+                                    .foregroundColor(showCopyFeedback ? .green : .accentColor)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("クリップボードにコピー")
+                        }
+
                         Button(action: onRegenerate) {
                             Label("再生成", systemImage: "arrow.clockwise")
                                 .font(.caption2)
@@ -310,6 +414,21 @@ struct CommentMaterialView: View {
                             .lineSpacing(4)
                     }
                 }
+            }
+        }
+    }
+
+    private func copyToClipboard() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(aiMemo, forType: .string)
+
+        withAnimation {
+            showCopyFeedback = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation {
+                showCopyFeedback = false
             }
         }
     }
