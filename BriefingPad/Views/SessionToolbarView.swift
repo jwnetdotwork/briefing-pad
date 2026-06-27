@@ -4,6 +4,8 @@ struct SessionToolbarView: View {
     @Binding var selectedSessionId: String
     @ObservedObject var viewModel: SessionViewModel
     let keychainService: KeychainServiceProtocol
+    @State private var showingNewSessionSheet = false
+    @State private var newSessionName = ""
     @State private var showingSettings = false
     @State private var showImport = false
     @State private var showingSessionDeleteAlert = false
@@ -30,10 +32,42 @@ struct SessionToolbarView: View {
             .accessibilityIdentifier("SessionPicker")
             .frame(maxWidth: 300)
 
-            Button(action: {}) {
+            Button(action: {
+                newSessionName = ""
+                showingNewSessionSheet = true
+            }) {
                 Image(systemName: "plus")
             }
             .help("新規追加")
+            .sheet(isPresented: $showingNewSessionSheet) {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("新しいセッション")
+                        .font(.headline)
+
+                    TextField("セッション名", text: $newSessionName)
+                        .textFieldStyle(.roundedBorder)
+
+                    HStack {
+                        Spacer()
+                        Button("キャンセル", role: .cancel) {
+                            showingNewSessionSheet = false
+                        }
+
+                        Button("作成") {
+                            viewModel.createEmptySession(name: newSessionName)
+                            newSessionName = ""
+                            showingNewSessionSheet = false
+                        }
+                        .disabled(
+                            newSessionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                            viewModel.micStatus == .recording ||
+                            viewModel.micStatus == .starting
+                        )
+                    }
+                }
+                .padding()
+                .frame(width: 360)
+            }
 
             Menu {
                 Button("このセッションを削除", role: .destructive) {

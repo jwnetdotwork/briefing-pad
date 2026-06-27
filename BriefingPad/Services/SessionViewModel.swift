@@ -165,11 +165,31 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func importNotionSession(_ session: BriefingSession, notionPageId: String) {
+        activateSession(session, notionPageId: notionPageId)
+    }
+
+    func createEmptySession(name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        let session = BriefingSession(
+            id: UUID().uuidString,
+            name: trimmedName,
+            parts: []
+        )
+        activateSession(session, notionPageId: nil)
+    }
+
+    private func activateSession(_ session: BriefingSession, notionPageId: String?) {
+        stopPlayback()
         sessions.append(session)
         self.notionPageId = notionPageId
         self.selectedSessionId = session.id
         self.currentPartIndex = 0
         self.sessionState = SessionState()
+        self.partElapsedTime = 0
+        self.transcriptionError = nil
+        self.activeRecordingContext = nil
         saveCurrentSession()
     }
 

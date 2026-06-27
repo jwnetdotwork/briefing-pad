@@ -58,6 +58,21 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(loaded?.partRuns[partId]?.isFinished ?? false)
     }
 
+    func testSaveAndLoadEmptySession() async throws {
+        let sessionId = "empty-session"
+        let template = BriefingSession(id: sessionId, name: "Empty", parts: [])
+        let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [:])
+
+        try await store.saveSession(savedSession)
+
+        let loaded = try await store.loadSession(sessionId: sessionId)
+
+        XCTAssertNotNil(loaded)
+        XCTAssertEqual(loaded?.sessionId, sessionId)
+        XCTAssertEqual(loaded?.templateSnapshot.parts, [])
+        XCTAssertTrue(loaded?.partRuns.isEmpty ?? false)
+    }
+
     func testDeleteSession() async throws {
         let sessionId = "test-session"
         let template = BriefingSession(id: sessionId, name: "Test", parts: [])

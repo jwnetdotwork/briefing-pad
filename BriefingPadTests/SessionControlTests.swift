@@ -199,6 +199,30 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
+    func testCreateEmptySessionSelectsNewSession() async {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let existingSession = BriefingSession(id: "s1", name: "Session 1", parts: [
+            PartDefinition(id: "part-1", number: 1, title: "P1", durationMinutes: 5, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [existingSession]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+        viewModel.sessionState.partStates["part-1"] = PartState()
+        viewModel.partElapsedTime = 42
+
+        viewModel.createEmptySession(name: "  New Session  ")
+
+        XCTAssertEqual(viewModel.sessions.count, 2)
+        XCTAssertEqual(viewModel.selectedSession?.name, "New Session")
+        XCTAssertEqual(viewModel.selectedSession?.parts, [])
+        XCTAssertEqual(viewModel.selectedSessionId, viewModel.selectedSession?.id)
+        XCTAssertEqual(viewModel.currentPartIndex, 0)
+        XCTAssertNil(viewModel.currentPart)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertTrue(viewModel.sessionState.partStates.isEmpty)
+    }
+
+    @MainActor
     func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
         let session1 = BriefingSession(id: "s1", name: "Session 1", parts: [])
