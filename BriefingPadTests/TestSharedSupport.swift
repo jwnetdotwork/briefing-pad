@@ -28,13 +28,23 @@ final class MockClock: Clock, @unchecked Sendable {
 }
 
 class MockSessionStore: SessionStoreProtocol {
+    var savedSessions: [String: SavedSession] = [:]
+
     func deletePart(sessionId: String, partId: String) async throws {
     }
     
-    func listSessions() async throws -> [String] { return [] }
-    func loadSession(sessionId: String) async throws -> SavedSession? { return nil }
-    func saveSession(_ session: SavedSession) async throws {}
-    func deleteSession(sessionId: String) async throws {}
+    func listSessions() async throws -> [String] {
+        return Array(savedSessions.keys)
+    }
+    func loadSession(sessionId: String) async throws -> SavedSession? {
+        return savedSessions[sessionId]
+    }
+    func saveSession(_ session: SavedSession) async throws {
+        savedSessions[session.sessionId] = session
+    }
+    func deleteSession(sessionId: String) async throws {
+        savedSessions.removeValue(forKey: sessionId)
+    }
     func deleteAudio(sessionId: String, partId: String) async throws {}
     func deleteTranscript(sessionId: String, partId: String) async throws {}
     func deleteLLMResults(sessionId: String, partId: String) async throws {}

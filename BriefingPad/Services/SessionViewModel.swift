@@ -24,6 +24,9 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
     @Published var notionSyncStatuses: [String: NotionSyncStatus] = [:] // partId -> status
 
+    private static let lastSelectedSessionKey = "lastSelectedSessionId"
+    private let userDefaults: UserDefaults
+
     @Published var micStatus: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
     @Published var partElapsedTime: TimeInterval = 0
@@ -96,10 +99,12 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         micService: any MicrophoneServiceProtocol,
         store: SessionStoreProtocol? = nil,
         clock: Clock? = nil,
-        scheduler: Scheduler? = nil
+        scheduler: Scheduler? = nil,
+        userDefaults: UserDefaults = .standard
     ) {
         self.sessions = []
-        self.selectedSessionId = ""
+        self.userDefaults = userDefaults
+        self.selectedSessionId = userDefaults.string(forKey: Self.lastSelectedSessionKey) ?? ""
         self.llmService = llmService ?? MockLLMService()
         self.notionService = notionService ?? MockNotionService()
         self.transcriptionService = transcriptionService ?? MockSpeechTranscriptionService()
@@ -158,9 +163,14 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
         }
 
+        if !selectedSessionId.isEmpty && !sessions.contains(where: { $0.id == selectedSessionId }) {
+            selectedSessionId = ""
+        }
+
         if selectedSessionId.isEmpty {
             selectedSessionId = sessions.first?.id ?? ""
             currentPartIndex = 0
+            userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
         }
     }
 
@@ -316,6 +326,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         sessions.append(session)
         self.notionPageId = notionPageId
         self.selectedSessionId = session.id
+        userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
         self.currentPartIndex = 0
         self.sessionState = SessionState()
         self.partElapsedTime = 0
@@ -512,6 +523,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         // Immediate synchronous state update
         selectedSessionId = id
+        userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
         currentPartIndex = 0
         transcriptionError = nil
         partElapsedTime = 0
@@ -664,6 +676,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
             if sessions.isEmpty {
                 selectedSessionId = ""
+                userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
                 currentPartIndex = 0
                 sessionState = SessionState()
                 partElapsedTime = 0
@@ -673,6 +686,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
             let nextIndex = min(currentIndex, sessions.count - 1)
             selectedSessionId = sessions[nextIndex].id
+            userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
             currentPartIndex = 0
             transcriptionError = nil
             partElapsedTime = 0

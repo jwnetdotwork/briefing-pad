@@ -101,6 +101,7 @@ struct TranscriptView: View {
                                         .id(segment.id)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 GeometryReader { geo in
                                     Color.clear
