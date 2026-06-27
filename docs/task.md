@@ -10,7 +10,7 @@
 - [x] SwiftUI構成にする
 - [x] アプリ名を `ブリーフィング・パッド`
 - [x] Bundle / Project名は `briefing-pad`
-- [x] macOS 26+ に設定
+- [x] macOS 15+ に設定
 
 ## 0-2. 基本画面を作る
 

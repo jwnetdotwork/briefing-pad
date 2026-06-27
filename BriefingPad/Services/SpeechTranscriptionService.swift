@@ -22,8 +22,8 @@ class SpeechTranscriptionService: SpeechTranscribing {
     var isAvailable: Bool {
         get async {
             #if canImport(Speech)
-            if #available(macOS 26.0, *) {
-                return await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
+            if #available(macOS 15.0, *) {
+                return await SFSpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
             }
             #endif
             return false
@@ -32,8 +32,8 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
     private func resolveLocale() async throws -> Locale {
         #if canImport(Speech)
-        if #available(macOS 26.0, *) {
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
+        if #available(macOS 15.0, *) {
+            guard let locale = await SFSpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 2,
@@ -52,7 +52,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
     func checkAvailability() async throws {
         #if canImport(Speech)
-        if #available(macOS 26.0, *) {
+        if #available(macOS 15.0, *) {
             _ = try await resolveLocale()
 
             let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -95,16 +95,16 @@ class SpeechTranscriptionService: SpeechTranscribing {
         }
 
         #if canImport(Speech)
-        if #available(macOS 26.0, *) {
+        if #available(macOS 15.0, *) {
             let locale = try await resolveLocale()
 
-            let transcriber = SpeechTranscriber(
+            let transcriber = SFSpeechTranscriber(
                 locale: locale,
                 preset: .timeIndexedProgressiveTranscription
             )
 
             // 資産の準備（日本語モデルの準備）
-            if let assetRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            if let assetRequest = try await SFAssetInventory.assetInstallationRequest(supporting: [transcriber]) {
                 #if DEBUG
                 print("[SpeechTranscriptionService] [\(runID ?? "none")] Requesting asset installation...")
                 #endif
@@ -114,7 +114,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 #endif
             }
 
-            let analyzer = SpeechAnalyzer(modules: [transcriber])
+            let analyzer = SFSpeechAnalyzer(modules: [transcriber])
 
             analyzerTask = Task {
                 #if DEBUG
@@ -123,7 +123,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 var utteranceIds: [Int64: UUID] = [:]
 
                 do {
-                    let inputSequence = AsyncStream<AnalyzerInput> { continuation in
+                    let inputSequence = AsyncStream<SFSpeechAnalyzer.Input> { continuation in
                         Task {
                             var converter: AVAudioConverter?
                             var targetFormat: AVAudioFormat?
@@ -133,7 +133,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
                                 // ターゲットフォーマットの取得とコンバーターの初期化
                                 if targetFormat == nil {
-                                    targetFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: buffer.format)
+                                    targetFormat = await SFSpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber], considering: buffer.format)
                                     if let target = targetFormat {
                                         converter = AVAudioConverter(from: buffer.format, to: target)
                                     }
@@ -160,7 +160,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                 }
 
                                 if target == buffer.format {
-                                    continuation.yield(AnalyzerInput(buffer: buffer))
+                                    continuation.yield(SFSpeechAnalyzer.Input(buffer: buffer))
                                 } else {
                                     // フォーマット変換
                                     let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * target.sampleRate / buffer.format.sampleRate)
@@ -187,7 +187,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                             return
                                         }
 
-                                        continuation.yield(AnalyzerInput(buffer: outputBuffer))
+                                        continuation.yield(SFSpeechAnalyzer.Input(buffer: outputBuffer))
                                     } else {
                                         let error = NSError(
                                             domain: "SpeechTranscriptionService",
@@ -285,7 +285,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                         print("[SpeechTranscriptionService] [\(runID ?? "none")] Analyzer task failed: \(error)")
                     }
                     #endif
-                    print("SpeechAnalyzer failed: \(error)")
+                    print("SFSpeechAnalyzer failed: \(error)")
                     let segment = TranscriptSegment(
                         id: UUID(),
                         sessionId: "",

@@ -1,22 +1,43 @@
 import SwiftUI
 
-struct SectionContainer<Content: View>: View {
+struct SectionContainer<Content: View, Trailing: View>: View {
     let title: String
     let identifier: String?
     let content: Content
+    let trailing: Trailing
 
-    init(_ title: String, identifier: String? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        _ title: String,
+        identifier: String? = nil,
+        @ViewBuilder trailing: () -> Trailing,
+        @ViewBuilder content: () -> Content
+    ) {
         self.title = title
         self.identifier = identifier
+        self.trailing = trailing()
         self.content = content()
+    }
+
+    init(
+        _ title: String,
+        identifier: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) where Trailing == EmptyView {
+        self.init(title, identifier: identifier, trailing: { EmptyView() }, content: content)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .accessibilityIdentifier(identifier ?? "")
+            HStack(alignment: .bottom) {
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .accessibilityIdentifier(identifier ?? "")
+
+                Spacer()
+
+                trailing
+            }
 
             content
                 .padding(8)
@@ -40,7 +61,20 @@ struct TranscriptView: View {
     @State private var isAtBottom = true
 
     var body: some View {
-        SectionContainer("文字起こし", identifier: "TranscriptSection") {
+        SectionContainer(
+            "文字起こし",
+            identifier: "TranscriptSection",
+            trailing: {
+                if !segments.isEmpty {
+                    Button(action: copyToClipboard) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("クリップボードにコピー")
+                }
+            }
+        ) {
             VStack(alignment: .leading, spacing: 4) {
                 if let error = errorMessage {
                     Text(error)
@@ -92,6 +126,13 @@ struct TranscriptView: View {
             }
         }
     }
+
+    private func copyToClipboard() {
+        let text = segments.map { $0.text }.joined(separator: "\n")
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
 }
 
 struct LearningPointsView: View {
@@ -131,8 +172,10 @@ struct ObservationItemsView: View {
 
                         HStack(alignment: .firstTextBaseline) {
                             let evidence = itemState.shortEvidence.isEmpty ? "" : itemState.shortEvidence
+                            let isHidden = itemState.status == .hidden
                             Text("・\(item.text)\(evidence)")
                                 .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
+                                .opacity(isHidden ? 0.6 : 1.0)
                                 .lineLimit(2)
 
                             Spacer(minLength: 12)
@@ -158,23 +201,31 @@ struct PositiveItemsView: View {
     var body: some View {
         SectionContainer("良かった点候補", identifier: "PositiveCandidatesSection") {
             VStack(alignment: .leading, spacing: 8) {
-                if displayItems.isEmpty {
-                    Text("（該当なし）")
+                if items.isEmpty {
+                    Text("なし")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(displayItems, id: \.item.id) { pair in
+                        let isHidden = pair.state.status == .hidden
+                        let isStrong = pair.state.status == .strong
+                        let isCandidate = pair.state.status == .candidate
+
                         HStack(alignment: .firstTextBaseline) {
                             let evidence = pair.state.shortEvidence.isEmpty ? "" : pair.state.shortEvidence
                             Text("・\(pair.item.text)\(evidence)")
                                 .font(.body.bold())
+                                .foregroundColor((isStrong || isCandidate) ? .primary : .secondary)
+                                .opacity(isHidden ? 0.6 : 1.0)
                                 .lineLimit(2)
 
                             Spacer(minLength: 12)
 
-                            Text(pair.state.status.displayLabel)
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                                .fixedSize()
+                            if isStrong || isCandidate {
+                                Text(pair.state.status.displayLabel)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .fixedSize()
+                            }
                         }
                     }
                 }
@@ -183,13 +234,16 @@ struct PositiveItemsView: View {
     }
 
     private var displayItems: [(item: PositiveItem, state: AnalysisItemState)] {
-        items.compactMap { item -> (item: PositiveItem, state: AnalysisItemState)? in
+        items.map { item in
             let itemState = state[item.id] ?? .hidden()
-            guard itemState.status != .hidden else { return nil }
-            return (item, itemState)
+            return (item: item, state: itemState)
         }
-        .sorted { $0.state.confidence > $1.state.confidence }
-        .map { $0 }
+        .sorted {
+            if $0.state.status != $1.state.status {
+                return $0.state.status > $1.state.status
+            }
+            return $0.state.confidence > $1.state.confidence
+        }
     }
 }
 
@@ -203,33 +257,34 @@ struct CommentMaterialView: View {
     let onRegenerate: () -> Void
 
     var body: some View {
-        SectionContainer("🤖 AIメモ", identifier: "AIMemoSection") {
-            VStack(alignment: .leading, spacing: 8) {
+        SectionContainer(
+            "🤖 AIメモ",
+            identifier: "AIMemoSection",
+            trailing: {
                 HStack(alignment: .center, spacing: 8) {
                     if isFinalizing || isGenerating {
-                        HStack(spacing: 8) {
+                        HStack(spacing: 4) {
                             ProgressView()
                                 .controlSize(.small)
                             Text(isFinalizing ? "確定メモ生成中..." : "メモ生成中...")
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                     }
 
-                    Spacer()
-
                     if !isFinalizing && !isGenerating {
                         Button(action: onRegenerate) {
                             Label("再生成", systemImage: "arrow.clockwise")
-                                .font(.caption)
+                                .font(.caption2)
                         }
                         .buttonStyle(.borderless)
-                        .padding(.trailing, 8)
                     }
 
                     syncStatusView
                 }
-
+            }
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
                 if let error = generationError, aiMemo.isEmpty, !isFinalizing, !isGenerating {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
@@ -244,9 +299,16 @@ struct CommentMaterialView: View {
                             .controlSize(.small)
                     }
                 } else {
-                    Text(aiMemo.isEmpty && !isFinalizing && !isGenerating ? "（パート終了後または手動実行で生成されます）" : aiMemo)
-                        .font(.body)
-                        .lineSpacing(4)
+                    if aiMemo.isEmpty && !isFinalizing && !isGenerating {
+                        Text("（パート終了後または手動実行で生成されます）")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .lineSpacing(4)
+                    } else {
+                        Text(aiMemo)
+                            .font(.body)
+                            .lineSpacing(4)
+                    }
                 }
             }
         }
