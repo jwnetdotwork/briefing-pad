@@ -402,4 +402,70 @@ final class SessionControlTests: XCTestCase {
 
         XCTAssertEqual(viewModel.sessions[0].name, "Updated Name")
     }
+
+    @MainActor
+    func testUpdatePart() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let part1Id = "p1"
+
+        var analysisState = PartAnalysisState.initial(
+            observationItems: [ObservationItem(id: "obs1", text: "Obs1")],
+            positiveItems: [PositiveItem(id: "pos1", text: "Pos1")]
+        )
+        analysisState.observationItemStates["obs1"] = AnalysisItemState(confidence: 0.9, shortEvidence: "Evidence 1", status: .strong, lastUpdatedAt: Date())
+        analysisState.positiveItemStates["pos1"] = AnalysisItemState(confidence: 0.8, shortEvidence: "Evidence 2", status: .candidate, lastUpdatedAt: Date())
+
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(
+                id: part1Id,
+                number: 1,
+                title: "P1",
+                durationMinutes: 5,
+                setting: "Setting 1",
+                rawMarkdown: "MD",
+                learningPoints: [LearningPoint(id: "lp1", text: "LP1")],
+                observationItems: [ObservationItem(id: "obs1", text: "Obs1")],
+                positiveItems: [PositiveItem(id: "pos1", text: "Pos1")],
+                aiMemo: "Original Memo",
+                aiMemoBlockId: "block1",
+                lastSyncedHash: "hash1",
+                lastSyncedTime: "time1",
+                analysisState: analysisState
+            )
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        // 1. Update part: Observations unchanged, Positives changed
+        viewModel.updatePart(
+            id: part1Id,
+            number: 2,
+            title: "Updated P1",
+            durationMinutes: 10,
+            setting: "Updated Setting",
+            learningPointsText: "New LP",
+            observationItemsText: "Obs1", // SAME
+            positiveItemsText: "New Pos" // CHANGED
+        )
+
+        let updatedPart = try XCTUnwrap(viewModel.selectedSession?.parts.first)
+        XCTAssertEqual(updatedPart.id, part1Id)
+
+        // Observation item text was SAME, so ID and state should be preserved
+        XCTAssertEqual(updatedPart.observationItems.map { $0.text }, ["Obs1"])
+        XCTAssertEqual(updatedPart.observationItems.first?.id, "obs1", "ID should be preserved when text is same")
+        XCTAssertEqual(updatedPart.analysisState.observationItemStates["obs1"]?.shortEvidence, "Evidence 1", "State should be preserved for unchanged section")
+
+        // Positive item text was CHANGED, so ID should be new and state should be reset
+        XCTAssertEqual(updatedPart.positiveItems.map { $0.text }, ["New Pos"])
+        XCTAssertNotEqual(updatedPart.positiveItems.first?.id, "pos1", "ID should be new when text is different")
+        XCTAssertEqual(updatedPart.analysisState.positiveItemStates.count, 1)
+        let newPosId = try XCTUnwrap(updatedPart.positiveItems.first?.id)
+        XCTAssertEqual(updatedPart.analysisState.positiveItemStates[newPosId]?.status, .hidden, "New item should be initialized as hidden")
+
+        // Derivatives should be maintained
+        XCTAssertEqual(updatedPart.aiMemo, "Original Memo")
+        XCTAssertEqual(updatedPart.aiMemoBlockId, "block1")
+    }
 }

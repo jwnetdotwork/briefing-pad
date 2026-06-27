@@ -55,7 +55,7 @@ struct ContentView: View {
                         )
 
                         if let part = viewModel.currentPart {
-                            PartHeaderView(part: part)
+                            PartHeaderView(part: part, viewModel: viewModel)
 
                             Divider()
                                 .padding(.horizontal)
