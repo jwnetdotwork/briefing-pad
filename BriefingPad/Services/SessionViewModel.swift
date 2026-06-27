@@ -36,7 +36,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private let llmService: LLMServiceProtocol
     private let notionService: NotionServiceProtocol
     private let transcriptionService: SpeechTranscribing
-    private let micService: any MicrophoneServiceProtocol
+    private let micService: MicrophoneService
     private let store: SessionStoreProtocol
     private let clock: Clock
 
@@ -93,7 +93,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         llmService: LLMServiceProtocol? = nil,
         notionService: NotionServiceProtocol? = nil,
         transcriptionService: SpeechTranscribing? = nil,
-        micService: any MicrophoneServiceProtocol,
+        micService: MicrophoneService? = nil,
         store: SessionStoreProtocol? = nil,
         clock: Clock? = nil,
         scheduler: Scheduler? = nil
@@ -103,7 +103,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         self.llmService = llmService ?? MockLLMService()
         self.notionService = notionService ?? MockNotionService()
         self.transcriptionService = transcriptionService ?? MockSpeechTranscriptionService()
-        self.micService = micService
+        self.micService = micService ?? MicrophoneService()
         self.store = store ?? FileSessionStore()
         self.clock = clock ?? RealClock()
 
@@ -325,7 +325,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     private func setupSubscriptions() {
-        micService.statusPublisher
+        micService.$status
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
                 guard let self = self else { return }
@@ -350,7 +350,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
             .store(in: &cancellables)
 
-        micService.audioLevelPublisher
+        micService.$audioLevel
             .receive(on: RunLoop.main)
             .assign(to: \.audioLevel, on: self)
             .store(in: &cancellables)

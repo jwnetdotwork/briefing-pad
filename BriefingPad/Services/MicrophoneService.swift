@@ -43,18 +43,6 @@ protocol PermissionProvider {
     func requestAccess(completion: @escaping (Bool) -> Void)
 }
 
-protocol MicrophoneServiceProtocol: AnyObject {
-    var status: MicrophoneStatus { get set }
-    var audioLevel: AudioLevel { get set }
-    var statusPublisher: AnyPublisher<MicrophoneStatus, Never> { get }
-    var audioLevelPublisher: AnyPublisher<AudioLevel, Never> { get }
-
-    func createAudioBufferStream(runID: String?) -> AsyncStream<AVAudioPCMBuffer>
-    func startRecording(audioFileURL: URL?, runID: String?)
-    func stopRecording()
-    func cancelPendingOperationsAndStop()
-}
-
 class SystemPermissionProvider: PermissionProvider {
     func authorizationStatus() -> AVAuthorizationStatus {
         return AVCaptureDevice.authorizationStatus(for: .audio)
@@ -81,7 +69,7 @@ class SystemAudioEngineProvider: AudioEngineProvider {
     }
 }
 
-open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
+open class MicrophoneService: ObservableObject {
     @Published var permissionStatus: MicrophonePermissionStatus = .undetermined
     @Published var status: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
@@ -96,14 +84,6 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
 
     private var isStartingRecording = false
     private var audioFile: AVAudioFile?
-
-    var statusPublisher: AnyPublisher<MicrophoneStatus, Never> {
-        $status.eraseToAnyPublisher()
-    }
-
-    var audioLevelPublisher: AnyPublisher<AudioLevel, Never> {
-        $audioLevel.eraseToAnyPublisher()
-    }
 
     func createAudioBufferStream(runID: String? = nil) -> AsyncStream<AVAudioPCMBuffer> {
         #if DEBUG

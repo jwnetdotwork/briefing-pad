@@ -11,14 +11,15 @@ import Testing
 
 struct BriefingPadTests {
 
-    @Test func loadsLocalPartDefinitions() async throws {
+    @Test func loadsLocalPartDefinitions() throws {
         let bundle = Bundle(for: TestBundleToken.self)
         let sessions = LocalBriefingDataStore.loadSessions(bundle: bundle)
 
         #expect(sessions.count == 1)
         #expect(sessions[0].parts.count == 2)
         #expect(sessions[0].parts[0].learningPoints.count == 1)
-        #expect(sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status == .strong)
+        let status = sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status
+        #expect(status == .strong)
     }
 
 }

@@ -48,7 +48,7 @@ struct PartHeaderView_Previews: PreviewProvider {
     static var previews: some View {
         PartHeaderView(
             part: LocalBriefingDataStore.fallbackSessions[0].parts[1],
-            viewModel: SessionViewModel(micService: MicrophoneService())
+            viewModel: SessionViewModel()
         )
     }
 }

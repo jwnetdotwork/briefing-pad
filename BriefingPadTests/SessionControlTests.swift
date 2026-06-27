@@ -13,6 +13,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeleteCurrentPartRemovesFromListAndSelectsNext() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let part2Id = "p2"
         let part3Id = "p3"
@@ -45,6 +46,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeleteLastPartLeavesEmptySession() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
@@ -81,7 +83,7 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testSessionControlFlow() async {
+    func testSessionControlFlow() async throws {
         let mockMic = MockMicrophoneService()
         // Use MockSessionStore to avoid file I/O for logic tests
         let viewModel = SessionViewModel(
@@ -89,6 +91,7 @@ final class SessionControlTests: XCTestCase {
             micService: mockMic,
             store: MockSessionStore()
         )
+        try await waitUntil { viewModel.isBootstrapped }
 
         let part1Id = "part1"
         let part2Id = "part2"
@@ -161,6 +164,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testPartSwitchResetsTimer() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -197,11 +201,12 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testRecordingContextIsolation() async {
+    func testRecordingContextIsolation() async throws {
         let viewModel = SessionViewModel(
             transcriptionService: MockSpeechTranscriptionService(),
             store: MockSessionStore()
         )
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let part2Id = "p2"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
@@ -254,8 +259,9 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testCreateEmptySessionSelectsNewSession() async {
+    func testCreateEmptySessionSelectsNewSession() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let existingSession = BriefingSession(id: "s1", name: "Session 1", parts: [
             PartDefinition(id: "part-1", number: 1, title: "P1", durationMinutes: 5, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
         ])
@@ -280,6 +286,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeleteCurrentSessionRemovesFromListAndSelectsNext() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let session1 = BriefingSession(id: "s1", name: "Session 1", parts: [])
         let session2 = BriefingSession(id: "s2", name: "Session 2", parts: [])
         let session3 = BriefingSession(id: "s3", name: "Session 3", parts: [])
@@ -299,6 +306,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeleteLastSessionLeavesNoSelection() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let session = BriefingSession(id: "s1", name: "Session 1", parts: [])
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
@@ -317,6 +325,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeletePartDataResetsTimerInAllModes() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
@@ -362,8 +371,9 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
-    func testOvertimeDetection() {
+    func testOvertimeDetection() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
@@ -397,6 +407,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testAddManualPart() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let session = BriefingSession(id: "s1", name: "S1", parts: [
             PartDefinition(id: "p1", number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
         ])
@@ -449,6 +460,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testUpdateSessionName() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let session = BriefingSession(id: "s1", name: "Original Name", parts: [])
         viewModel.sessions = [session]
         viewModel.selectedSessionId = "s1"
@@ -461,6 +473,7 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testUpdatePart() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil { viewModel.isBootstrapped }
         let part1Id = "p1"
 
         var analysisState = PartAnalysisState.initial(

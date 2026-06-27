@@ -127,7 +127,7 @@ struct PartControlsView: View {
 struct PartControlsView_Previews: PreviewProvider {
     static var previews: some View {
         PartControlsView(
-            viewModel: SessionViewModel(micService: MicrophoneService())
+            viewModel: SessionViewModel()
         )
     }
 }

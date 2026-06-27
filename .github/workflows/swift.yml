@@ -8,7 +8,6 @@ on:
 jobs:
   test:
     runs-on: macos-26
-    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -28,19 +27,17 @@ jobs:
           xcodebuild build-for-testing
           -project BriefingPad.xcodeproj
           -scheme BriefingPad
-          -destination 'platform=macOS,arch=arm64'
+          -destination 'platform=macOS'
           -derivedDataPath "${{ runner.temp }}/DerivedDataBriefingPad"
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGNING_REQUIRED=NO
 
       - name: Test without building
-        timeout-minutes: 8
         run: >
           xcodebuild test-without-building
           -project BriefingPad.xcodeproj
           -scheme BriefingPad
-          -destination 'platform=macOS,arch=arm64'
+          -destination 'platform=macOS'
           -derivedDataPath "${{ runner.temp }}/DerivedDataBriefingPad"
-          -skip-testing:BriefingPadUITests
           CODE_SIGNING_ALLOWED=NO
           CODE_SIGNING_REQUIRED=NO
