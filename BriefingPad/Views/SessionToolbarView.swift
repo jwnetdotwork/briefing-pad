@@ -13,6 +13,7 @@ struct SessionToolbarView: View {
     @State private var showImport = false
     @State private var showingSessionDeleteAlert = false
     @State private var showingPartDeleteAlert = false
+    @State private var showingPartFullDeleteAlert = false
     @State private var partDeleteMode: PartDeleteMode = .all
 
     enum PartDeleteMode {
@@ -125,6 +126,11 @@ struct SessionToolbarView: View {
                     showingSessionDeleteAlert = true
                 }
 
+                Button("現在のパートを削除", role: .destructive) {
+                    showingPartFullDeleteAlert = true
+                }
+                .disabled(viewModel.currentPart == nil)
+
                 Menu("現在のパートのデータを削除") {
                     Button("すべて") {
                         partDeleteMode = .all
@@ -144,13 +150,20 @@ struct SessionToolbarView: View {
                         showingPartDeleteAlert = true
                     }
                 }
+                .disabled(viewModel.currentPart == nil)
             } label: {
                 Image(systemName: "trash")
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
             .help("削除")
-            .disabled(viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.selectedSession == nil)
+            .disabled(
+                viewModel.micStatus == .recording ||
+                viewModel.micStatus == .starting ||
+                viewModel.selectedSession == nil ||
+                viewModel.isFinalizing ||
+                viewModel.isGeneratingAIMemo
+            )
             .confirmationDialog("セッションを完全に削除しますか？", isPresented: $showingSessionDeleteAlert) {
                 Button("削除", role: .destructive) {
                     viewModel.deleteCurrentSession()
@@ -171,6 +184,14 @@ struct SessionToolbarView: View {
                 Button("キャンセル", role: .cancel) {}
             } message: {
                 Text("選択したパートのデータが削除されます。")
+            }
+            .confirmationDialog("このパートを完全に削除しますか？", isPresented: $showingPartFullDeleteAlert) {
+                Button("削除", role: .destructive) {
+                    viewModel.deleteCurrentPart()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("音声、文字起こし、AIメモ、分析状態を含むパート情報がすべて削除されます。")
             }
 
             Spacer()

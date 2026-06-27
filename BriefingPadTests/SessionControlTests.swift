@@ -11,6 +11,61 @@ final class SessionControlTests: XCTestCase {
     }
 
     @MainActor
+    func testDeleteCurrentPartRemovesFromListAndSelectsNext() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let part1Id = "p1"
+        let part2Id = "p2"
+        let part3Id = "p3"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: []),
+            PartDefinition(id: part2Id, number: 2, title: "P2", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: []),
+            PartDefinition(id: part3Id, number: 3, title: "P3", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 1 // Part 2
+
+        // Set some state for Part 2 and Part 3
+        viewModel.sessionState.partStates[part2Id] = PartState(elapsedTime: 123)
+        viewModel.sessionState.partStates[part3Id] = PartState(elapsedTime: 456)
+        viewModel.partElapsedTime = 123
+
+        viewModel.deleteCurrentPart()
+
+        try await waitUntil(message: "selection moved to next part") {
+            viewModel.currentPartIndex == 1 && viewModel.currentPart?.id == part3Id
+        }
+
+        XCTAssertEqual(viewModel.selectedSession?.parts.count, 2)
+        XCTAssertEqual(viewModel.selectedSession?.parts.map(\.id), [part1Id, part3Id])
+        XCTAssertEqual(viewModel.partElapsedTime, 456, "Timer should restore the next part's value")
+        XCTAssertNil(viewModel.sessionState.partStates[part2Id])
+    }
+
+    @MainActor
+    func testDeleteLastPartLeavesEmptySession() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let part1Id = "p1"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: part1Id, number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        viewModel.deleteCurrentPart()
+
+        try await waitUntil(message: "parts cleared") {
+            viewModel.selectedSession?.parts.isEmpty ?? false
+        }
+
+        XCTAssertTrue(viewModel.selectedSession?.parts.isEmpty ?? false)
+        XCTAssertEqual(viewModel.currentPartIndex, 0)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertNil(viewModel.currentPart)
+    }
+
+    @MainActor
     private func expectationForPublishedValue<T: Equatable>(
         _ publisher: Published<T>.Publisher,
         equals expected: T,
