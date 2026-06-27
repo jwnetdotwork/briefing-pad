@@ -1,22 +1,32 @@
-# This workflow will build a Swift project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
-
-name: Swift
+name: BriefingPad CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build:
-
+  test:
     runs-on: macos-latest
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: swift build -v
-    - name: Run tests
-      run: swift test -v
+      - uses: actions/checkout@v4
+
+      - name: Build for testing
+        run: >
+          xcodebuild build-for-testing
+          -project BriefingPad.xcodeproj
+          -scheme BriefingPad
+          -destination 'platform=macOS'
+          -derivedDataPath "${{ runner.temp }}/DerivedDataBriefingPad"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+
+      - name: Test without building
+        run: >
+          xcodebuild test-without-building
+          -project BriefingPad.xcodeproj
+          -scheme BriefingPad
+          -destination 'platform=macOS'
+          -derivedDataPath "${{ runner.temp }}/DerivedDataBriefingPad"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
