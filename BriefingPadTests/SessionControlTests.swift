@@ -390,4 +390,16 @@ final class SessionControlTests: XCTestCase {
         )
         XCTAssertEqual(viewModel.sessions[0].parts.last?.number, 10)
     }
+
+    @MainActor
+    func testUpdateSessionName() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let session = BriefingSession(id: "s1", name: "Original Name", parts: [])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+
+        viewModel.updateSessionName(id: "s1", newName: "  Updated Name  ")
+
+        XCTAssertEqual(viewModel.sessions[0].name, "Updated Name")
+    }
 }

@@ -145,7 +145,7 @@ struct PartDefinition: Identifiable, Codable, Hashable {
 
 struct BriefingSession: Identifiable, Codable, Hashable {
     let id: String
-    let name: String
+    var name: String
     var parts: [PartDefinition]
 }
 

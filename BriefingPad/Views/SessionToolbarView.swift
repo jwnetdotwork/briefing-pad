@@ -6,6 +6,8 @@ struct SessionToolbarView: View {
     let keychainService: KeychainServiceProtocol
     @State private var showingNewSessionSheet = false
     @State private var newSessionName = ""
+    @State private var showingRenamePopover = false
+    @State private var editedSessionName = ""
     @State private var showingAddPartSheet = false
     @State private var showingSettings = false
     @State private var showImport = false
@@ -32,6 +34,43 @@ struct SessionToolbarView: View {
             .labelsHidden()
             .accessibilityIdentifier("SessionPicker")
             .frame(maxWidth: 300)
+
+            Button(action: {
+                if let session = viewModel.selectedSession {
+                    editedSessionName = session.name
+                    showingRenamePopover = true
+                }
+            }) {
+                Image(systemName: "pencil")
+            }
+            .help("セッション名を変更")
+            .disabled(viewModel.selectedSession == nil)
+            .popover(isPresented: $showingRenamePopover) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("セッション名の変更")
+                        .font(.headline)
+
+                    TextField("セッション名", text: $editedSessionName)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 250)
+                        .onSubmit {
+                            saveSessionName()
+                        }
+
+                    HStack {
+                        Spacer()
+                        Button("キャンセル") {
+                            showingRenamePopover = false
+                        }
+                        Button("保存") {
+                            saveSessionName()
+                        }
+                        .disabled(editedSessionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .keyboardShortcut(.defaultAction)
+                    }
+                }
+                .padding()
+            }
 
             Button(action: {
                 newSessionName = ""
@@ -154,5 +193,14 @@ struct SessionToolbarView: View {
         }
         .padding()
         .background(Color(NSColor.windowBackgroundColor))
+    }
+
+    private func saveSessionName() {
+        let trimmed = editedSessionName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if let session = viewModel.selectedSession {
+            viewModel.updateSessionName(id: session.id, newName: trimmed)
+        }
+        showingRenamePopover = false
     }
 }
