@@ -1,7 +1,8 @@
 import SwiftUI
 
-struct PartAddSheet: View {
+struct PartEditSheet: View {
     @ObservedObject var viewModel: SessionViewModel
+    let part: PartDefinition
     @Environment(\.dismiss) var dismiss
 
     @State private var numberString: String = ""
@@ -12,17 +13,22 @@ struct PartAddSheet: View {
     @State private var observationItemsText: String = ""
     @State private var positiveItemsText: String = ""
 
-    init(viewModel: SessionViewModel) {
+    init(viewModel: SessionViewModel, part: PartDefinition) {
         self.viewModel = viewModel
-        // Suggested next number
-        let nextNumber = (viewModel.selectedSession?.parts.map { $0.number }.max() ?? 0) + 1
-        _numberString = State(initialValue: String(nextNumber))
+        self.part = part
+        _numberString = State(initialValue: String(part.number))
+        _title = State(initialValue: part.title)
+        _durationString = State(initialValue: part.durationMinutes.map { String($0) } ?? "")
+        _setting = State(initialValue: part.setting ?? "")
+        _learningPointsText = State(initialValue: part.learningPoints.map { $0.text }.joined(separator: "\n"))
+        _observationItemsText = State(initialValue: part.observationItems.map { $0.text }.joined(separator: "\n"))
+        _positiveItemsText = State(initialValue: part.positiveItems.map { $0.text }.joined(separator: "\n"))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("パート追加")
+                Text("パート編集")
                     .font(.headline)
                 Spacer()
                 Button("キャンセル") {
@@ -48,12 +54,13 @@ struct PartAddSheet: View {
 
             HStack {
                 Spacer()
-                Button("作成") {
+                Button("保存") {
                     let number = Int(numberString)
                     let duration = Int(durationString)
 
-                    viewModel.addManualPart(
-                        number: number,
+                    viewModel.updatePart(
+                        id: part.id,
+                        number: number ?? part.number,
                         title: title,
                         durationMinutes: duration,
                         setting: setting.isEmpty ? nil : setting,

@@ -402,4 +402,69 @@ final class SessionControlTests: XCTestCase {
 
         XCTAssertEqual(viewModel.sessions[0].name, "Updated Name")
     }
+
+    @MainActor
+    func testUpdatePart() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let part1Id = "p1"
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(
+                id: part1Id,
+                number: 1,
+                title: "P1",
+                durationMinutes: 5,
+                setting: "Setting 1",
+                rawMarkdown: "MD",
+                learningPoints: [LearningPoint(id: "lp1", text: "LP1")],
+                observationItems: [ObservationItem(id: "obs1", text: "Obs1")],
+                positiveItems: [PositiveItem(id: "pos1", text: "Pos1")],
+                aiMemo: "Original Memo",
+                aiMemoBlockId: "block1",
+                lastSyncedHash: "hash1",
+                lastSyncedTime: "time1"
+            )
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        // 1. Update part with some changes and some same values
+        viewModel.updatePart(
+            id: part1Id,
+            number: 2, // Changed
+            title: "Updated P1", // Changed
+            durationMinutes: 10, // Changed
+            setting: "Updated Setting", // Changed
+            learningPointsText: "New LP", // Changed
+            observationItemsText: "Obs1", // SAME text
+            positiveItemsText: "New Pos" // Changed
+        )
+
+        let updatedPart = try XCTUnwrap(viewModel.selectedSession?.parts.first)
+        XCTAssertEqual(updatedPart.id, part1Id)
+        XCTAssertEqual(updatedPart.number, 2)
+        XCTAssertEqual(updatedPart.title, "Updated P1")
+        XCTAssertEqual(updatedPart.durationMinutes, 10)
+        XCTAssertEqual(updatedPart.setting, "Updated Setting")
+        XCTAssertEqual(updatedPart.learningPoints.map { $0.text }, ["New LP"])
+
+        // Derivatives should be maintained
+        XCTAssertEqual(updatedPart.aiMemo, "Original Memo")
+        XCTAssertEqual(updatedPart.aiMemoBlockId, "block1")
+        XCTAssertEqual(updatedPart.lastSyncedHash, "hash1")
+        XCTAssertEqual(updatedPart.lastSyncedTime, "time1")
+        XCTAssertEqual(updatedPart.rawMarkdown, "MD")
+
+        // Observation item text was SAME, so ID should be SAME and analysis state should NOT be reset for it
+        XCTAssertEqual(updatedPart.observationItems.map { $0.text }, ["Obs1"])
+        // Actually, my implementation resets EVERYTHING if any section changed.
+        // Wait, let's re-read my implementation.
+        // obsChanged = newObservationItemsTexts != part.observationItems.map { $0.text }
+        // If it's NOT changed, finalObservationItems = part.observationItems (IDs kept)
+        // newAnalysisState is reset if obsChanged OR posChanged.
+        // In this test: obsChanged = false, posChanged = true. So newAnalysisState IS reset.
+
+        XCTAssertEqual(updatedPart.observationItems.first?.id, "obs1", "ID should be preserved when text is same")
+        XCTAssertNotEqual(updatedPart.positiveItems.first?.id, "pos1", "ID should be new when text is different")
+    }
 }

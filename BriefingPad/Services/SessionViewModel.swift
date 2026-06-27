@@ -237,6 +237,77 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         saveCurrentSession()
     }
 
+    func updatePart(
+        id: String,
+        number: Int,
+        title: String,
+        durationMinutes: Int?,
+        setting: String?,
+        learningPointsText: String,
+        observationItemsText: String,
+        positiveItemsText: String
+    ) {
+        guard let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+              let partIndex = sessions[sessionIndex].parts.firstIndex(where: { $0.id == id }) else { return }
+
+        let part = sessions[sessionIndex].parts[partIndex]
+
+        let newLearningPoints = parseLinesToItems(learningPointsText) { text in
+            LearningPoint(id: UUID().uuidString, text: text)
+        }
+        let newObservationItemsTexts = parseLinesToItems(observationItemsText) { $0 }
+        let newPositiveItemsTexts = parseLinesToItems(positiveItemsText) { $0 }
+
+        let obsChanged = newObservationItemsTexts != part.observationItems.map { $0.text }
+        let posChanged = newPositiveItemsTexts != part.positiveItems.map { $0.text }
+
+        let finalObservationItems: [ObservationItem]
+        let finalPositiveItems: [PositiveItem]
+        let newAnalysisState: PartAnalysisState
+
+        if obsChanged {
+            finalObservationItems = newObservationItemsTexts.map { ObservationItem(id: UUID().uuidString, text: $0) }
+        } else {
+            finalObservationItems = part.observationItems
+        }
+
+        if posChanged {
+            finalPositiveItems = newPositiveItemsTexts.map { PositiveItem(id: UUID().uuidString, text: $0) }
+        } else {
+            finalPositiveItems = part.positiveItems
+        }
+
+        if obsChanged || posChanged {
+            newAnalysisState = PartAnalysisState.initial(
+                observationItems: finalObservationItems,
+                positiveItems: finalPositiveItems
+            )
+        } else {
+            newAnalysisState = part.analysisState
+        }
+
+        let updatedPart = PartDefinition(
+            id: part.id, // Keep ID
+            number: number,
+            title: title,
+            durationMinutes: durationMinutes,
+            setting: setting,
+            rawMarkdown: part.rawMarkdown, // Keep
+            learningPoints: newLearningPoints,
+            observationItems: finalObservationItems,
+            positiveItems: finalPositiveItems,
+            aiMemo: part.aiMemo, // Keep
+            aiMemoBlockId: part.aiMemoBlockId, // Keep
+            lastSyncedHash: part.lastSyncedHash, // Keep
+            lastSyncedTime: part.lastSyncedTime, // Keep
+            aiMemoGenerationError: part.aiMemoGenerationError, // Keep
+            analysisState: newAnalysisState
+        )
+
+        sessions[sessionIndex].parts[partIndex] = updatedPart
+        saveCurrentSession()
+    }
+
     private func parseLinesToItems<T>(
         _ text: String,
         creator: (String) -> T
