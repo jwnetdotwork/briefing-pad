@@ -13,6 +13,9 @@ final class SessionControlTests: XCTestCase {
     @MainActor
     func testDeleteCurrentPartRemovesFromListAndSelectsNext() async throws {
         let viewModel = SessionViewModel(store: MockSessionStore())
+        try await waitUntil(message: "ViewModel should be bootstrapped") {
+            viewModel.isBootstrapped
+        }
         let part1Id = "p1"
         let part2Id = "p2"
         let part3Id = "p3"
@@ -33,7 +36,9 @@ final class SessionControlTests: XCTestCase {
         viewModel.deleteCurrentPart()
 
         try await waitUntil(message: "selection moved to next part") {
-            viewModel.currentPartIndex == 1 && viewModel.currentPart?.id == part3Id
+            viewModel.currentPartIndex == 1 &&
+            viewModel.currentPart?.id == part3Id &&
+            viewModel.partElapsedTime == 456
         }
 
         XCTAssertEqual(viewModel.selectedSession?.parts.count, 2)
