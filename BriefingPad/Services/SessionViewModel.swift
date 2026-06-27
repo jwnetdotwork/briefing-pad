@@ -180,6 +180,15 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         activateSession(session, notionPageId: nil)
     }
 
+    func updateSessionName(id: String, newName: String) {
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[index].name = trimmedName
+        saveCurrentSession()
+    }
+
     func addManualPart(
         number: Int?,
         title: String,
