@@ -680,6 +680,67 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
 
+    func deleteCurrentPart() {
+        guard let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }),
+              let partId = currentPart?.id else { return }
+
+        // Capture recording/starting state
+        let wasRecording = micStatus == .recording
+        let wasStarting = micStatus == .starting
+
+        let deletedPartId = partId
+        let deletedPartIndex = currentPartIndex
+        let targetSessionId = selectedSessionId
+
+        Task { @MainActor in
+            stopPlayback()
+
+            if wasRecording || wasStarting {
+                if wasStarting {
+                    micService.cancelPendingOperationsAndStop()
+                } else {
+                    micService.stopRecording()
+                }
+                await stopTranscription(sessionId: targetSessionId, partId: deletedPartId)
+            }
+
+            // Cleanup storage
+            do {
+                try await store.deletePart(sessionId: targetSessionId, partId: deletedPartId)
+            } catch {
+                print("Failed to delete part folder: \(error)")
+            }
+
+            // Cleanup runtime state
+            sessionState.partStates.removeValue(forKey: deletedPartId)
+            notionSyncStatuses.removeValue(forKey: deletedPartId)
+            chunkQueue.removeAll { $0.sessionId == targetSessionId && $0.chunk.partId == deletedPartId }
+            if pendingAIMemoUpdate?.partId == deletedPartId {
+                pendingAIMemoUpdate = nil
+            }
+            if activeRecordingContext?.partId == deletedPartId {
+                activeRecordingContext = nil
+            }
+            transcriptionError = nil
+
+            // Remove from session
+            sessions[sessionIndex].parts.remove(at: deletedPartIndex)
+
+            // Recalculate selection
+            if sessions[sessionIndex].parts.isEmpty {
+                currentPartIndex = 0
+                partElapsedTime = 0
+            } else {
+                let nextIndex = min(deletedPartIndex, sessions[sessionIndex].parts.count - 1)
+                currentPartIndex = nextIndex
+                let newPartId = sessions[sessionIndex].parts[nextIndex].id
+                partElapsedTime = sessionState.partStates[newPartId]?.elapsedTime ?? 0
+            }
+
+            saveCurrentSession()
+        }
+    }
+
     func deleteCurrentPartData(onlyAudio: Bool = false, onlyTranscript: Bool = false, onlyLLM: Bool = false) {
         guard let partId = currentPart?.id else { return }
 

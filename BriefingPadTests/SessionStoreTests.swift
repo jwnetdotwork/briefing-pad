@@ -146,6 +146,26 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(reloadedAfterDelete?.partRuns[partId]?.audioFileNames.isEmpty ?? false)
     }
 
+    func testDeletePart() async throws {
+        let sessionId = "test-session"
+        let partId = "part-1"
+        let template = BriefingSession(id: sessionId, name: "Test", parts: [
+            PartDefinition(id: partId, number: 1, title: "P1", durationMinutes: 1, setting: nil, rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+
+        var partRun = PartRun(partId: partId)
+        partRun.transcript = [TranscriptSegment(sessionId: sessionId, partId: partId, text: "H", isFinal: true, startTime: 0, endTime: 1)]
+
+        let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [partId: partRun])
+        try await store.saveSession(savedSession)
+
+        let partDir = tempDir.appendingPathComponent("\(sessionId)/parts/\(partId)")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: partDir.path))
+
+        try await store.deletePart(sessionId: sessionId, partId: partId)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: partDir.path))
+    }
+
     func testManualPartRoundTrip() async throws {
         let sessionId = "manual-session"
         let partId = "manual-part-id"

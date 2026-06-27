@@ -95,6 +95,7 @@ protocol SessionStoreProtocol {
     func loadSession(sessionId: String) async throws -> SavedSession?
     func saveSession(_ session: SavedSession) async throws
     func deleteSession(sessionId: String) async throws
+    func deletePart(sessionId: String, partId: String) async throws
     func deleteAudio(sessionId: String, partId: String) async throws
     func deleteTranscript(sessionId: String, partId: String) async throws
     func deleteLLMResults(sessionId: String, partId: String) async throws
@@ -276,6 +277,13 @@ class FileSessionStore: SessionStoreProtocol {
         }
         if FileManager.default.fileExists(atPath: summaryURL.path) {
             try FileManager.default.removeItem(at: summaryURL)
+        }
+    }
+
+    func deletePart(sessionId: String, partId: String) async throws {
+        let partDir = partDirectory(for: sessionId, partId: partId)
+        if FileManager.default.fileExists(atPath: partDir.path) {
+            try FileManager.default.removeItem(at: partDir)
         }
     }
 }
