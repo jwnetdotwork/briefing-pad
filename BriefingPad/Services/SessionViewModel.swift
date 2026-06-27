@@ -180,6 +180,64 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         activateSession(session, notionPageId: nil)
     }
 
+    func addManualPart(
+        number: Int?,
+        title: String,
+        durationMinutes: Int?,
+        setting: String?,
+        learningPointsText: String,
+        observationItemsText: String,
+        positiveItemsText: String
+    ) {
+        stopPlayback()
+        guard let sessionIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }) else { return }
+
+        let nextNumber = (sessions[sessionIndex].parts.map { $0.number }.max() ?? 0) + 1
+        let finalNumber = number ?? nextNumber
+
+        let learningPoints = parseLinesToItems(learningPointsText) { text in
+            LearningPoint(id: UUID().uuidString, text: text)
+        }
+        let observationItems = parseLinesToItems(observationItemsText) { text in
+            ObservationItem(id: UUID().uuidString, text: text)
+        }
+        let positiveItems = parseLinesToItems(positiveItemsText) { text in
+            PositiveItem(id: UUID().uuidString, text: text)
+        }
+
+        let newPart = PartDefinition(
+            id: UUID().uuidString,
+            number: finalNumber,
+            title: title,
+            durationMinutes: durationMinutes,
+            setting: setting,
+            rawMarkdown: "",
+            learningPoints: learningPoints,
+            observationItems: observationItems,
+            positiveItems: positiveItems
+        )
+
+        sessions[sessionIndex].parts.append(newPart)
+
+        // Select the new part
+        let newPartIndex = sessions[sessionIndex].parts.count - 1
+        currentPartIndex = newPartIndex
+        partElapsedTime = 0
+        sessionState.partStates[newPart.id] = PartState()
+
+        saveCurrentSession()
+    }
+
+    private func parseLinesToItems<T>(
+        _ text: String,
+        creator: (String) -> T
+    ) -> [T] {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map(creator)
+    }
+
     private func activateSession(_ session: BriefingSession, notionPageId: String?) {
         stopPlayback()
         sessions.append(session)

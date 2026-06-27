@@ -338,4 +338,56 @@ final class SessionControlTests: XCTestCase {
         viewModel.partElapsedTime = 1000
         XCTAssertFalse(viewModel.isCurrentPartOvertime, "Should not be overtime if duration is nil")
     }
+
+    @MainActor
+    func testAddManualPart() async throws {
+        let viewModel = SessionViewModel(store: MockSessionStore())
+        let session = BriefingSession(id: "s1", name: "S1", parts: [
+            PartDefinition(id: "p1", number: 1, title: "P1", durationMinutes: 5, setting: "", rawMarkdown: "", learningPoints: [], observationItems: [], positiveItems: [])
+        ])
+        viewModel.sessions = [session]
+        viewModel.selectedSessionId = "s1"
+        viewModel.currentPartIndex = 0
+
+        // 1. Add manual part
+        viewModel.addManualPart(
+            number: nil, // Should auto-increment to 2
+            title: "Manual Part",
+            durationMinutes: 10,
+            setting: "Test Setting",
+            learningPointsText: " LP 1 \n\n LP 2 ",
+            observationItemsText: "Obs 1\nObs 2",
+            positiveItemsText: "Pos 1"
+        )
+
+        XCTAssertEqual(viewModel.sessions[0].parts.count, 2)
+        let newPart = try XCTUnwrap(viewModel.sessions[0].parts.last)
+        XCTAssertEqual(newPart.number, 2)
+        XCTAssertEqual(newPart.title, "Manual Part")
+        XCTAssertEqual(newPart.durationMinutes, 10)
+        XCTAssertEqual(newPart.setting, "Test Setting")
+        XCTAssertEqual(newPart.learningPoints.count, 2)
+        XCTAssertEqual(newPart.learningPoints[0].text, "LP 1")
+        XCTAssertEqual(newPart.learningPoints[1].text, "LP 2")
+        XCTAssertEqual(newPart.observationItems.count, 2)
+        XCTAssertEqual(newPart.positiveItems.count, 1)
+
+        // 2. Verify selection and state reset
+        XCTAssertEqual(viewModel.currentPartIndex, 1)
+        XCTAssertEqual(viewModel.currentPart?.id, newPart.id)
+        XCTAssertEqual(viewModel.partElapsedTime, 0)
+        XCTAssertNotNil(viewModel.sessionState.partStates[newPart.id])
+
+        // 3. Add with explicit number
+        viewModel.addManualPart(
+            number: 10,
+            title: "Explicit Number",
+            durationMinutes: nil,
+            setting: nil,
+            learningPointsText: "",
+            observationItemsText: "",
+            positiveItemsText: ""
+        )
+        XCTAssertEqual(viewModel.sessions[0].parts.last?.number, 10)
+    }
 }

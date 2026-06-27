@@ -6,6 +6,7 @@ struct SessionToolbarView: View {
     let keychainService: KeychainServiceProtocol
     @State private var showingNewSessionSheet = false
     @State private var newSessionName = ""
+    @State private var showingAddPartSheet = false
     @State private var showingSettings = false
     @State private var showImport = false
     @State private var showingSessionDeleteAlert = false
@@ -38,7 +39,7 @@ struct SessionToolbarView: View {
             }) {
                 Image(systemName: "plus")
             }
-            .help("新規追加")
+            .help("新規セッション追加")
             .sheet(isPresented: $showingNewSessionSheet) {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("新しいセッション")
@@ -67,6 +68,17 @@ struct SessionToolbarView: View {
                 }
                 .padding()
                 .frame(width: 360)
+            }
+
+            Button(action: {
+                showingAddPartSheet = true
+            }) {
+                Label("パート追加", systemImage: "plus.square.fill.on.square.fill")
+            }
+            .help("パートを追加")
+            .disabled(viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.selectedSession == nil)
+            .sheet(isPresented: $showingAddPartSheet) {
+                PartAddSheet(viewModel: viewModel)
             }
 
             Menu {
