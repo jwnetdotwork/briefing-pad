@@ -146,4 +146,38 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertTrue(reloadedAfterDelete?.partRuns[partId]?.audioFileNames.isEmpty ?? false)
     }
 
+    func testManualPartRoundTrip() async throws {
+        let sessionId = "manual-session"
+        let partId = "manual-part-id"
+
+        let part = PartDefinition(
+            id: partId,
+            number: 99,
+            title: "Manual Title",
+            durationMinutes: 42,
+            setting: "Manual Setting",
+            rawMarkdown: "",
+            learningPoints: [LearningPoint(id: "lp1", text: "LP1")],
+            observationItems: [ObservationItem(id: "obs1", text: "Obs1")],
+            positiveItems: [PositiveItem(id: "pos1", text: "Pos1")]
+        )
+
+        let template = BriefingSession(id: sessionId, name: "Manual", parts: [part])
+        let savedSession = SavedSession(sessionId: sessionId, templateSnapshot: template, updatedAt: Date(), partRuns: [:])
+
+        try await store.saveSession(savedSession)
+
+        let loaded = try await store.loadSession(sessionId: sessionId)
+
+        XCTAssertNotNil(loaded)
+        let loadedPart = try XCTUnwrap(loaded?.templateSnapshot.parts.first)
+        XCTAssertEqual(loadedPart.id, partId)
+        XCTAssertEqual(loadedPart.number, 99)
+        XCTAssertEqual(loadedPart.title, "Manual Title")
+        XCTAssertEqual(loadedPart.durationMinutes, 42)
+        XCTAssertEqual(loadedPart.setting, "Manual Setting")
+        XCTAssertEqual(loadedPart.learningPoints.count, 1)
+        XCTAssertEqual(loadedPart.observationItems.count, 1)
+        XCTAssertEqual(loadedPart.positiveItems.count, 1)
+    }
 }
