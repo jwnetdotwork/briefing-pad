@@ -423,7 +423,6 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "ブリーフィング・パッド";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "録音と文字起こしのためにマイクを使用します";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "音声をテキスト化するために音声認識を使用します";
@@ -468,7 +467,6 @@
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "ブリーフィング・パッド";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "録音と文字起こしのためにマイクを使用します";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "音声をテキスト化するために音声認識を使用します";

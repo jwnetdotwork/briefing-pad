@@ -6,9 +6,9 @@ struct PartListView: View {
     var onSelect: (Int) -> Void
 
     var body: some View {
-        SectionContainer("パート一覧") {
+        SectionContainer("partList.title") {
             if parts.isEmpty {
-                Text("パートがありません")
+                Text("partList.empty")
                     .foregroundColor(.secondary)
             } else {
                 HStack(spacing: 8) {
@@ -34,7 +34,7 @@ struct PartListView: View {
                                     Button {
                                         onSelect(index)
                                     } label: {
-                                        Text("\(part.number). \(part.title)")
+                                        Text(String(format: NSLocalizedString("partList.partTitleFormat", comment: ""), part.number, part.title))
                                             .font(.headline)
                                             .lineLimit(2, reservesSpace: true)
                                             .frame(width: 140, alignment: .leading)

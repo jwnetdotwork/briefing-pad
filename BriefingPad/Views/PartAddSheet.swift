@@ -22,10 +22,10 @@ struct PartAddSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("パート追加")
+                Text("partAddSheet.title")
                     .font(.headline)
                 Spacer()
-                Button("キャンセル") {
+                Button("common.cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
@@ -48,7 +48,7 @@ struct PartAddSheet: View {
 
             HStack {
                 Spacer()
-                Button("作成") {
+                Button("common.create") {
                     let number = Int(numberString)
                     let duration = Int(durationString)
 

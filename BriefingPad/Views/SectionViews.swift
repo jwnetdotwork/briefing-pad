@@ -1,13 +1,13 @@
 import SwiftUI
 
 struct SectionContainer<Content: View, Trailing: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let identifier: String?
     let content: Content
     let trailing: Trailing
 
     init(
-        _ title: String,
+        _ title: LocalizedStringKey,
         identifier: String? = nil,
         @ViewBuilder trailing: () -> Trailing,
         @ViewBuilder content: () -> Content
@@ -19,7 +19,7 @@ struct SectionContainer<Content: View, Trailing: View>: View {
     }
 
     init(
-        _ title: String,
+        _ title: LocalizedStringKey,
         identifier: String? = nil,
         @ViewBuilder content: () -> Content
     ) where Trailing == EmptyView {
@@ -63,7 +63,7 @@ struct TranscriptView: View {
 
     var body: some View {
         SectionContainer(
-            "文字起こし",
+            "section.transcript.title",
             identifier: "TranscriptSection",
             trailing: {
                 if !segments.isEmpty {
@@ -73,7 +73,7 @@ struct TranscriptView: View {
                             .foregroundColor(showCopyFeedback ? .green : .accentColor)
                     }
                     .buttonStyle(.borderless)
-                    .help("クリップボードにコピー")
+                    .help("common.copyToClipboard")
                 }
             }
         ) {
@@ -86,7 +86,7 @@ struct TranscriptView: View {
                 }
 
                 if segments.isEmpty {
-                    Text("（録音を開始するとここに文字起こしが表示されます）")
+                    Text("section.transcript.empty")
                         .foregroundColor(.secondary)
                         .font(.body)
                 } else {
@@ -151,10 +151,10 @@ struct LearningPointsView: View {
     let points: [LearningPoint]
 
     var body: some View {
-        SectionContainer("学習ポイント", identifier: "LearningPointsSection") {
+        SectionContainer("section.learningPoints.title", identifier: "LearningPointsSection") {
             VStack(alignment: .leading, spacing: 4) {
                 if points.isEmpty {
-                    Text("なし")
+                    Text("common.none")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(points) { point in
@@ -181,7 +181,7 @@ struct ObservationItemsView: View {
 
     var body: some View {
         SectionContainer(
-            "観察メモ",
+            "section.observationItems.title",
             identifier: "ObservationSection",
             trailing: {
                 if !nonHiddenItems.isEmpty {
@@ -191,13 +191,13 @@ struct ObservationItemsView: View {
                             .foregroundColor(showCopyFeedback ? .green : .accentColor)
                     }
                     .buttonStyle(.borderless)
-                    .help("クリップボードにコピー")
+                    .help("common.copyToClipboard")
                 }
             }
         ) {
             VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
-                    Text("なし")
+                    Text("common.none")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(items) { item in
@@ -260,7 +260,7 @@ struct PositiveItemsView: View {
 
     var body: some View {
         SectionContainer(
-            "良かった点候補",
+            "section.positiveItems.title",
             identifier: "PositiveCandidatesSection",
             trailing: {
                 if !nonHiddenDisplayItems.isEmpty {
@@ -270,13 +270,13 @@ struct PositiveItemsView: View {
                             .foregroundColor(showCopyFeedback ? .green : .accentColor)
                     }
                     .buttonStyle(.borderless)
-                    .help("クリップボードにコピー")
+                    .help("common.copyToClipboard")
                 }
             }
         ) {
             VStack(alignment: .leading, spacing: 8) {
                 if items.isEmpty {
-                    Text("なし")
+                    Text("common.none")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(displayItems, id: \.item.id) { pair in
@@ -353,7 +353,7 @@ struct CommentMaterialView: View {
 
     var body: some View {
         SectionContainer(
-            "🤖 AIメモ",
+            "section.aiMemo.title",
             identifier: "AIMemoSection",
             trailing: {
                 HStack(alignment: .center, spacing: 8) {
@@ -361,7 +361,7 @@ struct CommentMaterialView: View {
                         HStack(spacing: 4) {
                             ProgressView()
                                 .controlSize(.small)
-                            Text(isFinalizing ? "確定メモ生成中..." : "メモ生成中...")
+                            Text(isFinalizing ? "section.aiMemo.finalizing" : "section.aiMemo.generating")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -375,11 +375,11 @@ struct CommentMaterialView: View {
                                     .foregroundColor(showCopyFeedback ? .green : .accentColor)
                             }
                             .buttonStyle(.borderless)
-                            .help("クリップボードにコピー")
+                            .help("common.copyToClipboard")
                         }
 
                         Button(action: onRegenerate) {
-                            Label("再生成", systemImage: "arrow.clockwise")
+                            Label("common.regenerate", systemImage: "arrow.clockwise")
                                 .font(.caption2)
                         }
                         .buttonStyle(.borderless)
@@ -395,17 +395,17 @@ struct CommentMaterialView: View {
                         HStack {
                             Image(systemName: "exclamationmark.circle.fill")
                                 .foregroundColor(.red)
-                            Text("メモ生成失敗: \(error)")
+                            Text(String(format: NSLocalizedString("section.aiMemo.generationFailedFormat", comment: ""), error))
                                 .font(.caption)
                                 .foregroundColor(.red)
                         }
-                        Button("再試行", action: onRetry)
+                        Button("common.retry", action: onRetry)
                             .buttonStyle(.borderless)
                             .controlSize(.small)
                     }
                 } else {
                     if aiMemo.isEmpty && !isFinalizing && !isGenerating {
-                        Text("（パート終了後または手動実行で生成されます）")
+                        Text("section.aiMemo.fallbackMessage")
                             .font(.body)
                             .foregroundColor(.secondary)
                             .lineSpacing(4)
@@ -443,37 +443,37 @@ struct CommentMaterialView: View {
             case .writing:
                 ProgressView()
                     .controlSize(.small)
-                Text("Notion更新中...")
+                Text("section.notionSync.writing")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             case .success:
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(.green)
-                Text("Notion同期済み")
+                Text("section.notionSync.success")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             case .externalModification:
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.orange)
-                Text("外部編集を検知 (追記しました)")
+                Text("section.notionSync.externalModification")
                     .font(.caption2)
                     .foregroundColor(.orange)
-                Button("再試行", action: onRetry)
+                Button("common.retry", action: onRetry)
                     .buttonStyle(.borderless)
                     .controlSize(.small)
             case .failure(let error):
                 Image(systemName: "xmark.circle.fill")
                     .foregroundColor(.red)
-                Text("Notion同期失敗: \(error)")
+                Text(String(format: NSLocalizedString("section.notionSync.failureFormat", comment: ""), error))
                     .font(.caption2)
                     .foregroundColor(.red)
-                Button("再試行", action: onRetry)
+                Button("common.retry", action: onRetry)
                     .buttonStyle(.borderless)
                     .controlSize(.small)
             case .noToken:
                 Image(systemName: "info.circle")
                     .foregroundColor(.secondary)
-                Text("Notion未設定")
+                Text("section.notionSync.noToken")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             }

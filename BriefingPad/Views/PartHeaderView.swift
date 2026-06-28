@@ -8,7 +8,7 @@ struct PartHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Part \(part.number). \(part.title)")
+                Text(String(format: NSLocalizedString("partHeader.titleFormat", comment: ""), part.number, part.title))
                     .font(.headline)
 
                 Button(action: { showingEditSheet = true }) {
@@ -21,21 +21,23 @@ struct PartHeaderView: View {
                 }
 
                 Spacer()
-                Text(part.durationMinutes.map { "\($0)分" } ?? "未設定")
+                Text(part.durationMinutes.map {
+                    String(format: NSLocalizedString("partHeader.durationFormat", comment: ""), $0)
+                } ?? NSLocalizedString("common.notSet", comment: ""))
                     .font(.body)
                     .foregroundColor(.secondary)
             }
 
             if let setting = part.setting, !setting.isEmpty {
-                Text("場面設定: \(setting)")
+                Text(String(format: NSLocalizedString("partHeader.settingFormat", comment: ""), setting))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
 
             let lpText = part.learningPoints.isEmpty
-                ? "なし"
+                ? NSLocalizedString("common.none", comment: "")
                 : part.learningPoints.map { $0.text }.joined(separator: "、")
-            Text("学習ポイント: \(lpText)")
+            Text(String(format: NSLocalizedString("partHeader.learningPointsFormat", comment: ""), lpText))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

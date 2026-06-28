@@ -19,47 +19,47 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("設定")
+            Text("settings.title")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 15) {
                 VStack(alignment: .leading) {
-                    Text("OpenAI API Key")
+                    Text("settings.openaiApiKey")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    SecureField("sk-...", text: $apiKey)
+                    SecureField("settings.placeholder.openaiApiKey", text: $apiKey)
                         .textFieldStyle(.roundedBorder)
                 }
 
                 VStack(alignment: .leading) {
-                    Text("Notion インテグレーション・トークン")
+                    Text("settings.notionIntegrationToken")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    SecureField("secret_...", text: $notionToken)
+                    SecureField("settings.placeholder.notionToken", text: $notionToken)
                         .textFieldStyle(.roundedBorder)
                 }
 
                 VStack(alignment: .leading) {
-                    Text("APIエンドポイント (任意)")
+                    Text("settings.apiEndpoint")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    TextField("https://api.openai.com/v1", text: $customEndpoint)
+                    TextField("settings.placeholder.apiEndpoint", text: $customEndpoint)
                         .textFieldStyle(.roundedBorder)
                 }
 
                 VStack(alignment: .leading) {
-                    Text("モデル名 (任意)")
+                    Text("settings.modelName")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    TextField("gpt-5.4-mini-2026-03-17", text: $customModel)
+                    TextField("settings.placeholder.modelName", text: $customModel)
                         .textFieldStyle(.roundedBorder)
                 }
 
                 VStack(alignment: .leading) {
-                    Text("セッション表示順")
+                    Text("settings.sessionSortOrder")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                    Picker("セッション表示順", selection: $sortOrder) {
+                    Picker("settings.sessionSortOrder", selection: $sortOrder) {
                         ForEach(SessionSortOrder.allCases) { order in
                             Text(order.displayName).tag(order)
                         }
@@ -70,13 +70,13 @@ struct SettingsView: View {
             }
 
             HStack {
-                Button("キャンセル") {
+                Button("common.cancel") {
                     dismiss()
                 }
 
                 Spacer()
 
-                Button("保存") {
+                Button("common.save") {
                     do {
                         try keychainService.save(key: KeychainKeys.openaiApiKey, value: apiKey)
                         try keychainService.save(key: KeychainKeys.notionIntegrationToken, value: notionToken)
@@ -95,10 +95,10 @@ struct SettingsView: View {
         }
         .padding()
         .frame(width: 300)
-        .alert("エラー", isPresented: $showError) {
-            Button("OK") { }
+        .alert("common.error", isPresented: $showError) {
+            Button("common.ok") { }
         } message: {
-            Text(errorMessage ?? "不明なエラーが発生しました")
+            Text(errorMessage ?? NSLocalizedString("common.unknownError", comment: ""))
         }
         .onAppear {
             apiKey = keychainService.load(key: KeychainKeys.openaiApiKey) ?? ""

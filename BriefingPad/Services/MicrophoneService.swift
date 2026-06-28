@@ -15,11 +15,24 @@ enum MicrophoneStatus: Equatable {
     case error(String)
 }
 
-enum AudioLevel: String {
-    case silent = "無音"
-    case low = "小"
-    case mid = "中"
-    case high = "大"
+enum AudioLevel {
+    case silent
+    case low
+    case mid
+    case high
+
+    var displayLabel: String {
+        switch self {
+        case .silent:
+            return NSLocalizedString("microphone.level.silent", comment: "")
+        case .low:
+            return NSLocalizedString("microphone.level.low", comment: "")
+        case .mid:
+            return NSLocalizedString("microphone.level.mid", comment: "")
+        case .high:
+            return NSLocalizedString("microphone.level.high", comment: "")
+        }
+    }
 
     static func from(amplitude: Float) -> AudioLevel {
         if amplitude < 0.01 { return .silent }
@@ -194,12 +207,12 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
                     self.performStartRecording(audioFileURL: audioFileURL, runID: runID)
                 } else {
                     self.isStartingRecording = false
-                    self.status = .error("マイクの使用が許可されていません")
+                    self.status = .error(NSLocalizedString("microphone.error.permissionDenied", comment: ""))
                 }
             }
         case .denied:
             isStartingRecording = false
-            status = .error("マイクの使用が許可されていません")
+            status = .error(NSLocalizedString("microphone.error.permissionDenied", comment: ""))
         }
     }
 
@@ -267,7 +280,10 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
             audioFile = nil
             DispatchQueue.main.async {
                 self.isStartingRecording = false
-                self.status = .error("録音の開始に失敗しました: \(error.localizedDescription)")
+                self.status = .error(String(
+                    format: NSLocalizedString("microphone.error.startFailed", comment: ""),
+                    error.localizedDescription
+                ))
             }
         }
     }

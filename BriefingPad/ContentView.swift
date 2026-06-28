@@ -96,11 +96,11 @@ struct ContentView: View {
                                 onRegenerate: { viewModel.regenerateAIMemo() }
                             )
                         } else {
-                            Text("現在のパートが見つかりません")
+                            Text("contentView.currentPartNotFound")
                                 .padding()
                         }
                     } else {
-                        Text("セッションが見つかりません")
+                        Text("contentView.sessionNotFound")
                             .padding()
                     }
                 }

@@ -36,7 +36,7 @@ struct PartControlsView: View {
             HStack(spacing: 12) {
                 if viewModel.micStatus == .recording {
                     Button(action: { viewModel.pauseRecording() }) {
-                        Text("停止")
+                        Text("partControls.stop")
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
@@ -44,7 +44,7 @@ struct PartControlsView: View {
                     .accessibilityIdentifier("PauseRecordingButton")
                 } else {
                     Button(action: { viewModel.startRecording() }) {
-                        Text("開始")
+                        Text("partControls.start")
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent)
@@ -54,13 +54,13 @@ struct PartControlsView: View {
 
                 if viewModel.isPlaying {
                     Button(action: { viewModel.stopPlayback() }) {
-                        Text("再生停止")
+                        Text("partControls.stopPlayback")
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
                 } else {
                     Button(action: { viewModel.startPlayback() }) {
-                        Text("再生")
+                        Text("partControls.play")
                             .frame(minWidth: 80, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
@@ -72,8 +72,8 @@ struct PartControlsView: View {
                         await viewModel.finishPart()
                     }
                 }) {
-                    Text("パート終了")
-                        .frame(minWidth: 80, minHeight: 44)
+                    Text("partControls.finishPart")
+                    .frame(minWidth: 80, minHeight: 44)
                 }
                 .buttonStyle(.bordered)
                 .disabled(isFinished || viewModel.isFinalizing || viewModel.isGeneratingAIMemo)
@@ -94,22 +94,22 @@ struct PartControlsView: View {
     @ViewBuilder
     private var statusView: some View {
         if isFinished {
-            Text("完了済み")
+            Text("partControls.completed")
                 .font(.caption)
                 .foregroundColor(.secondary)
         } else {
             switch viewModel.micStatus {
             case .idle:
-                Text("待機中")
+                Text("partControls.idle")
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .starting:
-                Text("準備中...")
+                Text("partControls.starting")
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .recording:
                 HStack(spacing: 4) {
-                    Text("● 録音中")
+                    Text("partControls.recording")
                     AudioWaveformView(amplitude: viewModel.audioAmplitude)
                 }
                 .font(.caption)

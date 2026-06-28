@@ -21,14 +21,14 @@ struct NotionImportSheet: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            Text("Notion からインポート")
+            Text("notionImport.title")
                 .font(.headline)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("Notion ページ URL または ID")
+                Text("notionImport.pageUrlOrId")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                TextField("https://app.notion.com/...", text: $notionURL)
+                TextField("notionImport.placeholder.pageUrl", text: $notionURL)
                     .textFieldStyle(.roundedBorder)
                     .disabled(isLoading)
                     .onChange(of: notionURL) {
@@ -48,7 +48,7 @@ struct NotionImportSheet: View {
             }
 
             HStack {
-                Button("キャンセル") {
+                Button("common.cancel") {
                     dismiss()
                 }
                 .disabled(isLoading)
@@ -56,13 +56,13 @@ struct NotionImportSheet: View {
                 Spacer()
 
                 if preview == nil {
-                    Button("プレビュー確認") {
+                    Button("notionImport.preview") {
                         generatePreview()
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(isLoading || notionURL.isEmpty)
                 } else {
-                    Button("インポート確定") {
+                    Button("notionImport.import") {
                         performImport()
                     }
                     .buttonStyle(.borderedProminent)
@@ -84,10 +84,10 @@ struct NotionImportSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Divider()
 
-            Text("セッション名: \(preview.sessionName)")
+            Text(String(format: NSLocalizedString("notionImport.sessionNameFormat", comment: ""), preview.sessionName))
                 .font(.subheadline.bold())
 
-            Text("インポート対象パート:")
+            Text("notionImport.partsHeading")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
@@ -100,7 +100,7 @@ struct NotionImportSheet: View {
 
                             HStack(spacing: 12) {
                                 if let minutes = part.durationMinutes {
-                                    Label("\(minutes)分", systemImage: "clock")
+                                    Label(String(format: NSLocalizedString("notionImport.minutesFormat", comment: ""), minutes), systemImage: "clock")
                                 }
                                 if let setting = part.setting {
                                     Label(setting, systemImage: "mappin.and.ellipse")
@@ -110,11 +110,11 @@ struct NotionImportSheet: View {
                             .foregroundColor(.secondary)
 
                             HStack(spacing: 15) {
-                                previewStat(label: "学習", count: part.learningPointCount)
-                                previewStat(label: "観察", count: part.observationItemCount)
-                                previewStat(label: "良点", count: part.positiveItemCount)
+                                previewStat(label: NSLocalizedString("notionImport.stat.learning", comment: ""), count: part.learningPointCount)
+                                previewStat(label: NSLocalizedString("notionImport.stat.observation", comment: ""), count: part.observationItemCount)
+                                previewStat(label: NSLocalizedString("notionImport.stat.positive", comment: ""), count: part.positiveItemCount)
                                 if part.hasAIMemo {
-                                    Text("🤖AIメモ有")
+                                    Text("notionImport.aiMemoBadge")
                                         .font(.system(size: 10))
                                         .padding(.horizontal, 4)
                                         .background(Color.blue.opacity(0.1))
@@ -131,7 +131,7 @@ struct NotionImportSheet: View {
             .frame(maxHeight: 200)
 
             HStack {
-                Text("未解釈ブロック数: \(preview.uninterpretedBlockCount)")
+                Text(String(format: NSLocalizedString("notionImport.uninterpretedBlockCountFormat", comment: ""), preview.uninterpretedBlockCount))
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -147,12 +147,12 @@ struct NotionImportSheet: View {
 
     private func generatePreview() {
         guard let token = keychainService.load(key: KeychainKeys.notionIntegrationToken), !token.isEmpty else {
-            errorMessage = "設定画面で Notion トークンを保存してください"
+            errorMessage = NSLocalizedString("notionImport.error.saveToken", comment: "")
             return
         }
 
         guard let id = NotionClient.normalizePageId(notionURL) else {
-            errorMessage = "URL が不正です"
+            errorMessage = NSLocalizedString("notionImport.error.invalidURL", comment: "")
             return
         }
 
@@ -170,17 +170,20 @@ struct NotionImportSheet: View {
                 }
             } catch NotionError.authenticationFailed {
                 await MainActor.run {
-                    self.errorMessage = "認証失敗（トークンを確認してください）"
+                    self.errorMessage = NSLocalizedString("notionImport.error.authenticationFailed", comment: "")
                     self.isLoading = false
                 }
             } catch NotionError.permissionDenied {
                 await MainActor.run {
-                    self.errorMessage = "共有不足（インテグレーションをページに招待してください）"
+                    self.errorMessage = NSLocalizedString("notionImport.error.permissionDenied", comment: "")
                     self.isLoading = false
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMessage = "取得失敗: \(error.localizedDescription)"
+                    self.errorMessage = String(
+                        format: NSLocalizedString("notionImport.error.fetchFailedFormat", comment: ""),
+                        error.localizedDescription
+                    )
                     self.isLoading = false
                 }
             }
@@ -203,7 +206,10 @@ struct NotionImportSheet: View {
                 }
             } catch {
                 await MainActor.run {
-                    self.errorMessage = "インポート失敗: \(error.localizedDescription)"
+                    self.errorMessage = String(
+                        format: NSLocalizedString("notionImport.error.importFailedFormat", comment: ""),
+                        error.localizedDescription
+                    )
                     self.isLoading = false
                 }
             }

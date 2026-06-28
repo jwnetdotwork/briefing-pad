@@ -27,7 +27,7 @@ struct SessionToolbarView: View {
         )
 
         HStack {
-            Picker("セッション選択", selection: sessionBinding) {
+            Picker("sessionToolbar.sessionPicker", selection: sessionBinding) {
                 ForEach(viewModel.sortedSessions) { session in
                     Text(session.name).tag(session.id)
                 }
@@ -44,14 +44,14 @@ struct SessionToolbarView: View {
             }) {
                 Image(systemName: "pencil")
             }
-            .help("セッション名を変更")
+            .help("sessionToolbar.help.renameSession")
             .disabled(viewModel.selectedSession == nil)
             .popover(isPresented: $showingRenamePopover) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("セッション名の変更")
+                    Text("sessionToolbar.renameSessionTitle")
                         .font(.headline)
 
-                    TextField("セッション名", text: $editedSessionName)
+                    TextField("sessionToolbar.sessionName", text: $editedSessionName)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 250)
                         .onSubmit {
@@ -60,10 +60,10 @@ struct SessionToolbarView: View {
 
                     HStack {
                         Spacer()
-                        Button("キャンセル") {
+                        Button("common.cancel") {
                             showingRenamePopover = false
                         }
-                        Button("保存") {
+                        Button("common.save") {
                             saveSessionName()
                         }
                         .disabled(editedSessionName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -79,22 +79,22 @@ struct SessionToolbarView: View {
             }) {
                 Image(systemName: "plus")
             }
-            .help("新規セッション追加")
+            .help("sessionToolbar.help.newSession")
             .sheet(isPresented: $showingNewSessionSheet) {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("新しいセッション")
+                    Text("sessionToolbar.newSessionTitle")
                         .font(.headline)
 
-                    TextField("セッション名", text: $newSessionName)
+                    TextField("sessionToolbar.sessionName", text: $newSessionName)
                         .textFieldStyle(.roundedBorder)
 
                     HStack {
                         Spacer()
-                        Button("キャンセル", role: .cancel) {
+                        Button("common.cancel", role: .cancel) {
                             showingNewSessionSheet = false
                         }
 
-                        Button("作成") {
+                        Button("common.create") {
                             viewModel.createEmptySession(name: newSessionName)
                             newSessionName = ""
                             showingNewSessionSheet = false
@@ -113,39 +113,39 @@ struct SessionToolbarView: View {
             Button(action: {
                 showingAddPartSheet = true
             }) {
-                Label("パート追加", systemImage: "plus.square.fill.on.square.fill")
+                Label("sessionToolbar.addPart", systemImage: "plus.square.fill.on.square.fill")
             }
-            .help("パートを追加")
+            .help("sessionToolbar.help.addPart")
             .disabled(viewModel.micStatus == .recording || viewModel.micStatus == .starting || viewModel.selectedSession == nil)
             .sheet(isPresented: $showingAddPartSheet) {
                 PartAddSheet(viewModel: viewModel)
             }
 
             Menu {
-                Button("このセッションを削除", role: .destructive) {
+                Button("sessionToolbar.deleteCurrentSession", role: .destructive) {
                     showingSessionDeleteAlert = true
                 }
 
-                Button("現在のパートを削除", role: .destructive) {
+                Button("sessionToolbar.deleteCurrentPart", role: .destructive) {
                     showingPartFullDeleteAlert = true
                 }
                 .disabled(viewModel.currentPart == nil)
 
-                Menu("現在のパートのデータを削除") {
-                    Button("すべて") {
+                Menu("sessionToolbar.deleteCurrentPartData") {
+                    Button("common.all") {
                         partDeleteMode = .all
                         showingPartDeleteAlert = true
                     }
                     Divider()
-                    Button("音声のみ") {
+                    Button("common.audioOnly") {
                         partDeleteMode = .audio
                         showingPartDeleteAlert = true
                     }
-                    Button("文字起こしのみ") {
+                    Button("common.transcriptOnly") {
                         partDeleteMode = .transcript
                         showingPartDeleteAlert = true
                     }
-                    Button("LLM結果のみ") {
+                    Button("common.llmOnly") {
                         partDeleteMode = .llm
                         showingPartDeleteAlert = true
                     }
@@ -156,7 +156,7 @@ struct SessionToolbarView: View {
             }
             .menuStyle(.borderlessButton)
             .fixedSize()
-            .help("削除")
+            .help("common.delete")
             .disabled(
                 viewModel.micStatus == .recording ||
                 viewModel.micStatus == .starting ||
@@ -164,16 +164,16 @@ struct SessionToolbarView: View {
                 viewModel.isFinalizing ||
                 viewModel.isGeneratingAIMemo
             )
-            .confirmationDialog("セッションを完全に削除しますか？", isPresented: $showingSessionDeleteAlert) {
-                Button("削除", role: .destructive) {
+            .confirmationDialog("sessionToolbar.confirmDeleteSessionTitle", isPresented: $showingSessionDeleteAlert) {
+                Button("common.delete", role: .destructive) {
                     viewModel.deleteCurrentSession()
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button("common.cancel", role: .cancel) {}
             } message: {
-                Text("このセッションは一覧からも消え、保存済みデータも削除されます。")
+                Text("sessionToolbar.confirmDeleteSessionMessage")
             }
-            .confirmationDialog("パートのデータを削除しますか？", isPresented: $showingPartDeleteAlert) {
-                Button("削除", role: .destructive) {
+            .confirmationDialog("sessionToolbar.confirmDeletePartDataTitle", isPresented: $showingPartDeleteAlert) {
+                Button("common.delete", role: .destructive) {
                     switch partDeleteMode {
                     case .all: viewModel.deleteCurrentPartData()
                     case .audio: viewModel.deleteCurrentPartData(onlyAudio: true)
@@ -181,25 +181,25 @@ struct SessionToolbarView: View {
                     case .llm: viewModel.deleteCurrentPartData(onlyLLM: true)
                     }
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button("common.cancel", role: .cancel) {}
             } message: {
-                Text("選択したパートのデータが削除されます。")
+                Text("sessionToolbar.confirmDeletePartDataMessage")
             }
-            .confirmationDialog("このパートを完全に削除しますか？", isPresented: $showingPartFullDeleteAlert) {
-                Button("削除", role: .destructive) {
+            .confirmationDialog("sessionToolbar.confirmDeletePartTitle", isPresented: $showingPartFullDeleteAlert) {
+                Button("common.delete", role: .destructive) {
                     viewModel.deleteCurrentPart()
                 }
-                Button("キャンセル", role: .cancel) {}
+                Button("common.cancel", role: .cancel) {}
             } message: {
-                Text("音声、文字起こし、AIメモ、分析状態を含むパート情報がすべて削除されます。")
+                Text("sessionToolbar.confirmDeletePartMessage")
             }
 
             Spacer()
 
             Button(action: { showImport = true }) {
-                Label("Notionインポート", systemImage: "square.and.arrow.down")
+                Label("sessionToolbar.importNotion", systemImage: "square.and.arrow.down")
             }
-            .help("Notion からインポート")
+            .help("sessionToolbar.help.importNotion")
             .sheet(isPresented: $showImport) {
                 NotionImportSheet(viewModel: viewModel, keychainService: keychainService)
             }
@@ -207,7 +207,7 @@ struct SessionToolbarView: View {
             Button(action: { showingSettings = true }) {
                 Image(systemName: "gearshape")
             }
-            .help("設定")
+            .help("sessionToolbar.help.settings")
             .sheet(isPresented: $showingSettings) {
                 SettingsView(viewModel: viewModel, keychainService: keychainService)
             }

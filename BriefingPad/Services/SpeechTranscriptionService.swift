@@ -37,7 +37,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 2,
-                    userInfo: [NSLocalizedDescriptionKey: "日本語の音声認識に対応していません"]
+                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.unsupportedLocale", comment: "")]
                 )
             }
             return locale
@@ -46,7 +46,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
         throw NSError(
             domain: "SpeechTranscriptionService",
             code: 0,
-            userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+            userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.startFailed", comment: "")]
         )
     }
 
@@ -60,21 +60,21 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 4,
-                    userInfo: [NSLocalizedDescriptionKey: "マイクの使用が許可されていません"]
+                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.permissionDenied", comment: "")]
                 )
             }
         } else {
             throw NSError(
                 domain: "SpeechTranscriptionService",
                 code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+                userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.startFailed", comment: "")]
             )
         }
         #else
         throw NSError(
             domain: "SpeechTranscriptionService",
             code: 0,
-            userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+            userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.startFailed", comment: "")]
         )
         #endif
     }
@@ -144,13 +144,16 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                     let error = NSError(
                                         domain: "SpeechTranscriptionService",
                                         code: 5,
-                                        userInfo: [NSLocalizedDescriptionKey: "オーディオ形式の変換に失敗しました"]
+                                        userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.audioConversionFailed", comment: "")]
                                     )
                                     self.transcriptionContinuation?.yield(TranscriptSegment(
                                         id: UUID(),
                                         sessionId: "",
                                         partId: "",
-                                        text: "Error: \(error.localizedDescription)",
+                                        text: String(
+                                            format: NSLocalizedString("speechTranscription.error.segmentFormat", comment: ""),
+                                            error.localizedDescription
+                                        ),
                                         isFinal: true,
                                         startTime: 0,
                                         endTime: 0
@@ -178,7 +181,10 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                                 id: UUID(),
                                                 sessionId: "",
                                                 partId: "",
-                                                text: "Error: \(finalError.localizedDescription)",
+                                                text: String(
+                                                    format: NSLocalizedString("speechTranscription.error.segmentFormat", comment: ""),
+                                                    finalError.localizedDescription
+                                                ),
                                                 isFinal: true,
                                                 startTime: 0,
                                                 endTime: 0
@@ -192,13 +198,16 @@ class SpeechTranscriptionService: SpeechTranscribing {
                                         let error = NSError(
                                             domain: "SpeechTranscriptionService",
                                             code: 6,
-                                            userInfo: [NSLocalizedDescriptionKey: "バッファの作成に失敗しました"]
+                                            userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.bufferCreationFailed", comment: "")]
                                         )
                                         self.transcriptionContinuation?.yield(TranscriptSegment(
                                             id: UUID(),
                                             sessionId: "",
                                             partId: "",
-                                            text: "Error: \(error.localizedDescription)",
+                                            text: String(
+                                                format: NSLocalizedString("speechTranscription.error.segmentFormat", comment: ""),
+                                                error.localizedDescription
+                                            ),
                                             isFinal: true,
                                             startTime: 0,
                                             endTime: 0
@@ -290,7 +299,10 @@ class SpeechTranscriptionService: SpeechTranscribing {
                         id: UUID(),
                         sessionId: "",
                         partId: "",
-                        text: "Error: \(error.localizedDescription)",
+                        text: String(
+                            format: NSLocalizedString("speechTranscription.error.segmentFormat", comment: ""),
+                            error.localizedDescription
+                        ),
                         isFinal: true,
                         startTime: 0,
                         endTime: 0
@@ -308,7 +320,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
             throw NSError(
                 domain: "SpeechTranscriptionService",
                 code: 0,
-                userInfo: [NSLocalizedDescriptionKey: "音声認識を開始できません"]
+                userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.startFailed", comment: "")]
             )
         }
         #endif
@@ -367,7 +379,10 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     let chunkNum = count / 20
 
                     // 1st provisional
-                    let text1 = "（認識中...）発話チャンク \(chunkNum)"
+                    let text1 = String(
+                        format: NSLocalizedString("speechTranscription.mock.provisionalStart", comment: ""),
+                        chunkNum
+                    )
                     let segment1 = TranscriptSegment(
                         id: id,
                         sessionId: "",
@@ -386,7 +401,10 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     if Task.isCancelled { return }
 
                     // 2nd provisional (update)
-                    let text2 = "（認識中...）確定間近 \(chunkNum)"
+                    let text2 = String(
+                        format: NSLocalizedString("speechTranscription.mock.provisionalUpdate", comment: ""),
+                        chunkNum
+                    )
                     let segment2 = TranscriptSegment(
                         id: id,
                         sessionId: "",
@@ -404,7 +422,10 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
                     // Shortly after yield final
                     try? await Task.sleep(nanoseconds: 400_000_000)
                     if Task.isCancelled { return }
-                    let text3 = "確定した発話 \(chunkNum)"
+                    let text3 = String(
+                        format: NSLocalizedString("speechTranscription.mock.final", comment: ""),
+                        chunkNum
+                    )
                     let segment3 = TranscriptSegment(
                         id: id,
                         sessionId: "",

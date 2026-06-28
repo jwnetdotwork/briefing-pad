@@ -152,12 +152,12 @@ enum SessionSortOrder: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .nameAsc:     return "名前 (昇順)"
-        case .nameDesc:    return "名前 (降順)"
-        case .updatedAsc:  return "更新日時 (古い順)"
-        case .updatedDesc: return "更新日時 (新しい順)"
-        case .createdAsc:  return "作成日時 (古い順)"
-        case .createdDesc: return "作成日時 (新しい順)"
+        case .nameAsc:     return NSLocalizedString("sessionSortOrder.nameAsc", comment: "")
+        case .nameDesc:    return NSLocalizedString("sessionSortOrder.nameDesc", comment: "")
+        case .updatedAsc:  return NSLocalizedString("sessionSortOrder.updatedAsc", comment: "")
+        case .updatedDesc: return NSLocalizedString("sessionSortOrder.updatedDesc", comment: "")
+        case .createdAsc:  return NSLocalizedString("sessionSortOrder.createdAsc", comment: "")
+        case .createdDesc: return NSLocalizedString("sessionSortOrder.createdDesc", comment: "")
         }
     }
 }
