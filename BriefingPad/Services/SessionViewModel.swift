@@ -684,7 +684,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func deleteCurrentSession() {
-        guard let currentIndex = sessions.firstIndex(where: { $0.id == selectedSessionId }) else { return }
+        let sorted = sortedSessions
+        guard let currentIndex = sorted.firstIndex(where: { $0.id == selectedSessionId }) else { return }
 
         Task { @MainActor in
             let deletedSessionId = selectedSessionId
@@ -702,7 +703,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
             sessions.removeAll { $0.id == deletedSessionId }
 
-            if sessions.isEmpty {
+            let remainingSorted = sortedSessions
+            if remainingSorted.isEmpty {
                 selectedSessionId = ""
                 userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
                 currentPartIndex = 0
@@ -712,8 +714,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 return
             }
 
-            let nextIndex = min(currentIndex, sessions.count - 1)
-            selectedSessionId = sessions[nextIndex].id
+            let nextIndex = min(currentIndex, remainingSorted.count - 1)
+            selectedSessionId = remainingSorted[nextIndex].id
             userDefaults.set(selectedSessionId, forKey: Self.lastSelectedSessionKey)
             currentPartIndex = 0
             transcriptionError = nil

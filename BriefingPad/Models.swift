@@ -186,9 +186,19 @@ struct BriefingSession: Identifiable, Codable, Hashable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         parts = try container.decode([PartDefinition].self, forKey: .parts)
-        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
-        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+
+        // Deterministic migration for legacy sessions
+        let defaultCreatedAt = decoder.userInfo[.sessionCreatedAt] as? Date ?? Date(timeIntervalSince1970: 1704067200) // 2024-01-01
+        let defaultUpdatedAt = decoder.userInfo[.sessionUpdatedAt] as? Date ?? defaultCreatedAt
+
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? defaultCreatedAt
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? defaultUpdatedAt
     }
+}
+
+extension CodingUserInfoKey {
+    static let sessionCreatedAt = CodingUserInfoKey(rawValue: "sessionCreatedAt")!
+    static let sessionUpdatedAt = CodingUserInfoKey(rawValue: "sessionUpdatedAt")!
 }
 
 struct LocalBriefingCatalog: Codable {

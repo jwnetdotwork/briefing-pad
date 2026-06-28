@@ -158,8 +158,20 @@ class FileSessionStore: SessionStoreProtocol {
             return nil
         }
 
+        let attributes = try? FileManager.default.attributesOfItem(atPath: manifestURL.path)
+        let createdAt = attributes?[.creationDate] as? Date
+        let updatedAt = attributes?[.modificationDate] as? Date
+
+        let currentDecoder = decoder
+        if let createdAt = createdAt {
+            currentDecoder.userInfo[.sessionCreatedAt] = createdAt
+        }
+        if let updatedAt = updatedAt {
+            currentDecoder.userInfo[.sessionUpdatedAt] = updatedAt
+        }
+
         let data = try Data(contentsOf: manifestURL)
-        var session = try decoder.decode(SavedSession.self, from: data)
+        var session = try currentDecoder.decode(SavedSession.self, from: data)
 
         // Load part data from separate files
         for part in session.templateSnapshot.parts {

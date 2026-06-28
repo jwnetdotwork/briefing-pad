@@ -6,9 +6,20 @@ enum LocalBriefingDataStore {
             return fallbackSessions
         }
 
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let createdAt = attributes?[.creationDate] as? Date
+        let updatedAt = attributes?[.modificationDate] as? Date
+
         do {
             let data = try Data(contentsOf: url)
-            let catalog = try decoder().decode(LocalBriefingCatalog.self, from: data)
+            let currentDecoder = decoder()
+            if let createdAt = createdAt {
+                currentDecoder.userInfo[.sessionCreatedAt] = createdAt
+            }
+            if let updatedAt = updatedAt {
+                currentDecoder.userInfo[.sessionUpdatedAt] = updatedAt
+            }
+            let catalog = try currentDecoder.decode(LocalBriefingCatalog.self, from: data)
             return catalog.sessions
         } catch {
             return fallbackSessions
