@@ -16,7 +16,9 @@ enum LocalBriefingDataStore {
     }
 
     static var fallbackSessions: [BriefingSession] {
-        [
+        let date20 = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 20)) ?? Date()
+        let date21 = Calendar.current.date(from: DateComponents(year: 2024, month: 6, day: 21)) ?? Date()
+        return [
             BriefingSession(
                 id: "2024-06-20-practice",
                 name: "2024/06/20 実演練習",
@@ -76,7 +78,9 @@ enum LocalBriefingDataStore {
                         aiMemo: "親切な行動が会話の起点になり、相手の安心感を崩さずに展開できていた。",
                         aiMemoBlockId: "notion-block-id-4"
                     )
-                ]
+                ],
+                createdAt: date20,
+                updatedAt: date20
             ),
             BriefingSession(
                 id: "2024-06-21-final",
@@ -105,7 +109,9 @@ enum LocalBriefingDataStore {
                         aiMemo: "導入は落ち着いており、次の会話へつなげる下地はできている。",
                         aiMemoBlockId: "notion-block-id-final-1"
                     )
-                ]
+                ],
+                createdAt: date21,
+                updatedAt: date21
             )
         ]
     }

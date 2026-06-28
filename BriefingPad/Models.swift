@@ -143,10 +143,52 @@ struct PartDefinition: Identifiable, Codable, Hashable {
     }
 }
 
+enum SessionSortOrder: String, CaseIterable, Identifiable {
+    case nameAsc, nameDesc
+    case updatedAsc, updatedDesc
+    case createdAsc, createdDesc
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .nameAsc:     return "名前 (昇順)"
+        case .nameDesc:    return "名前 (降順)"
+        case .updatedAsc:  return "更新日時 (古い順)"
+        case .updatedDesc: return "更新日時 (新しい順)"
+        case .createdAsc:  return "作成日時 (古い順)"
+        case .createdDesc: return "作成日時 (新しい順)"
+        }
+    }
+}
+
 struct BriefingSession: Identifiable, Codable, Hashable {
     let id: String
     var name: String
     var parts: [PartDefinition]
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(id: String, name: String, parts: [PartDefinition], createdAt: Date = Date(), updatedAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.parts = parts
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, parts, createdAt, updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        parts = try container.decode([PartDefinition].self, forKey: .parts)
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+    }
 }
 
 struct LocalBriefingCatalog: Codable {

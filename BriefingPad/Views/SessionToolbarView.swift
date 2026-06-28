@@ -28,7 +28,7 @@ struct SessionToolbarView: View {
 
         HStack {
             Picker("セッション選択", selection: sessionBinding) {
-                ForEach(viewModel.sessions) { session in
+                ForEach(viewModel.sortedSessions) { session in
                     Text(session.name).tag(session.id)
                 }
             }
@@ -209,7 +209,7 @@ struct SessionToolbarView: View {
             }
             .help("設定")
             .sheet(isPresented: $showingSettings) {
-                SettingsView(keychainService: keychainService)
+                SettingsView(viewModel: viewModel, keychainService: keychainService)
             }
         }
         .padding()

@@ -6,6 +6,7 @@ import AVFoundation
 @MainActor
 class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var sessions: [BriefingSession]
+    @Published var sortOrder: SessionSortOrder
     @Published var selectedSessionId: String
     @Published var currentPartIndex: Int = 0
     @Published var isProcessing = false
@@ -105,6 +106,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     ) {
         self.sessions = []
         self.userDefaults = userDefaults
+        let sortOrderRaw = userDefaults.string(forKey: "sessionSortOrder") ?? SessionSortOrder.createdDesc.rawValue
+        self.sortOrder = SessionSortOrder(rawValue: sortOrderRaw) ?? .createdDesc
         self.selectedSessionId = userDefaults.string(forKey: Self.lastSelectedSessionKey) ?? ""
         self.llmService = llmService ?? MockLLMService()
         self.notionService = notionService ?? MockNotionService()
@@ -183,10 +186,13 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
 
+        let now = clock.now
         let session = BriefingSession(
             id: UUID().uuidString,
             name: trimmedName,
-            parts: []
+            parts: [],
+            createdAt: now,
+            updatedAt: now
         )
         activateSession(session, notionPageId: nil)
     }
@@ -382,6 +388,17 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     var selectedSession: BriefingSession? {
         sessions.first(where: { $0.id == selectedSessionId })
+    }
+
+    var sortedSessions: [BriefingSession] {
+        switch sortOrder {
+        case .nameAsc:     return sessions.sorted { $0.name < $1.name }
+        case .nameDesc:    return sessions.sorted { $0.name > $1.name }
+        case .updatedAsc:  return sessions.sorted { $0.updatedAt < $1.updatedAt }
+        case .updatedDesc: return sessions.sorted { $0.updatedAt > $1.updatedAt }
+        case .createdAsc:  return sessions.sorted { $0.createdAt < $1.createdAt }
+        case .createdDesc: return sessions.sorted { $0.createdAt > $1.createdAt }
+        }
     }
 
     var currentPart: PartDefinition? {
@@ -601,7 +618,12 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     func saveCurrentSession() {
-        guard let session = selectedSession else { return }
+        guard var session = selectedSession else { return }
+
+        session.updatedAt = clock.now
+        if let index = sessions.firstIndex(where: { $0.id == session.id }) {
+            sessions[index].updatedAt = session.updatedAt
+        }
 
         var partRuns: [String: PartRun] = [:]
         for (partId, partState) in sessionState.partStates {

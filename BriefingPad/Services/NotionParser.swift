@@ -97,10 +97,13 @@ class NotionParser {
         }
         flushPart()
 
+        let now = Date()
         let session = BriefingSession(
             id: UUID().uuidString,
             name: sessionName,
-            parts: parts
+            parts: parts,
+            createdAt: now,
+            updatedAt: now
         )
         return ParseResult(session: session, uninterpretedBlockCount: uninterpretedBlockCount)
     }
