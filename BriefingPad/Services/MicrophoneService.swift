@@ -46,13 +46,26 @@ protocol PermissionProvider {
 protocol MicrophoneServiceProtocol: AnyObject {
     var status: MicrophoneStatus { get set }
     var audioLevel: AudioLevel { get set }
+    var audioAmplitude: Float { get set }
     var statusPublisher: AnyPublisher<MicrophoneStatus, Never> { get }
     var audioLevelPublisher: AnyPublisher<AudioLevel, Never> { get }
+    var audioAmplitudePublisher: AnyPublisher<Float, Never> { get }
 
     func createAudioBufferStream(runID: String?) -> AsyncStream<AVAudioPCMBuffer>
     func startRecording(audioFileURL: URL?, runID: String?)
     func stopRecording()
     func cancelPendingOperationsAndStop()
+}
+
+extension MicrophoneServiceProtocol {
+    var audioAmplitude: Float {
+        get { 0.0 }
+        set { }
+    }
+
+    var audioAmplitudePublisher: AnyPublisher<Float, Never> {
+        Empty(completeImmediately: false).eraseToAnyPublisher()
+    }
 }
 
 class SystemPermissionProvider: PermissionProvider {
@@ -85,6 +98,7 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
     @Published var permissionStatus: MicrophonePermissionStatus = .undetermined
     @Published var status: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
+    @Published var audioAmplitude: Float = 0.0
 
     nonisolated(unsafe) private var audioBufferContinuations: [UUID: AsyncStream<AVAudioPCMBuffer>.Continuation] = [:]
     private let continuationsLock = NSLock()
@@ -103,6 +117,10 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
 
     var audioLevelPublisher: AnyPublisher<AudioLevel, Never> {
         $audioLevel.eraseToAnyPublisher()
+    }
+
+    var audioAmplitudePublisher: AnyPublisher<Float, Never> {
+        $audioAmplitude.eraseToAnyPublisher()
     }
 
     func createAudioBufferStream(runID: String? = nil) -> AsyncStream<AVAudioPCMBuffer> {
@@ -266,6 +284,7 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
         DispatchQueue.main.async {
             self.status = .idle
             self.audioLevel = .silent
+            self.audioAmplitude = 0.0
         }
     }
 
@@ -298,6 +317,7 @@ open class MicrophoneService: ObservableObject, MicrophoneServiceProtocol {
 
         DispatchQueue.main.async {
             self.audioLevel = level
+            self.audioAmplitude = rms
         }
 
         // Phase 2-2 will handle more complex processing here

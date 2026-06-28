@@ -29,6 +29,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     @Published var micStatus: MicrophoneStatus = .idle
     @Published var audioLevel: AudioLevel = .silent
+    @Published var audioAmplitude: Float = 0.0
     @Published var partElapsedTime: TimeInterval = 0
 
     @Published var isPlaying: Bool = false
@@ -364,6 +365,11 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         micService.audioLevelPublisher
             .receive(on: RunLoop.main)
             .assign(to: \.audioLevel, on: self)
+            .store(in: &cancellables)
+
+        micService.audioAmplitudePublisher
+            .receive(on: RunLoop.main)
+            .assign(to: \.audioAmplitude, on: self)
             .store(in: &cancellables)
     }
 

@@ -110,8 +110,7 @@ struct PartControlsView: View {
             case .recording:
                 HStack(spacing: 4) {
                     Text("● 録音中")
-                    Text("/ 音量: \(viewModel.audioLevel.rawValue)")
-                        .frame(width: 80, alignment: .leading)
+                    AudioWaveformView(amplitude: viewModel.audioAmplitude)
                 }
                 .font(.caption)
                 .foregroundColor(.red)
