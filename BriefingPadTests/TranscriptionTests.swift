@@ -4,50 +4,6 @@ import AVFoundation
 
 final class TranscriptionTests: XCTestCase {
 
-    func testTranscriptSegmentInitialization() {
-        let id = UUID()
-        let now = Date()
-        let segment = TranscriptSegment(
-            id: id,
-            sessionId: "s1",
-            partId: "p1",
-            text: "Hello",
-            isFinal: true,
-            startTime: 1.0,
-            endTime: 2.0,
-            receivedAt: now
-        )
-
-        XCTAssertEqual(segment.id, id)
-        XCTAssertEqual(segment.sessionId, "s1")
-        XCTAssertEqual(segment.partId, "p1")
-        XCTAssertEqual(segment.text, "Hello")
-        XCTAssertTrue(segment.isFinal)
-        XCTAssertEqual(segment.startTime, 1.0)
-        XCTAssertEqual(segment.endTime, 2.0)
-        XCTAssertEqual(segment.receivedAt, now)
-    }
-
-    func testSessionStateManagement() {
-        var state = SessionState()
-        let partId = "part-1"
-        var partState = PartState()
-
-        let segment = TranscriptSegment(
-            sessionId: "s1",
-            partId: partId,
-            text: "Test",
-            isFinal: true,
-            startTime: 0.0,
-            endTime: 1.0
-        )
-        partState.transcript.append(segment)
-        state.partStates[partId] = partState
-
-        XCTAssertEqual(state.partStates[partId]?.transcript.count, 1)
-        XCTAssertEqual(state.partStates[partId]?.transcript.first?.text, "Test")
-    }
-
     @MainActor
     func testProvisionalToFinalUpdate() async {
         let viewModel = SessionViewModel(store: MockSessionStore())

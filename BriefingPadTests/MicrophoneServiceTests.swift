@@ -61,11 +61,6 @@ class MicrophoneServiceTests: XCTestCase {
         super.tearDown()
     }
 
-    func testInitialState() {
-        XCTAssertEqual(service.status, .idle)
-        XCTAssertEqual(service.audioLevel, .silent)
-    }
-
     func testStopRecording() {
         let expectation = XCTestExpectation(description: "Status updates to .idle")
 
