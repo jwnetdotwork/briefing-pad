@@ -2,14 +2,24 @@ import Foundation
 
 class OpenAILLMService: LLMServiceProtocol {
     private let keychainService: KeychainServiceProtocol
-    private let model: String
-    private let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+    private let defaultModel: String
+    private var url: URL {
+        let base = UserDefaults.standard.string(forKey: "customApiEndpoint")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let defaultUrl = URL(string: "https://api.openai.com/v1/chat/completions")!
+        if base.isEmpty { return defaultUrl }
+        return URL(string: base + "/chat/completions") ?? defaultUrl
+    }
 
-    static let defaultModel = "gpt-5.4-mini-2026-03-17"
+    private var model: String {
+        let savedModel = UserDefaults.standard.string(forKey: "customModelName")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return savedModel.isEmpty ? defaultModel : savedModel
+    }
 
-    init(keychainService: KeychainServiceProtocol, model: String = defaultModel) {
+    static let hardcodedDefaultModel = "gpt-5.4-mini-2026-03-17"
+
+    init(keychainService: KeychainServiceProtocol, model: String = hardcodedDefaultModel) {
         self.keychainService = keychainService
-        self.model = model
+        self.defaultModel = model
     }
 
     func analyzeTranscript(
