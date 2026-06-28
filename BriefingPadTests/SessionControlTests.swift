@@ -289,6 +289,7 @@ final class SessionControlTests: XCTestCase {
         let session2 = BriefingSession(id: "s2", name: "Session 2", parts: [])
         let session3 = BriefingSession(id: "s3", name: "Session 3", parts: [])
         viewModel.sessions = [session1, session2, session3]
+        viewModel.sortOrder = .nameAsc
         viewModel.selectedSessionId = "s2"
 
         viewModel.deleteCurrentSession()

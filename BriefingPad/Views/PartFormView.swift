@@ -12,25 +12,25 @@ struct PartFormView: View {
     var body: some View {
         Form {
             Section {
-                TextField("番号", text: $numberString)
-                TextField("タイトル", text: $title)
-                TextField("時間（分）", text: $durationString)
-                TextField("場面設定", text: $setting)
+                TextField("part.number", text: $numberString)
+                TextField("part.title", text: $title)
+                TextField("part.duration", text: $durationString)
+                TextField("part.setting", text: $setting)
             }
 
-            Section("学習ポイント（1行1件）") {
+            Section("part.learningpoints") {
                 TextEditor(text: $learningPointsText)
                     .frame(minHeight: 60)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.2)))
             }
 
-            Section("観察メモ（1行1件）") {
+            Section("part.observationitems") {
                 TextEditor(text: $observationItemsText)
                     .frame(minHeight: 60)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.2)))
             }
 
-            Section("良かった点候補（1行1件）") {
+            Section("part.positiveitems") {
                 TextEditor(text: $positiveItemsText)
                     .frame(minHeight: 60)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.2)))

@@ -28,10 +28,10 @@ struct PartEditSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("パート編集")
+                Text("part.edit.title")
                     .font(.headline)
                 Spacer()
-                Button("キャンセル") {
+                Button("common.cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.escape, modifiers: [])
@@ -54,7 +54,7 @@ struct PartEditSheet: View {
 
             HStack {
                 Spacer()
-                Button("保存") {
+                Button("common.save") {
                     let number = Int(numberString)
                     let finalDuration: Int?
                     if durationString.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
