@@ -4,6 +4,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var apiKey: String = ""
     @State private var notionToken: String = ""
+    @State private var customEndpoint: String = ""
+    @State private var customModel: String = ""
     @State private var errorMessage: String?
     @State private var showError = false
     private let keychainService: KeychainServiceProtocol
@@ -33,6 +35,22 @@ struct SettingsView: View {
                     SecureField("secret_...", text: $notionToken)
                         .textFieldStyle(.roundedBorder)
                 }
+
+                VStack(alignment: .leading) {
+                    Text("APIエンドポイント (任意)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField("https://api.openai.com/v1", text: $customEndpoint)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading) {
+                    Text("モデル名 (任意)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    TextField("gpt-5.4-mini-2026-03-17", text: $customModel)
+                        .textFieldStyle(.roundedBorder)
+                }
             }
 
             HStack {
@@ -46,6 +64,8 @@ struct SettingsView: View {
                     do {
                         try keychainService.save(key: KeychainKeys.openaiApiKey, value: apiKey)
                         try keychainService.save(key: KeychainKeys.notionIntegrationToken, value: notionToken)
+                        UserDefaults.standard.set(customEndpoint, forKey: "customApiEndpoint")
+                        UserDefaults.standard.set(customModel, forKey: "customModelName")
                         dismiss()
                     } catch {
                         errorMessage = error.localizedDescription
@@ -65,6 +85,8 @@ struct SettingsView: View {
         .onAppear {
             apiKey = keychainService.load(key: KeychainKeys.openaiApiKey) ?? ""
             notionToken = keychainService.load(key: KeychainKeys.notionIntegrationToken) ?? ""
+            customEndpoint = UserDefaults.standard.string(forKey: "customApiEndpoint") ?? ""
+            customModel = UserDefaults.standard.string(forKey: "customModelName") ?? ""
         }
     }
 }
