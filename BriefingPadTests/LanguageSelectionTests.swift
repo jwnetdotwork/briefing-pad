@@ -51,8 +51,10 @@ final class LanguageSelectionTests: XCTestCase {
             viewModel.isBootstrapped
         }
 
-        // Default should be ja-JP
-        XCTAssertEqual(viewModel.selectedTranscriptionLocale, "ja-JP")
+        // Default is dynamic based on system language.
+        // Mock supports [ja-JP, en-US], so it should be one of those.
+        XCTAssertTrue(["ja-JP", "en-US"].contains(viewModel.selectedTranscriptionLocale))
+        let initialLocale = viewModel.selectedTranscriptionLocale
 
         // Update locale
         viewModel.updateTranscriptionLocale("en-US")
