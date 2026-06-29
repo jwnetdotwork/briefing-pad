@@ -1555,17 +1555,29 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         observations: [SummarizedItem],
         aiMemo: String
     ) -> String {
+        Self.assembleNotionContent(
+            positives: positives,
+            observations: observations,
+            aiMemo: aiMemo
+        )
+    }
+
+    internal static func assembleNotionContent(
+        positives: [SummarizedItem],
+        observations: [SummarizedItem],
+        aiMemo: String
+    ) -> String {
         var sections: [String] = []
 
         // 1. 良かった点候補
-        var positiveSection = "◎ 良かった点候補"
+        var positiveSection = NSLocalizedString("notion.section.positives", comment: "")
         for item in positives {
             positiveSection += "\n- \(item.text)\(item.evidence)"
         }
         sections.append(positiveSection)
 
         // 2. 観察メモ
-        var observationSection = "👀 観察メモ"
+        var observationSection = NSLocalizedString("notion.section.observations", comment: "")
         for item in observations {
             observationSection += "\n- \(item.text)\(item.evidence)"
         }
@@ -1573,7 +1585,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
         // 3. コメント素材
         if !aiMemo.isEmpty {
-            sections.append("🤖 コメント素材\n\(aiMemo)")
+            sections.append("\(NSLocalizedString("notion.section.aiMemo", comment: ""))\n\(aiMemo)")
         }
 
         return sections.joined(separator: "\n\n")

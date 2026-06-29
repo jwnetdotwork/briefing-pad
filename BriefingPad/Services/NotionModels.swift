@@ -41,7 +41,7 @@ struct NotionPage: Decodable {
     }
 
     var title: String {
-        properties.values.first(where: { $0.type == "title" })?.title?.map { $0.plain_text }.joined() ?? "無題のセッション"
+        properties.values.first(where: { $0.type == "title" })?.title?.map { $0.plain_text }.joined() ?? NSLocalizedString("notion.page.untitled", comment: "")
     }
 }
 
