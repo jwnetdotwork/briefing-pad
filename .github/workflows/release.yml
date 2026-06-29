@@ -18,8 +18,6 @@ jobs:
       CONFIGURATION: Release
       APP_NAME: BriefingPad
       VOLUME_NAME: Briefing Pad
-      DERIVED_DATA: ${{ runner.temp }}/DerivedDataBriefingPad
-      RELEASE_DIR: ${{ runner.temp }}/BriefingPadRelease
 
     steps:
       - name: Checkout
@@ -36,6 +34,8 @@ jobs:
           xcodebuild -showsdks
 
       - name: Build
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/DerivedDataBriefingPad
         run: >
           xcodebuild build
           -project "$PROJECT"
@@ -47,12 +47,17 @@ jobs:
           CODE_SIGNING_REQUIRED=NO
 
       - name: Ad-hoc sign
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/DerivedDataBriefingPad
         run: |
           APP_PATH="$DERIVED_DATA/Build/Products/$CONFIGURATION/$APP_NAME.app"
           codesign --force --deep --sign - "$APP_PATH"
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
 
       - name: Package
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/DerivedDataBriefingPad
+          RELEASE_DIR: ${{ runner.temp }}/BriefingPadRelease
         run: |
           APP_PATH="$DERIVED_DATA/Build/Products/$CONFIGURATION/$APP_NAME.app"
           mkdir -p "$RELEASE_DIR/dmg-root"
@@ -70,6 +75,8 @@ jobs:
             "$RELEASE_DIR/$APP_NAME-${GITHUB_REF_NAME}.dmg"
 
       - name: Create GitHub Release
+        env:
+          RELEASE_DIR: ${{ runner.temp }}/BriefingPadRelease
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
