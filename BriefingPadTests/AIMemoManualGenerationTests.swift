@@ -87,11 +87,11 @@ final class AIMemoManualGenerationTests: XCTestCase {
             return
         }
 
-        XCTAssertTrue(syncedContent.contains("◎ 良かった点候補"))
+        XCTAssertTrue(syncedContent.contains(NSLocalizedString("notion.section.positives", comment: "")))
         XCTAssertTrue(syncedContent.contains("- \(viewModel.sessions[0].parts[0].positiveItems[0].text) (PosEvidence)"))
-        XCTAssertTrue(syncedContent.contains("👀 観察メモ"))
+        XCTAssertTrue(syncedContent.contains(NSLocalizedString("notion.section.observations", comment: "")))
         XCTAssertTrue(syncedContent.contains("- \(viewModel.sessions[0].parts[0].observationItems[0].text) (ObsEvidence)"))
-        XCTAssertTrue(syncedContent.contains("🤖 コメント素材"))
+        XCTAssertTrue(syncedContent.contains(NSLocalizedString("notion.section.aiMemo", comment: "")))
         XCTAssertTrue(syncedContent.contains("素晴らしい対応でした"))
     }
 
