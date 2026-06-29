@@ -32,9 +32,10 @@ class NotionParser {
         var uninterpretedBlockCount = 0
 
         func flushPart() {
-            guard let header = currentPartHeader, let chapter = currentChapter else { return }
-            if let part = processPart(blocks: currentPartBlocks, headerId: header.id, headerText: header.text, chapter: chapter) {
-                parts.append(part)
+            if let header = currentPartHeader, let chapter = currentChapter {
+                if let part = processPart(blocks: currentPartBlocks, headerId: header.id, headerText: header.text, chapter: chapter) {
+                    parts.append(part)
+                }
             }
             currentPartBlocks = []
             currentPartHeader = nil

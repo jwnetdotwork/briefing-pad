@@ -62,13 +62,10 @@ struct NotionParserTests {
         ]
 
         for (name, expectedType) in languages {
-            let block = createHeading2Block(text: name)
-            let result = parser.parse(blocks: [block], sessionName: "Test")
-            // To verify if it was recognized, we check if it is part of the chapter
-            // But parse() returns a session. If we only have one heading_2, parts will be empty.
-            // We can't easily see currentChapter from outside.
-            // Let's create a full mini-session for each.
+            // Assert lexicon directly
+            #expect(NotionParserLexicon.chapterType(for: name) == expectedType)
 
+            // Test parser integration
             let blocks = [
                 createHeading2Block(text: name),
                 createHeading3Block(text: "3. Title"),
@@ -79,12 +76,13 @@ struct NotionParserTests {
             if expectedType == .treasureOfGodsWord {
                 #expect(parseResult.session.parts.count == 1, "Failed to recognize \(name) as treasureOfGodsWord")
             } else {
-                // For fieldMinistry, Part 3 is NOT special, so any numbered part works?
-                // Actually Part 3 IS special only for treasureOfGodsWord.
-                // For fieldMinistry, we kept all numbered parts.
                 #expect(parseResult.session.parts.count == 1, "Failed to recognize \(name) as fieldMinistry")
             }
         }
+
+        // Verify Unicode normalization (Decomposed form NFD)
+        let nfdTreasure = "神の言葉の宝".applyingTransform(.init("Any-NFD"), reverse: false)!
+        #expect(NotionParserLexicon.chapterType(for: nfdTreasure) == .treasureOfGodsWord)
     }
 
     @Test func testEmojiLabelExtraction() {
@@ -95,6 +93,7 @@ struct NotionParserTests {
             createParagraphBlock(text: "（5分） Setting"),
             createParagraphBlock(text: "📓Learning Points should be ignored"),
             createBulletBlock(text: "Point 1"),
+            createParagraphBlock(text: "This paragraph contains an emoji 👀 in the middle"),
             createBulletBlock(text: "Point 2"),
             createParagraphBlock(text: "👀Observation"),
             createBulletBlock(text: "Obs 1"),
@@ -109,9 +108,11 @@ struct NotionParserTests {
         #expect(result.session.parts.count == 1)
         let part = result.session.parts[0]
 
-        #expect(part.learningPoints.count == 2)
+        // "This paragraph contains an emoji 👀 in the middle" should be part of Learning Points
+        #expect(part.learningPoints.count == 3)
         #expect(part.learningPoints[0].text == "Point 1")
-        #expect(part.learningPoints[1].text == "Point 2")
+        #expect(part.learningPoints[1].text == "This paragraph contains an emoji 👀 in the middle")
+        #expect(part.learningPoints[2].text == "Point 2")
 
         #expect(part.observationItems.count == 1)
         #expect(part.observationItems[0].text == "Obs 1")
