@@ -3,6 +3,20 @@ import XCTest
 
 @MainActor
 final class LanguageSelectionTests: XCTestCase {
+    private let persistenceSuiteName = "test_suite"
+    private let fallbackSuiteName = "test_suite_fallback"
+
+    override func tearDown() {
+        UserDefaults(suiteName: persistenceSuiteName)?.removePersistentDomain(forName: persistenceSuiteName)
+        UserDefaults(suiteName: fallbackSuiteName)?.removePersistentDomain(forName: fallbackSuiteName)
+        super.tearDown()
+    }
+
+    private func makeCleanUserDefaults(suiteName: String) -> UserDefaults {
+        let userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        return userDefaults
+    }
 
     func testLocaleDiscoveryAndSorting() async {
         let service = SpeechTranscriptionService()
@@ -24,12 +38,12 @@ final class LanguageSelectionTests: XCTestCase {
     }
 
     func testSessionViewModelLocalePersistence() async throws {
-        let userDefaults = UserDefaults(suiteName: "test_suite")!
-        userDefaults.removePersistentDomain(forName: "test_suite")
-
+        let userDefaults = makeCleanUserDefaults(suiteName: persistenceSuiteName)
         let mockTranscription = MockSpeechTranscriptionService()
+        let mockMic = MockMicrophoneService()
         let viewModel = SessionViewModel(
             transcriptionService: mockTranscription,
+            micService: mockMic,
             userDefaults: userDefaults
         )
 
@@ -48,6 +62,7 @@ final class LanguageSelectionTests: XCTestCase {
         // Create new ViewModel with same UserDefaults
         let viewModel2 = SessionViewModel(
             transcriptionService: mockTranscription,
+            micService: mockMic,
             userDefaults: userDefaults
         )
 
@@ -59,15 +74,16 @@ final class LanguageSelectionTests: XCTestCase {
     }
 
     func testSessionViewModelLocaleFallback() async throws {
-        let userDefaults = UserDefaults(suiteName: "test_suite_fallback")!
-        userDefaults.removePersistentDomain(forName: "test_suite_fallback")
+        let userDefaults = makeCleanUserDefaults(suiteName: fallbackSuiteName)
 
         // Save an "unsupported" locale
-        userDefaults.set("fr-FR", forKey: "selectedTranscriptionLocale")
+        userDefaults.set("fr-FR", forKey: SessionViewModel.selectedLocaleKey)
 
         let mockTranscription = MockSpeechTranscriptionService() // Supports ja-JP and en-US
+        let mockMic = MockMicrophoneService()
         let viewModel = SessionViewModel(
             transcriptionService: mockTranscription,
+            micService: mockMic,
             userDefaults: userDefaults
         )
 

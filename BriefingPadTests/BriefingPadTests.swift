@@ -17,13 +17,21 @@ struct BriefingPadTests {
         let sessions = LocalBriefingDataStore.loadSessions(bundle: bundle)
 
         #expect(sessions.count == 1)
-        let partsCount = sessions[0].parts.count
+        guard let session = sessions.first else {
+            return
+        }
+
+        let partsCount = session.parts.count
         #expect(partsCount == 2)
 
-        let lpCount = sessions[0].parts[0].learningPoints.count
+        guard let part = session.parts.first else {
+            return
+        }
+
+        let lpCount = part.learningPoints.count
         #expect(lpCount == 1)
 
-        let status = sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status
+        let status = part.analysisState.positiveItemStates["pos-a"]?.status
         #expect(status == .strong)
     }
 

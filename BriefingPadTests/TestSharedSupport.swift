@@ -147,8 +147,18 @@ extension SessionViewModel {
         store: SessionStoreProtocol? = nil,
         clock: Clock? = nil,
         scheduler: BriefingPad.Scheduler? = nil,
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults? = nil
     ) {
+        let isolatedDefaults: UserDefaults
+        if let userDefaults {
+            isolatedDefaults = userDefaults
+        } else {
+            let suiteName = "BriefingPadTests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defaults.removePersistentDomain(forName: suiteName)
+            isolatedDefaults = defaults
+        }
+
         self.init(
             llmService: llmService,
             notionService: notionService,
@@ -157,7 +167,7 @@ extension SessionViewModel {
             store: store,
             clock: clock,
             scheduler: scheduler,
-            userDefaults: userDefaults
+            userDefaults: isolatedDefaults
         )
     }
 }
