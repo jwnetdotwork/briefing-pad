@@ -1220,13 +1220,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "API error (Status: %lld): %@"
+            "value" : "AI service returned an error (Status: %lld). Please try again."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "APIエラー (ステータス: %lld): %@"
+            "value" : "AIサービスでエラーが発生しました (ステータス: %lld)。もう一度お試しください。"
           }
         }
       }

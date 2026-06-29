@@ -175,8 +175,9 @@ final class LLMServiceTests: XCTestCase {
         let service = OpenAILLMService(keychainService: keychain, session: session, timeout: 0.1)
 
         MockURLProtocol.requestHandler = { request in
-            try await Task.sleep(nanoseconds: 1 * 1_000_000_000) // Sleep 1s
-            throw URLError(.timedOut)
+            // Wait indefinitely until cancellation
+            try await Task.sleep(nanoseconds: 10 * 1_000_000_000)
+            return (HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!, Data())
         }
 
         let partInfo = PartDefinition(
@@ -214,6 +215,7 @@ final class LLMServiceTests: XCTestCase {
 
 class MockURLProtocol: URLProtocol {
     static var requestHandler: ((URLRequest) async throws -> (HTTPURLResponse, Data))?
+    private var loadingTask: Task<Void, Never>?
 
     override class func canInit(with request: URLRequest) -> Bool {
         return true
@@ -228,17 +230,24 @@ class MockURLProtocol: URLProtocol {
             return
         }
 
-        Task {
+        loadingTask = Task {
             do {
                 let (response, data) = try await handler(request)
-                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-                client?.urlProtocol(self, didLoad: data)
-                client?.urlProtocolDidFinishLoading(self)
+                if !Task.isCancelled {
+                    client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                    client?.urlProtocol(self, didLoad: data)
+                    client?.urlProtocolDidFinishLoading(self)
+                }
             } catch {
-                client?.urlProtocol(self, didFailWithError: error)
+                if !Task.isCancelled {
+                    client?.urlProtocol(self, didFailWithError: error)
+                }
             }
         }
     }
 
-    override func stopLoading() {}
+    override func stopLoading() {
+        loadingTask?.cancel()
+        loadingTask = nil
+    }
 }

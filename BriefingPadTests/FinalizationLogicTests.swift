@@ -212,7 +212,7 @@ final class FinalizationLogicTests: XCTestCase {
         // 3. aiMemoGenerationError is populated
         let finishedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
         XCTAssertNotNil(finishedPart.aiMemoGenerationError)
-        XCTAssertTrue(finishedPart.aiMemoGenerationError?.contains("timed out") ?? false)
+        XCTAssertEqual(finishedPart.aiMemoGenerationError, LLMError.timeout.localizedDescription)
 
         // 4. the retry path is available (aiMemo is empty and error is set)
         XCTAssertTrue(finishedPart.aiMemo.isEmpty)

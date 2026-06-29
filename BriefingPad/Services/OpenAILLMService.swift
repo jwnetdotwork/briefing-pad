@@ -190,8 +190,8 @@ enum LLMError: Error, LocalizedError {
         switch self {
         case .missingApiKey:
             return NSLocalizedString("llm.error.missingApiKey", comment: "API key is missing")
-        case .apiError(let status, let body):
-            return String(format: NSLocalizedString("llm.error.apiErrorFormat", comment: "API error with status and body"), status, body)
+        case .apiError(let status, _):
+            return String(format: NSLocalizedString("llm.error.apiErrorFormat", comment: "API error with status"), status)
         case .invalidResponse:
             return NSLocalizedString("llm.error.invalidResponse", comment: "Invalid response from AI")
         case .parseError(let message):
