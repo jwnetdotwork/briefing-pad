@@ -161,4 +161,80 @@ final class LLMServiceTests: XCTestCase {
         XCTAssertEqual(result.positiveMatches[0].confidence, 0.7)
         XCTAssertEqual(result.positiveMatches[0].shortEvidence, "found pos1")
     }
+
+    func testGenerateOneLinerTimeout() async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: config)
+
+        let keychain = MockKeychainService()
+        keychain.save(key: KeychainKeys.openaiApiKey, value: "test-key")
+
+        // Use a small timeout for testing
+        let service = OpenAILLMService(keychainService: keychain, session: session, timeout: 0.1)
+
+        MockURLProtocol.requestHandler = { request in
+            try await Task.sleep(nanoseconds: 1 * 1_000_000_000) // Sleep 1s
+            throw URLError(.timedOut)
+        }
+
+        let partInfo = PartDefinition(id: "p1", number: 1, title: "T1")
+
+        do {
+            _ = try await service.generateOneLiner(
+                partInfo: partInfo,
+                fullTranscript: "",
+                positives: [],
+                observations: [],
+                localeIdentifier: "ja-JP"
+            )
+            XCTFail("Should have timed out")
+        } catch let error as LLMError {
+            if case .timeout = error {
+                // Success
+            } else {
+                XCTFail("Expected timeout error, got \(error)")
+            }
+        } catch {
+            XCTFail("Expected LLMError.timeout, got \(error)")
+        }
+    }
+}
+
+class MockURLProtocol: URLProtocol {
+    static var requestHandler: ((URLRequest) async throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        return request
+    }
+
+    override func startLoading() {
+        guard let handler = MockURLProtocol.requestHandler else {
+            return
+        }
+
+        Task {
+            do {
+                let (response, data) = try await handler(request)
+                client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+                client?.urlProtocol(self, didLoad: data)
+                client?.urlProtocolDidFinishLoading(self)
+            } catch {
+                client?.urlProtocol(self, didFailWithError: error)
+            }
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+class MockKeychainService: KeychainServiceProtocol {
+    var storage: [String: String] = [:]
+    func save(key: String, value: String) { storage[key] = value }
+    func load(key: String) -> String? { storage[key] }
+    func delete(key: String) { storage.removeValue(forKey: key) }
 }

@@ -2,7 +2,9 @@ import Foundation
 
 class OpenAILLMService: LLMServiceProtocol {
     private let keychainService: KeychainServiceProtocol
+    private let session: URLSession
     private let defaultModel: String
+    private let timeout: TimeInterval
     private var url: URL {
         let base = UserDefaults.standard.string(forKey: "customApiEndpoint")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let defaultUrl = URL(string: "https://api.openai.com/v1/chat/completions")!
@@ -17,9 +19,16 @@ class OpenAILLMService: LLMServiceProtocol {
 
     static let hardcodedDefaultModel = "gpt-5.4-mini-2026-03-17"
 
-    init(keychainService: KeychainServiceProtocol, model: String = hardcodedDefaultModel) {
+    init(
+        keychainService: KeychainServiceProtocol,
+        session: URLSession = .shared,
+        model: String = hardcodedDefaultModel,
+        timeout: TimeInterval = 30.0
+    ) {
         self.keychainService = keychainService
+        self.session = session
         self.defaultModel = model
+        self.timeout = timeout
     }
 
     func analyzeTranscript(
@@ -55,9 +64,9 @@ class OpenAILLMService: LLMServiceProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 30.0
+        request.timeoutInterval = timeout
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
@@ -130,31 +139,67 @@ class OpenAILLMService: LLMServiceProtocol {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
-        request.timeoutInterval = 30.0
+        request.timeoutInterval = timeout
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        return try await withThrowingTaskGroup(of: String.self) { [timeout] group in
+            group.addTask { [session] in
+                do {
+                    let (data, response) = try await session.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            let errorStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
-            let errorBody = String(data: data, encoding: .utf8) ?? "No body"
-            throw LLMError.apiError(status: errorStatus, body: errorBody)
+                    guard let httpResponse = response as? HTTPURLResponse,
+                          (200...299).contains(httpResponse.statusCode) else {
+                        let errorStatus = (response as? HTTPURLResponse)?.statusCode ?? -1
+                        let errorBody = String(data: data, encoding: .utf8) ?? "No body"
+                        throw LLMError.apiError(status: errorStatus, body: errorBody)
+                    }
+
+                    let openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
+                    guard let content = openAIResponse.choices.first?.message.content else {
+                        throw LLMError.invalidResponse
+                    }
+
+                    return content.trimmingCharacters(in: .whitespacesAndNewlines)
+                } catch {
+                    if let urlError = error as? URLError, urlError.code == .timedOut {
+                        throw LLMError.timeout
+                    }
+                    throw error
+                }
+            }
+
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                throw LLMError.timeout
+            }
+
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
         }
-
-        let openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
-        guard let content = openAIResponse.choices.first?.message.content else {
-            throw LLMError.invalidResponse
-        }
-
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
-enum LLMError: Error {
+enum LLMError: Error, LocalizedError {
     case missingApiKey
     case apiError(status: Int, body: String)
     case invalidResponse
     case parseError(String)
+    case timeout
+
+    var errorDescription: String? {
+        switch self {
+        case .missingApiKey:
+            return NSLocalizedString("llm.error.missingApiKey", comment: "API key is missing")
+        case .apiError(let status, let body):
+            return String(format: NSLocalizedString("llm.error.apiErrorFormat", comment: "API error with status and body"), status, body)
+        case .invalidResponse:
+            return NSLocalizedString("llm.error.invalidResponse", comment: "Invalid response from AI")
+        case .parseError(let message):
+            return String(format: NSLocalizedString("llm.error.parseErrorFormat", comment: "Parse error with message"), message)
+        case .timeout:
+            return NSLocalizedString("llm.error.timeout", comment: "Request timed out")
+        }
+    }
 }
 
 struct OpenAIResponse: Codable {
