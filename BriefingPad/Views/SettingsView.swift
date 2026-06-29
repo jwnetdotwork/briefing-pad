@@ -97,6 +97,7 @@ struct SettingsView: View {
                 Spacer()
 
                 Button("common.save") {
+                    guard viewModel.isBootstrapped else { return }
                     do {
                         try keychainService.save(key: KeychainKeys.openaiApiKey, value: apiKey)
                         try keychainService.save(key: KeychainKeys.notionIntegrationToken, value: notionToken)
@@ -112,6 +113,7 @@ struct SettingsView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(!viewModel.isBootstrapped)
             }
         }
         .padding()
@@ -128,6 +130,9 @@ struct SettingsView: View {
             customModel = UserDefaults.standard.string(forKey: "customModelName") ?? ""
             sortOrder = viewModel.sortOrder
             selectedTranscriptionLocale = viewModel.selectedTranscriptionLocale
+        }
+        .onReceive(viewModel.$selectedTranscriptionLocale) { locale in
+            selectedTranscriptionLocale = locale
         }
     }
 }
