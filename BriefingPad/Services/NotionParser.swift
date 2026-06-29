@@ -8,7 +8,6 @@ class NotionParser {
         case aiMemo = "🤖"
         case nextStep = "☔"
         case summary = "👪"
-        case preInfo = "事前情報"
 
         var isStructured: Bool {
             switch self {
@@ -27,21 +26,16 @@ class NotionParser {
 
     func parse(blocks: [NotionBlock], sessionName: String) -> ParseResult {
         var parts: [PartDefinition] = []
-        var currentChapter: String?
+        var currentChapter: ChapterType?
         var currentPartBlocks: [NotionBlock] = []
         var currentPartHeader: (id: String, text: String)?
         var uninterpretedBlockCount = 0
 
-        let targetChapters = ["神の言葉の宝", "野外奉仕に励む"]
-
         func flushPart() {
-            guard let header = currentPartHeader, let chapter = currentChapter else { return }
-            if let part = processPart(blocks: currentPartBlocks, headerId: header.id, headerText: header.text, chapter: chapter) {
-                parts.append(part)
-            } else {
-                // If it wasn't a target part but was in a target chapter, we don't count it as "outside target chapters"
-                // The requirement said "outside target chapters", so we only count blocks where currentChapter is not in targetChapters.
-                // Wait, the prompt says: "神の言葉の宝 と 野外奉仕に励む の外にあるブロック数を数えてください。"
+            if let header = currentPartHeader, let chapter = currentChapter {
+                if let part = processPart(blocks: currentPartBlocks, headerId: header.id, headerText: header.text, chapter: chapter) {
+                    parts.append(part)
+                }
             }
             currentPartBlocks = []
             currentPartHeader = nil
@@ -52,8 +46,8 @@ class NotionParser {
 
             if block.type == "heading_2" {
                 flushPart()
-                currentChapter = text
-                if !targetChapters.contains(text) {
+                currentChapter = NotionParserLexicon.chapterType(for: text)
+                if currentChapter == nil {
                     uninterpretedBlockCount += 1
                 }
                 continue
@@ -64,11 +58,7 @@ class NotionParser {
                 currentPartHeader = (block.id, text)
                 currentPartBlocks = [block]
 
-                if let chapter = currentChapter {
-                    if !targetChapters.contains(chapter) {
-                        uninterpretedBlockCount += 1
-                    }
-                } else {
+                if currentChapter == nil {
                     uninterpretedBlockCount += 1
                 }
                 continue
@@ -76,21 +66,13 @@ class NotionParser {
 
             if currentPartHeader != nil {
                 currentPartBlocks.append(block)
-                if let chapter = currentChapter {
-                    if !targetChapters.contains(chapter) {
-                        uninterpretedBlockCount += 1
-                    }
-                } else {
+                if currentChapter == nil {
                     uninterpretedBlockCount += 1
                 }
             } else {
                 // Blocks outside any part
-                if let chapter = currentChapter {
-                    if !targetChapters.contains(chapter) {
-                        uninterpretedBlockCount += 1
-                    }
-                } else {
-                    // Blocks before any chapter
+                if currentChapter == nil {
+                    // Blocks before any chapter or in uninterpreted chapter
                     uninterpretedBlockCount += 1
                 }
             }
@@ -108,10 +90,7 @@ class NotionParser {
         return ParseResult(session: session, uninterpretedBlockCount: uninterpretedBlockCount)
     }
 
-    private func processPart(blocks: [NotionBlock], headerId: String, headerText: String, chapter: String) -> PartDefinition? {
-        // Filter chapters
-        guard ["神の言葉の宝", "野外奉仕に励む"].contains(chapter) else { return nil }
-
+    private func processPart(blocks: [NotionBlock], headerId: String, headerText: String, chapter: ChapterType) -> PartDefinition? {
         // Parse header for number and title
         let pattern = #"^(\d+)\.\s*(.*)$"#
         guard let regex = try? NSRegularExpression(pattern: pattern),
@@ -128,10 +107,11 @@ class NotionParser {
         let title = String(headerText[titleRange])
 
         // Filter parts
-        if chapter == "神の言葉の宝" {
+        switch chapter {
+        case .treasureOfGodsWord:
             if number != 3 { return nil }
-        } else if chapter == "野外奉仕に励む" {
-            // Keep all numbered parts (usually 4, 5)
+        case .fieldMinistry:
+            break // Keep all numbered parts (usually 4, 5)
         }
 
         var durationMinutes: Int?
@@ -164,10 +144,10 @@ class NotionParser {
                 if text.isEmpty { continue }
             }
 
-            // Label detection
+            // Label detection (must start with the emoji)
             var detectedLabel: Label?
             for label in Label.allCases {
-                if text.contains(label.rawValue) {
+                if text.hasPrefix(label.rawValue) {
                     detectedLabel = label
                     break
                 }
@@ -175,26 +155,13 @@ class NotionParser {
 
             if let label = detectedLabel {
                 labelEncountered = true
-                if label.isStructured {
-                    currentLabel = label
-                } else {
-                    currentLabel = nil
-                }
+                currentLabel = label.isStructured ? label : nil
 
                 if label == .aiMemo {
                     aiMemoBlockId = block.id
                 }
 
-                if label.isStructured {
-                    let labelRaw = label.rawValue
-                    if let labelRange = text.range(of: labelRaw) {
-                        let content = text.replacingCharacters(in: labelRange, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-                        if !isIgnorableHeader(content, for: label) && !content.isEmpty {
-                            addContent(content, to: label, learningPoints: &learningPoints, observationItems: &observationItems, positiveItems: &positiveItems, aiMemo: &aiMemo)
-                        }
-                    }
-                }
+                // Requirement: Ignore any other text on the same line as the emoji.
                 continue
             }
 
@@ -222,16 +189,6 @@ class NotionParser {
             aiMemo: aiMemo,
             aiMemoBlockId: aiMemoBlockId
         )
-    }
-
-    private func isIgnorableHeader(_ content: String, for label: Label) -> Bool {
-        switch label {
-        case .learningPoints: return content == "学習ポイント"
-        case .observationItems: return content == "観察メモ"
-        case .positiveItems: return content == "どこがどのように良かったか"
-        case .aiMemo: return content == "AIメモ"
-        default: return false
-        }
     }
 
     private func addContent(_ text: String, to label: Label, learningPoints: inout [LearningPoint], observationItems: inout [ObservationItem], positiveItems: inout [PositiveItem], aiMemo: inout String) {
