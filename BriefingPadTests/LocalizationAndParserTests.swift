@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import BriefingPad
 
-@MainActor
 struct LocalizationAndParserTests {
 
     @Test func testNotionContentLocalization() {
@@ -10,29 +9,31 @@ struct LocalizationAndParserTests {
         let observations = [SummarizedItem(id: "o1", text: "Observation 1", evidence: " (I saw this)")]
         let aiMemo = "AI recommendation"
 
-        // We can't easily change the system locale in unit tests, but we can check if it uses NSLocalizedString
-        // To be more deterministic, we can check for specific substrings that should be there.
         let content = SessionViewModel.assembleNotionContent(
             positives: positives,
             observations: observations,
             aiMemo: aiMemo
         )
 
-        // Check if content includes items
+        // Assert literal English strings (default locale in tests)
+        #expect(content.contains("◎ Good points candidate"))
+        #expect(content.contains("👀 Observation notes"))
+        #expect(content.contains("🤖 AI memo"))
+
         #expect(content.contains("Positive 1"))
         #expect(content.contains("(Good job)"))
         #expect(content.contains("Observation 1"))
         #expect(content.contains("(I saw this)"))
         #expect(content.contains("AI recommendation"))
 
-        // Check if it has three sections (split by \n\n)
         let sections = content.components(separatedBy: "\n\n")
         #expect(sections.count == 3)
     }
 
     @Test func testNotionPageTitleFallback() {
         let page = NotionPage(id: "test", properties: [:])
-        #expect(page.title == NSLocalizedString("notion.page.untitled", comment: ""))
+        // Assert literal English fallback
+        #expect(page.title == "Untitled Session")
     }
 
     @Test func testDurationParsingVariations() {
@@ -46,7 +47,9 @@ struct LocalizationAndParserTests {
             ("（3分钟）", 3),
             ("(10)", 10),
             ("No duration here", nil),
-            ("(invalid)", nil)
+            ("(invalid)", nil),
+            ("Follow-up (2 examples)", nil), // Should not match inline
+            ("Some text (5 min)", nil)       // Should not match if not at start
         ]
 
         for (text, expectedMinutes) in cases {

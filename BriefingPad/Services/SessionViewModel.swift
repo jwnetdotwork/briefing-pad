@@ -1562,7 +1562,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         )
     }
 
-    internal static func assembleNotionContent(
+    nonisolated internal static func assembleNotionContent(
         positives: [SummarizedItem],
         observations: [SummarizedItem],
         aiMemo: String

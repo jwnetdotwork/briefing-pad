@@ -133,8 +133,8 @@ class NotionParser {
 
             rawMarkdown += (rawMarkdown.isEmpty ? "" : "\n") + text
 
-            // Duration check (Matches [0-9]+ within full-width or half-width parentheses)
-            if !durationFound, let dMatch = text.range(of: #"[（(].*?\d+.*?[）)]"#, options: .regularExpression) {
+            // Duration check (Matches [0-9]+ within full-width or half-width parentheses at start of block)
+            if !durationFound && !labelEncountered, let dMatch = text.range(of: #"^[（(].*?\d+.*?[）)]"#, options: .regularExpression) {
                 if let dRange = text.range(of: #"\d+"#, options: .regularExpression, range: dMatch) {
                     durationMinutes = Int(text[dRange])
                 }
