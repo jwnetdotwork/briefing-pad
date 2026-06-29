@@ -43,7 +43,7 @@ final class LanguageSelectionTests: XCTestCase {
         // Update locale
         viewModel.updateTranscriptionLocale("en-US")
         XCTAssertEqual(viewModel.selectedTranscriptionLocale, "en-US")
-        XCTAssertEqual(userDefaults.string(forKey: "selectedTranscriptionLocale"), "en-US")
+        XCTAssertEqual(userDefaults.string(forKey: SessionViewModel.selectedLocaleKey), "en-US")
 
         // Create new ViewModel with same UserDefaults
         let viewModel2 = SessionViewModel(

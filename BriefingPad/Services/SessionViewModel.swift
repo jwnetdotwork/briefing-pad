@@ -28,7 +28,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var notionSyncStatuses: [String: NotionSyncStatus] = [:] // partId -> status
 
     private static let lastSelectedSessionKey = "lastSelectedSessionId"
-    private static let selectedLocaleKey = "selectedTranscriptionLocale"
+    static let selectedLocaleKey = "selectedTranscriptionLocale"
     private let userDefaults: UserDefaults
 
     @Published var micStatus: MicrophoneStatus = .idle

@@ -349,8 +349,13 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
+            // Deduplicate identifiers first to avoid redundant checks
+            let uniqueIdentifiers = Set(Locale.availableIdentifiers.map {
+                Locale.canonicalIdentifier(from: $0)
+            })
+
             let locales = await withTaskGroup(of: Locale?.self) { group in
-                for id in Locale.availableIdentifiers {
+                for id in uniqueIdentifiers {
                     group.addTask {
                         await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: id))
                     }
@@ -365,11 +370,11 @@ class SpeechTranscriptionService: SpeechTranscribing {
                 return results
             }
 
-            // Deduplicate by identifier and sort by localized display name
-            let uniqueLocales = Dictionary(grouping: locales, by: { $0.identifier })
+            // Final deduplication by identifier (as supportedLocale might return the same canonical locale for different inputs)
+            let deduplicatedLocales = Dictionary(grouping: locales, by: { $0.identifier })
                 .compactMap { $0.value.first }
 
-            let sortedLocales = uniqueLocales.sorted {
+            let sortedLocales = deduplicatedLocales.sorted {
                 let nameA = Locale.current.localizedString(forIdentifier: $0.identifier) ?? $0.identifier
                 let nameB = Locale.current.localizedString(forIdentifier: $1.identifier) ?? $1.identifier
                 return nameA.localizedCompare(nameB) == .orderedAscending
