@@ -16,6 +16,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var transcriptionError: String?
     @Published var selectedTranscriptionLocale: String = "ja-JP"
     @Published var supportedLocales: [Locale] = []
+    private var hasPersistedLocale: Bool = false
 
     enum NotionSyncStatus: Equatable {
         case idle
@@ -112,6 +113,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let sortOrderRaw = userDefaults.string(forKey: "sessionSortOrder") ?? SessionSortOrder.createdDesc.rawValue
         self.sortOrder = SessionSortOrder(rawValue: sortOrderRaw) ?? .createdDesc
         self.selectedSessionId = userDefaults.string(forKey: Self.lastSelectedSessionKey) ?? ""
+
+        self.hasPersistedLocale = userDefaults.object(forKey: Self.selectedLocaleKey) != nil
         self.selectedTranscriptionLocale = userDefaults.string(forKey: Self.selectedLocaleKey) ?? "ja-JP"
 
         self.llmService = llmService ?? MockLLMService()
@@ -144,15 +147,52 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let locales = await transcriptionService.getSupportedLocales()
         self.supportedLocales = locales
 
-        // Validate current locale
-        if !locales.contains(where: { $0.identifier == selectedTranscriptionLocale }) {
-            if locales.contains(where: { $0.identifier == "ja-JP" }) {
-                selectedTranscriptionLocale = "ja-JP"
-            } else {
-                selectedTranscriptionLocale = locales.first?.identifier ?? "ja-JP"
+        if hasPersistedLocale {
+            // Validate current locale
+            if !locales.contains(where: { $0.identifier == selectedTranscriptionLocale }) {
+                if locales.contains(where: { $0.identifier == "ja-JP" }) {
+                    selectedTranscriptionLocale = "ja-JP"
+                } else {
+                    selectedTranscriptionLocale = locales.first?.identifier ?? "ja-JP"
+                }
+                userDefaults.set(selectedTranscriptionLocale, forKey: Self.selectedLocaleKey)
             }
-            userDefaults.set(selectedTranscriptionLocale, forKey: Self.selectedLocaleKey)
+        } else {
+            selectedTranscriptionLocale = resolveInitialLocale(
+                supportedLocales: locales,
+                preferredIdentifiers: Locale.preferredLanguages
+            )
         }
+    }
+
+    internal func resolveInitialLocale(supportedLocales: [Locale], preferredIdentifiers: [String]) -> String {
+
+        // 1. Exact identifier match
+        for pref in preferredIdentifiers {
+            if let match = supportedLocales.first(where: { $0.identifier == pref }) {
+                return match.identifier
+            }
+        }
+
+        // 2. Language-code match
+        for pref in preferredIdentifiers {
+            let prefLocale = Locale(identifier: pref)
+            let prefLang = prefLocale.language.languageCode?.identifier
+
+            guard let prefLang = prefLang else { continue }
+
+            if let match = supportedLocales.first(where: { $0.language.languageCode?.identifier == prefLang }) {
+                return match.identifier
+            }
+        }
+
+        // 3. Fallback to ja-JP
+        if supportedLocales.contains(where: { $0.identifier == "ja-JP" }) {
+            return "ja-JP"
+        }
+
+        // 4. First supported locale
+        return supportedLocales.first?.identifier ?? "ja-JP"
     }
 
     func updateTranscriptionLocale(_ identifier: String) {

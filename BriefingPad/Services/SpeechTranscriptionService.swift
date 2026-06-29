@@ -390,6 +390,7 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
 class MockSpeechTranscriptionService: SpeechTranscribing {
     private var transcriptionContinuation: AsyncStream<TranscriptSegment>.Continuation?
+    var supportedLocales: [Locale]?
 
     init() {}
 
@@ -509,7 +510,7 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
     }
 
     func getSupportedLocales() async -> [Locale] {
-        return [
+        return supportedLocales ?? [
             Locale(identifier: "ja-JP"),
             Locale(identifier: "en-US")
         ]
