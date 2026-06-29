@@ -60,7 +60,7 @@ struct PartListView: View {
                                     .buttonStyle(.plain)
                                     .id(index)
                                     .accessibilityIdentifier("PartButton-\(index)")
-                                    .accessibilityValue(index == selectedPartIndex ? "Selected" : "Unselected")
+                                    .accessibilityValue(index == selectedPartIndex ? NSLocalizedString("accessibility.selected", comment: "") : NSLocalizedString("accessibility.unselected", comment: ""))
                                 }
                             }
                             .padding(.vertical, 4)
