@@ -1,6 +1,7 @@
 import XCTest
 @testable import BriefingPad
 
+@MainActor
 final class LLMServiceTests: XCTestCase {
 
     func testPromptBuilder() {
@@ -136,7 +137,7 @@ final class LLMServiceTests: XCTestCase {
         XCTAssertTrue(userPrompt.contains("## Analyzed Candidates"))
     }
 
-    func testAnalysisResultParsing() throws {
+    func testAnalysisResultParsing() async throws {
         let json = """
         {
           "observationMatches": [
@@ -168,7 +169,7 @@ final class LLMServiceTests: XCTestCase {
         let session = URLSession(configuration: config)
 
         let keychain = MockKeychainService()
-        keychain.save(key: KeychainKeys.openaiApiKey, value: "test-key")
+        try keychain.save(key: KeychainKeys.openaiApiKey, value: "test-key")
 
         // Use a small timeout for testing
         let service = OpenAILLMService(keychainService: keychain, session: session, timeout: 0.1)
@@ -178,7 +179,17 @@ final class LLMServiceTests: XCTestCase {
             throw URLError(.timedOut)
         }
 
-        let partInfo = PartDefinition(id: "p1", number: 1, title: "T1")
+        let partInfo = PartDefinition(
+            id: "p1",
+            number: 1,
+            title: "T1",
+            durationMinutes: nil,
+            setting: nil,
+            rawMarkdown: "",
+            learningPoints: [],
+            observationItems: [],
+            positiveItems: []
+        )
 
         do {
             _ = try await service.generateOneLiner(
@@ -230,11 +241,4 @@ class MockURLProtocol: URLProtocol {
     }
 
     override func stopLoading() {}
-}
-
-class MockKeychainService: KeychainServiceProtocol {
-    var storage: [String: String] = [:]
-    func save(key: String, value: String) { storage[key] = value }
-    func load(key: String) -> String? { storage[key] }
-    func delete(key: String) { storage.removeValue(forKey: key) }
 }
