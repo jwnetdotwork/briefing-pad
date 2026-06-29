@@ -319,6 +319,91 @@
         }
       }
     },
+    "llm.error.apiErrorFormat" : {
+      "comment" : "API error with status",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI service returned an error (Status: %lld). Please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIサービスでエラーが発生しました (ステータス: %lld)。もう一度お試しください。"
+          }
+        }
+      }
+    },
+    "llm.error.invalidResponse" : {
+      "comment" : "Invalid response from AI",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Received an invalid response from the AI."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIから無効なレスポンスを受け取りました。"
+          }
+        }
+      }
+    },
+    "llm.error.missingApiKey" : {
+      "comment" : "API key is missing",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI API key is missing. Please check your settings."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenAI APIキーが設定されていません。設定を確認してください。"
+          }
+        }
+      }
+    },
+    "llm.error.parseErrorFormat" : {
+      "comment" : "Parse error with message",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to parse AI response: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AIレスポンスの解析に失敗しました: %@"
+          }
+        }
+      }
+    },
+    "llm.error.timeout" : {
+      "comment" : "Request timed out",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The request timed out. Please try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リクエストがタイムアウトしました。もう一度お試しください。"
+          }
+        }
+      }
+    },
     "microphone.error.permissionDenied" : {
       "localizations" : {
         "en" : {
@@ -1195,86 +1280,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "メモ生成失敗: %@"
-          }
-        }
-      }
-    },
-    "llm.error.missingApiKey" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OpenAI API key is missing. Please check your settings."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "OpenAI APIキーが設定されていません。設定を確認してください。"
-          }
-        }
-      }
-    },
-    "llm.error.apiErrorFormat" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI service returned an error (Status: %lld). Please try again."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AIサービスでエラーが発生しました (ステータス: %lld)。もう一度お試しください。"
-          }
-        }
-      }
-    },
-    "llm.error.invalidResponse" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Received an invalid response from the AI."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AIから無効なレスポンスを受け取りました。"
-          }
-        }
-      }
-    },
-    "llm.error.parseErrorFormat" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Failed to parse AI response: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AIレスポンスの解析に失敗しました: %@"
-          }
-        }
-      }
-    },
-    "llm.error.timeout" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The request timed out. Please try again."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リクエストがタイムアウトしました。もう一度お試しください。"
           }
         }
       }
