@@ -67,6 +67,25 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                 }
+
+                VStack(alignment: .leading) {
+                    Text("settings.transcriptionLanguage")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Picker("settings.transcriptionLanguage", selection: $viewModel.selectedTranscriptionLocale) {
+                        if viewModel.supportedLocales.isEmpty {
+                            Text(Locale.current.localizedString(forIdentifier: viewModel.selectedTranscriptionLocale) ?? viewModel.selectedTranscriptionLocale)
+                                .tag(viewModel.selectedTranscriptionLocale)
+                        } else {
+                            ForEach(viewModel.supportedLocales, id: \.identifier) { locale in
+                                Text(Locale.current.localizedString(forIdentifier: locale.identifier) ?? locale.identifier)
+                                    .tag(locale.identifier)
+                            }
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
             }
 
             HStack {
@@ -83,6 +102,7 @@ struct SettingsView: View {
                         UserDefaults.standard.set(customEndpoint, forKey: "customApiEndpoint")
                         UserDefaults.standard.set(customModel, forKey: "customModelName")
                         UserDefaults.standard.set(sortOrder.rawValue, forKey: "sessionSortOrder")
+                        UserDefaults.standard.set(viewModel.selectedTranscriptionLocale, forKey: "selectedTranscriptionLocale")
                         viewModel.sortOrder = sortOrder
                         dismiss()
                     } catch {
@@ -94,7 +114,7 @@ struct SettingsView: View {
             }
         }
         .padding()
-        .frame(width: 300)
+        .frame(width: 420)
         .alert("common.error", isPresented: $showError) {
             Button("common.ok") { }
         } message: {
