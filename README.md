@@ -65,7 +65,7 @@ Notion の [開発者ポータル](https://app.notion.com/developers/connections
 | `APIエンドポイント (任意)` | OpenAI 互換 API の送信先ベース URL | UserDefaults | 空欄なら既定の `https://api.openai.com/v1/chat/completions` を使う。入力した値にはアプリが `/chat/completions` を付ける |
 | `モデル名 (任意)` | AIメモ生成と分析に使うモデル名 | UserDefaults | 空欄なら既定の `gpt-5.4-mini-2026-03-17` を使う |
 | `セッション表示順` | セッション一覧の並び順 | UserDefaults | `名前 (昇順)`、`名前 (降順)`、`更新日時 (古い順)`、`更新日時 (新しい順)`、`作成日時 (古い順)`、`作成日時 (新しい順)` を切り替えられる。既定は `作成日時 (新しい順)` |
-| `文字起こし言語` | 文字起こしに使う言語ロケール | UserDefaults | `SpeechTranscriber` の対応ロケール一覧から選ぶ。候補がない場合は `ja-JP` か利用可能なロケールにフォールバックする |
+| `文字起こし言語` | 文字起こしに使う言語ロケール | UserDefaults | `SpeechTranscriber` の対応ロケール一覧から選ぶ。未設定時はシステム言語設定に基づき自動決定される。候補がない場合は `ja-JP` か利用可能なロケールにフォールバックする |
 
 ## Notionインポートの手順
 

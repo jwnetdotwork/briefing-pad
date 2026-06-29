@@ -51,7 +51,7 @@
 ### プラットフォーム
 
 - macOS 26+
-- 多言語対応（SpeechTranscriberのサポートするロケールから選択可能）
+- 多言語対応（SpeechTranscriberのサポートするロケールから選択可能。未設定時はOSの優先言語設定に基づいて自動決定）
 
 ### UI
 
@@ -301,7 +301,7 @@ Notion上では柔軟に書ける
 ## 7.2 文字起こし
 
 - Apple SpeechAnalyzer + SpeechTranscriberを使用する
-- 多言語対応（設定画面から選択可能。既定値は ja-JP）
+- 多言語対応（設定画面から選択可能。未設定時の初期値はOSの優先言語設定に基づき、Exact Match > Language Code Match > ja-JP > 最初に見つかった対応ロケール の順で決定される）
 - 確定した文字起こしのみLLMへ送信する
 
 ## 7.3 表示目標

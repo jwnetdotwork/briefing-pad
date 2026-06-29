@@ -8,7 +8,7 @@ struct SettingsView: View {
     @State private var customEndpoint: String = ""
     @State private var customModel: String = ""
     @State private var sortOrder: SessionSortOrder = .createdDesc
-    @State private var selectedTranscriptionLocale: String = "ja-JP"
+    @State private var selectedTranscriptionLocale: String = ""
     @State private var errorMessage: String?
     @State private var showError = false
     private let keychainService: KeychainServiceProtocol
