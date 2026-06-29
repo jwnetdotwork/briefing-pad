@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import BriefingPad
 
+@MainActor
 struct LocalizationAndParserTests {
 
     @Test func testNotionContentLocalization() {
