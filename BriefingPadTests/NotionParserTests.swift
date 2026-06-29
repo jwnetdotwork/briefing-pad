@@ -25,7 +25,7 @@ struct NotionParserTests {
 
         let part3 = session.parts.first { $0.number == 3 }
         #expect(part3 != nil)
-        #expect(part3?.title == "聖書朗読 Dさん")
+        #expect(part3?.title == "聖書朗読 山田二郎")
         #expect(part3?.durationMinutes == 4)
         #expect(part3?.setting == "エレ 9:13-24")
         #expect(part3!.learningPoints.count == 2)
@@ -34,7 +34,7 @@ struct NotionParserTests {
 
         let part4 = session.parts.first { $0.number == 4 }
         #expect(part4 != nil)
-        #expect(part4?.title == "会話を始める Eさん/Fさん")
+        #expect(part4?.title == "会話を始める 山田花子/山田花枝")
         #expect(part4?.durationMinutes == 4)
         #expect(part4?.setting == "日常生活で。")
         #expect(part4!.learningPoints.count == 2)
