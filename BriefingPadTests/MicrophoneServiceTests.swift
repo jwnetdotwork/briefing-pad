@@ -101,7 +101,7 @@ class MicrophoneServiceTests: XCTestCase {
         XCTAssertFalse(mockEngine.startCalled)
         XCTAssertFalse(mockPermission.requestAccessCalled) // Should NOT call requestAccess if already denied
         if case .error(let message) = service.status {
-            XCTAssertEqual(message, "マイクの使用が許可されていません")
+            XCTAssertEqual(message, NSLocalizedString("microphone.error.permissionDenied", comment: ""))
         } else {
             XCTFail("Status should be .error")
         }

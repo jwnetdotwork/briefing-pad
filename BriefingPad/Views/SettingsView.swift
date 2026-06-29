@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var customEndpoint: String = ""
     @State private var customModel: String = ""
     @State private var sortOrder: SessionSortOrder = .createdDesc
+    @State private var selectedTranscriptionLocale: String = "ja-JP"
     @State private var errorMessage: String?
     @State private var showError = false
     private let keychainService: KeychainServiceProtocol
@@ -67,6 +68,25 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                 }
+
+                VStack(alignment: .leading) {
+                    Text("settings.transcriptionLanguage")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Picker("settings.transcriptionLanguage", selection: $selectedTranscriptionLocale) {
+                        if viewModel.supportedLocales.isEmpty {
+                            Text(Locale.current.localizedString(forIdentifier: selectedTranscriptionLocale) ?? selectedTranscriptionLocale)
+                                .tag(selectedTranscriptionLocale)
+                        } else {
+                            ForEach(viewModel.supportedLocales, id: \.identifier) { locale in
+                                Text(Locale.current.localizedString(forIdentifier: locale.identifier) ?? locale.identifier)
+                                    .tag(locale.identifier)
+                            }
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
             }
 
             HStack {
@@ -83,6 +103,7 @@ struct SettingsView: View {
                         UserDefaults.standard.set(customEndpoint, forKey: "customApiEndpoint")
                         UserDefaults.standard.set(customModel, forKey: "customModelName")
                         UserDefaults.standard.set(sortOrder.rawValue, forKey: "sessionSortOrder")
+                        viewModel.updateTranscriptionLocale(selectedTranscriptionLocale)
                         viewModel.sortOrder = sortOrder
                         dismiss()
                     } catch {
@@ -94,7 +115,7 @@ struct SettingsView: View {
             }
         }
         .padding()
-        .frame(width: 300)
+        .frame(width: 420)
         .alert("common.error", isPresented: $showError) {
             Button("common.ok") { }
         } message: {
@@ -106,6 +127,7 @@ struct SettingsView: View {
             customEndpoint = UserDefaults.standard.string(forKey: "customApiEndpoint") ?? ""
             customModel = UserDefaults.standard.string(forKey: "customModelName") ?? ""
             sortOrder = viewModel.sortOrder
+            selectedTranscriptionLocale = viewModel.selectedTranscriptionLocale
         }
     }
 }

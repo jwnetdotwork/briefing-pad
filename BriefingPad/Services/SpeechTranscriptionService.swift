@@ -7,15 +7,17 @@ import Speech
 
 protocol SpeechTranscribing {
     var isAvailable: Bool { get async }
-    func checkAvailability() async throws
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws -> AsyncStream<TranscriptSegment>
+    func checkAvailability(localeIdentifier: String?) async throws
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, localeIdentifier: String?, runID: String?) async throws -> AsyncStream<TranscriptSegment>
     func stopTranscription() async
+    func getSupportedLocales() async -> [Locale]
 }
 
 class SpeechTranscriptionService: SpeechTranscribing {
     private var transcriptionContinuation: AsyncStream<TranscriptSegment>.Continuation?
 
     private var analyzerTask: Task<Void, Never>?
+    private var supportedLocalesCache: [Locale]?
 
     init() {}
 
@@ -23,21 +25,25 @@ class SpeechTranscriptionService: SpeechTranscribing {
         get async {
             #if canImport(Speech)
             if #available(macOS 26.0, *) {
-                return await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) != nil
+                // If ja-JP or any locale is supported, we consider the service available
+                let locales = await getSupportedLocales()
+                return !locales.isEmpty
             }
             #endif
             return false
         }
     }
 
-    private func resolveLocale() async throws -> Locale {
+    private func resolveLocale(identifier: String?) async throws -> Locale {
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: "ja-JP")) else {
+            let targetId = identifier ?? "ja-JP"
+            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: targetId)) else {
+                let message = String(format: NSLocalizedString("speechTranscription.error.unsupportedLocaleFormat", comment: ""), targetId)
                 throw NSError(
                     domain: "SpeechTranscriptionService",
                     code: 2,
-                    userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("speechTranscription.error.unsupportedLocale", comment: "")]
+                    userInfo: [NSLocalizedDescriptionKey: message]
                 )
             }
             return locale
@@ -50,10 +56,10 @@ class SpeechTranscriptionService: SpeechTranscribing {
         )
     }
 
-    func checkAvailability() async throws {
+    func checkAvailability(localeIdentifier: String?) async throws {
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            _ = try await resolveLocale()
+            _ = try await resolveLocale(identifier: localeIdentifier)
 
             let micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
             if micStatus == .denied || micStatus == .restricted {
@@ -79,11 +85,11 @@ class SpeechTranscriptionService: SpeechTranscribing {
         #endif
     }
 
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws -> AsyncStream<TranscriptSegment> {
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, localeIdentifier: String?, runID: String?) async throws -> AsyncStream<TranscriptSegment> {
         #if DEBUG
-        print("[SpeechTranscriptionService] startTranscription called. runID: \(runID ?? "nil")")
+        print("[SpeechTranscriptionService] startTranscription called. locale: \(localeIdentifier ?? "default"), runID: \(runID ?? "nil")")
         #endif
-        try await checkAvailability()
+        try await checkAvailability(localeIdentifier: localeIdentifier)
 
         let stream = AsyncStream<TranscriptSegment> { continuation in
             self.transcriptionContinuation = continuation
@@ -96,14 +102,14 @@ class SpeechTranscriptionService: SpeechTranscribing {
 
         #if canImport(Speech)
         if #available(macOS 26.0, *) {
-            let locale = try await resolveLocale()
+            let locale = try await resolveLocale(identifier: localeIdentifier)
 
             let transcriber = SpeechTranscriber(
                 locale: locale,
                 preset: .timeIndexedProgressiveTranscription
             )
 
-            // 資産の準備（日本語モデルの準備）
+            // Asset preparation
             if let assetRequest = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
                 #if DEBUG
                 print("[SpeechTranscriptionService] [\(runID ?? "none")] Requesting asset installation...")
@@ -335,6 +341,51 @@ class SpeechTranscriptionService: SpeechTranscribing {
         transcriptionContinuation?.finish()
         transcriptionContinuation = nil
     }
+
+    func getSupportedLocales() async -> [Locale] {
+        if let cached = supportedLocalesCache {
+            return cached
+        }
+
+        #if canImport(Speech)
+        if #available(macOS 26.0, *) {
+            // Deduplicate identifiers first to avoid redundant checks
+            let uniqueIdentifiers = Set(Locale.availableIdentifiers.map {
+                Locale.canonicalIdentifier(from: $0)
+            })
+
+            let locales = await withTaskGroup(of: Locale?.self) { group in
+                for id in uniqueIdentifiers {
+                    group.addTask {
+                        await SpeechTranscriber.supportedLocale(equivalentTo: Locale(identifier: id))
+                    }
+                }
+
+                var results = [Locale]()
+                for await locale in group {
+                    if let locale = locale {
+                        results.append(locale)
+                    }
+                }
+                return results
+            }
+
+            // Final deduplication by identifier (as supportedLocale might return the same canonical locale for different inputs)
+            let deduplicatedLocales = Dictionary(grouping: locales, by: { $0.identifier })
+                .compactMap { $0.value.first }
+
+            let sortedLocales = deduplicatedLocales.sorted {
+                let nameA = Locale.current.localizedString(forIdentifier: $0.identifier) ?? $0.identifier
+                let nameB = Locale.current.localizedString(forIdentifier: $1.identifier) ?? $1.identifier
+                return nameA.localizedCompare(nameB) == .orderedAscending
+            }
+
+            supportedLocalesCache = sortedLocales
+            return sortedLocales
+        }
+        #endif
+        return []
+    }
 }
 
 class MockSpeechTranscriptionService: SpeechTranscribing {
@@ -346,15 +397,15 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
         get async { true }
     }
 
-    func checkAvailability() async throws {
+    func checkAvailability(localeIdentifier: String?) async throws {
         // Always available in mock
     }
 
     private var mockTask: Task<Void, Never>?
 
-    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, runID: String?) async throws -> AsyncStream<TranscriptSegment> {
+    func startTranscription(audioStream: AsyncStream<AVAudioPCMBuffer>, localeIdentifier: String?, runID: String?) async throws -> AsyncStream<TranscriptSegment> {
         #if DEBUG
-        print("[MockSpeechTranscriptionService] startTranscription called. runID: \(runID ?? "nil")")
+        print("[MockSpeechTranscriptionService] startTranscription called. locale: \(localeIdentifier ?? "nil"), runID: \(runID ?? "nil")")
         #endif
         mockTask?.cancel()
         mockTask = nil
@@ -455,5 +506,12 @@ class MockSpeechTranscriptionService: SpeechTranscribing {
         mockTask = nil
         transcriptionContinuation?.finish()
         transcriptionContinuation = nil
+    }
+
+    func getSupportedLocales() async -> [Locale] {
+        return [
+            Locale(identifier: "ja-JP"),
+            Locale(identifier: "en-US")
+        ]
     }
 }

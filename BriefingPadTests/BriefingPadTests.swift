@@ -9,6 +9,7 @@ import Foundation
 import Testing
 @testable import BriefingPad
 
+@MainActor
 struct BriefingPadTests {
 
     @Test func loadsLocalPartDefinitions() async throws {
@@ -16,9 +17,14 @@ struct BriefingPadTests {
         let sessions = LocalBriefingDataStore.loadSessions(bundle: bundle)
 
         #expect(sessions.count == 1)
-        #expect(sessions[0].parts.count == 2)
-        #expect(sessions[0].parts[0].learningPoints.count == 1)
-        #expect(sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status == .strong)
+        let partsCount = sessions[0].parts.count
+        #expect(partsCount == 2)
+
+        let lpCount = sessions[0].parts[0].learningPoints.count
+        #expect(lpCount == 1)
+
+        let status = sessions[0].parts[0].analysisState.positiveItemStates["pos-a"]?.status
+        #expect(status == .strong)
     }
 
 }

@@ -14,6 +14,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var isGeneratingAIMemo = false
     @Published var sessionState = SessionState()
     @Published var transcriptionError: String?
+    @Published var selectedTranscriptionLocale: String = "ja-JP"
+    @Published var supportedLocales: [Locale] = []
 
     enum NotionSyncStatus: Equatable {
         case idle
@@ -26,6 +28,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published var notionSyncStatuses: [String: NotionSyncStatus] = [:] // partId -> status
 
     private static let lastSelectedSessionKey = "lastSelectedSessionId"
+    static let selectedLocaleKey = "selectedTranscriptionLocale"
     private let userDefaults: UserDefaults
 
     @Published var micStatus: MicrophoneStatus = .idle
@@ -109,6 +112,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let sortOrderRaw = userDefaults.string(forKey: "sessionSortOrder") ?? SessionSortOrder.createdDesc.rawValue
         self.sortOrder = SessionSortOrder(rawValue: sortOrderRaw) ?? .createdDesc
         self.selectedSessionId = userDefaults.string(forKey: Self.lastSelectedSessionKey) ?? ""
+        self.selectedTranscriptionLocale = userDefaults.string(forKey: Self.selectedLocaleKey) ?? "ja-JP"
+
         self.llmService = llmService ?? MockLLMService()
         self.notionService = notionService ?? MockNotionService()
         self.transcriptionService = transcriptionService ?? MockSpeechTranscriptionService()
@@ -130,8 +135,29 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         Task {
             await loadSavedSessionsFromStore()
             await loadSavedSession()
+            await loadSupportedLocales()
             isBootstrapped = true
         }
+    }
+
+    private func loadSupportedLocales() async {
+        let locales = await transcriptionService.getSupportedLocales()
+        self.supportedLocales = locales
+
+        // Validate current locale
+        if !locales.contains(where: { $0.identifier == selectedTranscriptionLocale }) {
+            if locales.contains(where: { $0.identifier == "ja-JP" }) {
+                selectedTranscriptionLocale = "ja-JP"
+            } else {
+                selectedTranscriptionLocale = locales.first?.identifier ?? "ja-JP"
+            }
+            userDefaults.set(selectedTranscriptionLocale, forKey: Self.selectedLocaleKey)
+        }
+    }
+
+    func updateTranscriptionLocale(_ identifier: String) {
+        selectedTranscriptionLocale = identifier
+        userDefaults.set(selectedTranscriptionLocale, forKey: Self.selectedLocaleKey)
     }
 
     @MainActor
@@ -1110,11 +1136,16 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             partId: currentPart?.id ?? ""
         )
         activeRecordingContext = context
+        let locale = selectedTranscriptionLocale
 
         transcriptionTask = Task {
             do {
                 await transcriptionService.stopTranscription()
-                let results = try await transcriptionService.startTranscription(audioStream: audioStream, runID: self.currentRunID)
+                let results = try await transcriptionService.startTranscription(
+                    audioStream: audioStream,
+                    localeIdentifier: locale,
+                    runID: self.currentRunID
+                )
 
                 for await segment in results {
                     // Only process segments if they match the context when they were received

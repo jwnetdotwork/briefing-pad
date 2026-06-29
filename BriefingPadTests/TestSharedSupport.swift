@@ -143,18 +143,21 @@ extension SessionViewModel {
         llmService: LLMServiceProtocol? = nil,
         notionService: NotionServiceProtocol? = nil,
         transcriptionService: SpeechTranscribing? = nil,
+        micService: (any MicrophoneServiceProtocol)? = nil,
         store: SessionStoreProtocol? = nil,
         clock: Clock? = nil,
-        scheduler: BriefingPad.Scheduler? = nil
+        scheduler: BriefingPad.Scheduler? = nil,
+        userDefaults: UserDefaults = .standard
     ) {
         self.init(
             llmService: llmService,
             notionService: notionService,
             transcriptionService: transcriptionService,
-            micService: MockMicrophoneService(),
+            micService: micService ?? MockMicrophoneService(),
             store: store,
             clock: clock,
-            scheduler: scheduler
+            scheduler: scheduler,
+            userDefaults: userDefaults
         )
     }
 }
