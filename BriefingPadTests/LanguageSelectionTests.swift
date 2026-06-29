@@ -1,9 +1,9 @@
 import XCTest
 @testable import BriefingPad
 
+@MainActor
 final class LanguageSelectionTests: XCTestCase {
 
-    @MainActor
     func testLocaleDiscoveryAndSorting() async {
         let service = SpeechTranscriptionService()
         let locales = await service.getSupportedLocales()
@@ -23,7 +23,6 @@ final class LanguageSelectionTests: XCTestCase {
         }
     }
 
-    @MainActor
     func testSessionViewModelLocalePersistence() async throws {
         let userDefaults = UserDefaults(suiteName: "test_suite")!
         userDefaults.removePersistentDomain(forName: "test_suite")
@@ -59,7 +58,6 @@ final class LanguageSelectionTests: XCTestCase {
         XCTAssertEqual(viewModel2.selectedTranscriptionLocale, "en-US")
     }
 
-    @MainActor
     func testSessionViewModelLocaleFallback() async throws {
         let userDefaults = UserDefaults(suiteName: "test_suite_fallback")!
         userDefaults.removePersistentDomain(forName: "test_suite_fallback")
