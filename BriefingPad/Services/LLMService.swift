@@ -1,12 +1,12 @@
 import Foundation
 
-struct ItemMatch: Codable, Hashable {
+struct ItemMatch: Codable, Hashable, Sendable {
     let itemId: String
     let confidence: Double
     let shortEvidence: String // Or shortReason
 }
 
-struct AnalysisResult: Codable, Hashable {
+struct AnalysisResult: Codable, Hashable, Sendable {
     let observationMatches: [ItemMatch]
     let positiveMatches: [ItemMatch]
 }

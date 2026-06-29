@@ -184,4 +184,53 @@ final class FinalizationLogicTests: XCTestCase {
         XCTAssertNotEqual(finishedPart.aiMemoBlockId, "original-block-id")
         XCTAssertTrue(finishedPart.aiMemoBlockId?.contains("new-block-id") ?? false)
     }
+
+    @MainActor
+    func testFinishPartFlow_Timeout() async throws {
+        let mockLLM = TimeoutMockLLM()
+        let mockNotion = MockNotionService()
+        let viewModel = SessionViewModel(
+            llmService: mockLLM,
+            notionService: mockNotion,
+            transcriptionService: MockSpeechTranscriptionService(),
+            store: MockSessionStore(),
+            clock: MockClock()
+        )
+
+        let partId = try await setupTestFixture(viewModel: viewModel)
+        XCTAssertFalse(viewModel.sessionState.partStates[partId]?.isFinished ?? true)
+
+        await viewModel.finishPart()
+
+        // 1. finishPart() still completes the part
+        XCTAssertTrue(viewModel.sessionState.partStates[partId]?.isFinished ?? false)
+
+        // 2. isGeneratingAIMemo and isFinalizing return to false
+        XCTAssertFalse(viewModel.isGeneratingAIMemo)
+        XCTAssertFalse(viewModel.isFinalizing)
+
+        // 3. aiMemoGenerationError is populated
+        let finishedPart = try XCTUnwrap(viewModel.sessions.first?.parts.first)
+        XCTAssertNotNil(finishedPart.aiMemoGenerationError)
+        XCTAssertEqual(finishedPart.aiMemoGenerationError, LLMError.timeout.localizedDescription)
+
+        // 4. the retry path is available (aiMemo is empty and error is set)
+        XCTAssertTrue(finishedPart.aiMemo.isEmpty)
+    }
+
+    private actor TimeoutMockLLM: LLMServiceProtocol {
+        func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition, localeIdentifier: String) async throws -> AnalysisResult {
+            return AnalysisResult(observationMatches: [], positiveMatches: [])
+        }
+
+        func generateOneLiner(
+            partInfo: PartDefinition,
+            fullTranscript: String,
+            positives: [SummarizedItem],
+            observations: [SummarizedItem],
+            localeIdentifier: String
+        ) async throws -> String {
+            throw LLMError.timeout
+        }
+    }
 }

@@ -933,6 +933,7 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let targetPartIndex = currentPartIndex
 
         isFinalizing = true
+        defer { isFinalizing = false }
         stopPlayback()
 
         // 1. Stop recording and flush
@@ -948,7 +949,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         // Re-fetch part after wait to get latest analysis results
         guard let session = sessions.first(where: { $0.id == targetSessionId }),
               targetPartIndex < session.parts.count else {
-            isFinalizing = false
             return
         }
         let latestPart = session.parts[targetPartIndex]
@@ -963,7 +963,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         // Re-fetch part and session state once more after AI memo generation to ensure we have everything
         guard let finalSession = sessions.first(where: { $0.id == targetSessionId }),
               targetPartIndex < finalSession.parts.count else {
-            isFinalizing = false
             return
         }
         let finalPartId = finalSession.parts[targetPartIndex].id
@@ -974,7 +973,6 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         sessionState.partStates[finalPartId] = partState
 
         saveCurrentSession()
-        isFinalizing = false
     }
 
     func regenerateAIMemo() {
