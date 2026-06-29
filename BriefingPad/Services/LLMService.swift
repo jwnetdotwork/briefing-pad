@@ -21,7 +21,8 @@ protocol LLMServiceProtocol {
     func analyzeTranscript(
         fullTranscript: String,
         newChunk: String,
-        partInfo: PartDefinition
+        partInfo: PartDefinition,
+        localeIdentifier: String
     ) async throws -> AnalysisResult
 
     /// 箇条書きのコメント用素材を生成する
@@ -29,7 +30,8 @@ protocol LLMServiceProtocol {
         partInfo: PartDefinition,
         fullTranscript: String,
         positives: [SummarizedItem],
-        observations: [SummarizedItem]
+        observations: [SummarizedItem],
+        localeIdentifier: String
     ) async throws -> String
 }
 
@@ -43,7 +45,8 @@ class MockLLMService: LLMServiceProtocol {
     func analyzeTranscript(
         fullTranscript: String,
         newChunk: String,
-        partInfo: PartDefinition
+        partInfo: PartDefinition,
+        localeIdentifier: String
     ) async throws -> AnalysisResult {
         // Simulate network delay
         try await Task.sleep(nanoseconds: delayNanoseconds)
@@ -62,7 +65,8 @@ class MockLLMService: LLMServiceProtocol {
         partInfo: PartDefinition,
         fullTranscript: String,
         positives: [SummarizedItem],
-        observations: [SummarizedItem]
+        observations: [SummarizedItem],
+        localeIdentifier: String
     ) async throws -> String {
         try await Task.sleep(nanoseconds: delayNanoseconds)
         return "素晴らしい対応でした。特に相手の状況を汲み取った発言が印象的です。"

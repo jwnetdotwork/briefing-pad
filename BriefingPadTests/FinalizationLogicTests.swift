@@ -99,7 +99,7 @@ final class FinalizationLogicTests: XCTestCase {
             }
         }
 
-        func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition) async throws -> AnalysisResult {
+        func analyzeTranscript(fullTranscript: String, newChunk: String, partInfo: PartDefinition, localeIdentifier: String) async throws -> AnalysisResult {
             didStart = true
             startContinuation?.resume()
             startContinuation = nil
@@ -117,7 +117,8 @@ final class FinalizationLogicTests: XCTestCase {
             partInfo: PartDefinition,
             fullTranscript: String,
             positives: [SummarizedItem],
-            observations: [SummarizedItem]
+            observations: [SummarizedItem],
+            localeIdentifier: String
         ) async throws -> String {
             return "Mock One-Liner"
         }

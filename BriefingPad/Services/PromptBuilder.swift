@@ -1,120 +1,131 @@
 import Foundation
 
 struct PromptBuilder {
-    static func buildSystemPrompt() -> String {
+    static func languageName(from localeIdentifier: String) -> String {
+        let locale = Locale(identifier: "en_US")
+        return locale.localizedString(forIdentifier: localeIdentifier) ?? localeIdentifier
+    }
+
+    static func buildSystemPrompt(localeIdentifier: String) -> String {
+        let language = languageName(from: localeIdentifier)
         return """
-        あなたは「生活と奉仕の集会」の実演に対する短評を準備する補助者です。
-        提供された文字起こしデータ（全文および最新の追加分）を分析し、特定の「観察メモ」および「良かった点候補」に該当する箇所があるかを判定してください。
+        You are an assistant preparing brief comments for a "Life and Ministry Meeting" demonstration.
+        Analyze the provided transcript data (full text and latest addition) to determine if there are parts that correspond to specific "Observation Notes" and "Positive Item Candidates".
 
-        提供されるユーザープロンプトには、これまでの判定結果が含まれています。
-        既判定の項目は土台として扱い、必要な場合のみ更新してください。
-        未判定の項目を優先して確認し、既存の判定は新しい材料がある場合のみ見直してください。
+        The user prompt will include previous judgment results.
+        Treat already judged items as a foundation and update them only if necessary.
+        Prioritize checking unjudged items and re-evaluate existing judgments only when new material is available.
 
-        以下の制約を厳守してJSON形式で回答してください：
-        1. 指定された itemId 以外は返さないこと。
-        2. 各項目について、確信度（confidence: 0.0〜1.0）と、その根拠となる短い証拠（shortEvidence）を抽出すること。
-        3. JSONフォーマットは以下の通りとすること：
+        Strictly adhere to the following constraints and respond in JSON format:
+        1. Do not return any itemId other than those specified.
+        2. For each item, extract a confidence level (confidence: 0.0 to 1.0) and a short piece of evidence (shortEvidence) that serves as the basis.
+        3. The JSON format must be as follows:
         {
           "observationMatches": [
-            { "itemId": "obs-1", "confidence": 0.9, "shortEvidence": "証拠文言" }
+            { "itemId": "obs-1", "confidence": 0.9, "shortEvidence": "evidence text" }
           ],
           "positiveMatches": [
-            { "itemId": "pos-1", "confidence": 0.7, "shortEvidence": "証拠文言" }
+            { "itemId": "pos-1", "confidence": 0.7, "shortEvidence": "evidence text" }
           ]
         }
-        5. 余計な説明や、Markdownのコードブロック（```json ... ```）は含めず、純粋なJSONのみを出力すること。
+        4. Do not include any extra explanations or Markdown code blocks (```json ... ```); output only pure JSON.
+        5. Important: Output the "shortEvidence" in \(language).
         """
     }
 
     static func buildUserPrompt(
         fullTranscript: String,
         newChunk: String,
-        partInfo: PartDefinition
+        partInfo: PartDefinition,
+        localeIdentifier: String
     ) -> String {
-        var prompt = "## 現在のパート情報\n"
-        prompt += "タイトル: \(partInfo.title)\n"
+        let language = languageName(from: localeIdentifier)
+        var prompt = "## Current Part Information\n"
+        prompt += "Title: \(partInfo.title)\n"
         if let setting = partInfo.setting {
-            prompt += "設定: \(setting)\n"
+            prompt += "Setting: \(setting)\n"
         }
 
-        prompt += "\n## 学習ポイント\n"
+        prompt += "\n## Learning Points\n"
         for lp in partInfo.learningPoints {
             prompt += "- \(lp.text)\n"
         }
 
-        prompt += "\n## これまでの判定結果：観察メモ (observationItems)\n"
+        prompt += "\n## Previous Results: Observation Items\n"
         for item in partInfo.observationItems {
             let state = partInfo.analysisState.observationItemStates[item.id] ?? .hidden()
-            prompt += "- id: \(item.id), 内容: \(item.text), "
+            prompt += "- id: \(item.id), Content: \(item.text), "
             if state.status == .hidden {
-                prompt += "状態: hidden (未判定)\n"
+                prompt += "Status: hidden (unjudged)\n"
             } else {
-                prompt += "状態: \(state.status.rawValue), 確信度: \(state.confidence), 根拠: \(state.shortEvidence)\n"
+                prompt += "Status: \(state.status.rawValue), Confidence: \(state.confidence), Evidence: \(state.shortEvidence)\n"
             }
         }
 
-        prompt += "\n## これまでの判定結果：良かった点候補 (positiveItems)\n"
+        prompt += "\n## Previous Results: Positive Item Candidates\n"
         for item in partInfo.positiveItems {
             let state = partInfo.analysisState.positiveItemStates[item.id] ?? .hidden()
-            prompt += "- id: \(item.id), 内容: \(item.text), "
+            prompt += "- id: \(item.id), Content: \(item.text), "
             if state.status == .hidden {
-                prompt += "状態: hidden (未判定)\n"
+                prompt += "Status: hidden (unjudged)\n"
             } else {
-                prompt += "状態: \(state.status.rawValue), 確信度: \(state.confidence), 根拠: \(state.shortEvidence)\n"
+                prompt += "Status: \(state.status.rawValue), Confidence: \(state.confidence), Evidence: \(state.shortEvidence)\n"
             }
         }
 
-        prompt += "\n## 現在までの文字起こし全文\n"
+        prompt += "\n## Full Transcript (up to now)\n"
         prompt += fullTranscript + "\n"
 
-        prompt += "\n## 最新の追加文字起こし（今回の分析対象）\n"
+        prompt += "\n## Latest Added Transcript (target for this analysis)\n"
         prompt += newChunk + "\n"
 
-        prompt += "\n## 回答\nJSON形式で出力してください。"
+        prompt += "\n## Response\nPlease output in JSON format. Ensure all evidence text is in \(language)."
 
         return prompt
     }
 
-    static func buildOneLinerSystemPrompt() -> String {
+    static func buildOneLinerSystemPrompt(localeIdentifier: String) -> String {
+        let language = languageName(from: localeIdentifier)
         return """
-        あなたは「生活と奉仕の集会」の実演に対する短評を準備する補助者です。
-        提供されるパート情報、学習ポイント、および実演の文字起こし原稿、そして分析によって得られた「良かった点」や「観察事項」の候補を基に、約1分間の短評に使える「コメント用素材」をコンパクトに箇条書きでまとめてください。
+        You are an assistant preparing brief comments for a "Life and Ministry Meeting" demonstration.
+        Based on the provided part information, learning points, transcript of the demonstration, and candidates for "positive points" and "observation items" obtained through analysis, please summarize "comment materials" that can be used for a brief comment of about 1 minute in a compact bulleted list.
 
-        # 出力してほしいもの
-        - 約1分間の短評に使える素材（箇条書き）を出力する。
-        - 次の流れを意識する。
-          1. 最初の温かい褒め言葉
-          2. どこがどのように良かったか
-          3. 学習ポイントをどのように反映していたか
-          4. 必要なら、さらにどんなふうに取り組むとよいか
-          5. 最後に、聞いている皆が当てはめられる学びの一言
+        # What to Output
+        - Output materials (bullet points) that can be used for a brief comment of about 1 minute.
+        - Be mindful of the following flow:
+          1. Initial warm words of praise
+          2. Where and how it was good
+          3. How learning points were reflected
+          4. If necessary, how to work on it further
+          5. Finally, a word of learning that everyone listening can apply
 
-        # 重要な注意点
-        - 文字起こし原稿には誤字脱字や聞き取り違いが含まれている可能性があるので、文脈から自然に補って判断する。
-        - 実演者と相手の発言が区別されていない場合があるので、会話の流れからどちらの発言かを見極める。
-        - 学習ポイントがはっきり反映されていない場合は、無理に学習ポイントに結び付けて褒めない。
-        - その場合でも、実演の中で良かった点、例えば温かさ、自然さ、相手への気遣い、聞く姿勢、聖句や出版物への導き方などを見つけて褒める。
-        - 全体として、実演者が励まされる温かい短評にする。
-        - 「さらに取り組むといい点」は必須ではない。
-        - 確実に改善した方がよい点がある場合だけ、やわらかく1点だけ含める。
-        - 自信がない場合は、改善点は出さない。
-        - 批判的、断定的、細かすぎる指摘は避ける。
-        - 実演者本人を評価しすぎるより、「この点から学べる」と会衆全体に益がある形にする。
+        # Important Notes
+        - The transcript may contain typos or mishearings, so judge naturally by supplementing from the context.
+        - Speaker and partner utterances may not be distinguished, so identify which speech belongs to whom from the flow of conversation.
+        - If the learning points are not clearly reflected, do not force a connection to the learning points to praise.
+        - Even in that case, find and praise good points in the demonstration, such as warmth, naturalness, consideration for the partner, listening attitude, how to lead to scriptures or publications, etc.
+        - Overall, make it a warm brief comment that encourages the demonstrator.
+        - "Points to work on further" are not mandatory.
+        - Include only one point softly if there is something that should definitely be improved.
+        - If you are not confident, do not output improvement points.
+        - Avoid critical, dogmatic, or overly detailed points.
+        - Rather than evaluating the demonstrator too much, make it in a form that benefits the whole congregation, saying "We can learn from this point."
 
-        # 出力形式
-        次のような箇条書きで、5項目以内にまとめてください。余計な説明や、挨拶、Markdownのコードブロックは含めず、本文のみを出力してください｡
+        # Output Format
+        Summarize in no more than 5 bullet points in the following format. Do not include extra explanations, greetings, or Markdown code blocks; output only the body text.
+        The content must be written in \(language).
 
-        - まず、〇〇がとても良かった
-        - 特に、〇〇という場面で、相手に〇〇が伝わっていた
-        - 学習ポイントの〇〇についても、〇〇という形でよく表れていた
-        - もし加えるなら、〇〇するとさらに〇〇になる｡
-        - 私たちも、〇〇を学べる
+        - [Warm praise for something that was very good]
+        - [Specific scene where something was good and conveyed to the partner]
+        - [How a learning point was well expressed]
+        - [A point to work on further (optional)]
+        - [A lesson for the whole congregation]
 
-        # 文体
-        - 短評でそのまま話せる自然な日本語
-        - 温かく、簡潔に
-        - 約1分で話せる分量
-        - 箇条書きのみ
+        # Style
+        - Natural \(language) that can be used as-is in a brief comment.
+        - Warm and concise.
+        - Amount that can be spoken in about 1 minute.
+        - Bullet points only.
         """
     }
 
@@ -122,41 +133,43 @@ struct PromptBuilder {
         partInfo: PartDefinition,
         fullTranscript: String,
         positives: [SummarizedItem],
-        observations: [SummarizedItem]
+        observations: [SummarizedItem],
+        localeIdentifier: String
     ) -> String {
-        var prompt = "## 現在のパート情報\n"
-        prompt += "タイトル: \(partInfo.title)\n"
+        let language = languageName(from: localeIdentifier)
+        var prompt = "## Current Part Information\n"
+        prompt += "Title: \(partInfo.title)\n"
         if let setting = partInfo.setting {
-            prompt += "設定: \(setting)\n"
+            prompt += "Setting: \(setting)\n"
         }
 
-        prompt += "\n## 学習ポイント\n"
+        prompt += "\n## Learning Points\n"
         for lp in partInfo.learningPoints {
             prompt += "- \(lp.text)\n"
         }
 
-        prompt += "\n## 分析済みの候補（良かった点）\n"
+        prompt += "\n## Analyzed Candidates (Positive Points)\n"
         if positives.isEmpty {
-            prompt += "(なし)\n"
+            prompt += "(None)\n"
         } else {
             for item in positives {
-                prompt += "- \(item.text) (根拠: \(item.evidence))\n"
+                prompt += "- \(item.text) (Evidence: \(item.evidence))\n"
             }
         }
 
-        prompt += "\n## 分析済みの候補（観察事項）\n"
+        prompt += "\n## Analyzed Candidates (Observation Items)\n"
         if observations.isEmpty {
-            prompt += "(なし)\n"
+            prompt += "(None)\n"
         } else {
             for item in observations {
                 prompt += "- \(item.text) \(item.evidence)\n"
             }
         }
 
-        prompt += "\n## 実演の文字起こし原稿（全文）\n"
+        prompt += "\n## Demonstration Transcript (Full Text)\n"
         prompt += fullTranscript + "\n"
 
-        prompt += "\n## 回答\n箇条書きのコメント用素材のみを出力してください。"
+        prompt += "\n## Response\nPlease output only the bulleted comment materials in \(language)."
 
         return prompt
     }

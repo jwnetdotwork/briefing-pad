@@ -25,17 +25,19 @@ class OpenAILLMService: LLMServiceProtocol {
     func analyzeTranscript(
         fullTranscript: String,
         newChunk: String,
-        partInfo: PartDefinition
+        partInfo: PartDefinition,
+        localeIdentifier: String
     ) async throws -> AnalysisResult {
         guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 
-        let systemPrompt = PromptBuilder.buildSystemPrompt()
+        let systemPrompt = PromptBuilder.buildSystemPrompt(localeIdentifier: localeIdentifier)
         let userPrompt = PromptBuilder.buildUserPrompt(
             fullTranscript: fullTranscript,
             newChunk: newChunk,
-            partInfo: partInfo
+            partInfo: partInfo,
+            localeIdentifier: localeIdentifier
         )
 
         let requestBody: [String: Any] = [
@@ -97,18 +99,20 @@ class OpenAILLMService: LLMServiceProtocol {
         partInfo: PartDefinition,
         fullTranscript: String,
         positives: [SummarizedItem],
-        observations: [SummarizedItem]
+        observations: [SummarizedItem],
+        localeIdentifier: String
     ) async throws -> String {
         guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
 
-        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
+        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt(localeIdentifier: localeIdentifier)
         let userPrompt = PromptBuilder.buildOneLinerUserPrompt(
             partInfo: partInfo,
             fullTranscript: fullTranscript,
             positives: positives,
-            observations: observations
+            observations: observations,
+            localeIdentifier: localeIdentifier
         )
 
         let requestBody: [String: Any] = [

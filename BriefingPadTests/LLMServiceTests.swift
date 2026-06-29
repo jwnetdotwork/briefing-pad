@@ -18,23 +18,31 @@ final class LLMServiceTests: XCTestCase {
 
         let fullTranscript = "Full transcript text."
         let newChunk = "New chunk text."
+        let locale = "ja-JP"
 
-        let systemPrompt = PromptBuilder.buildSystemPrompt()
+        let systemPrompt = PromptBuilder.buildSystemPrompt(localeIdentifier: locale)
         let userPrompt = PromptBuilder.buildUserPrompt(
             fullTranscript: fullTranscript,
             newChunk: newChunk,
-            partInfo: partInfo
+            partInfo: partInfo,
+            localeIdentifier: locale
         )
 
         XCTAssertTrue(systemPrompt.contains("JSON"))
+        XCTAssertTrue(systemPrompt.contains("Japanese"))
         XCTAssertTrue(userPrompt.contains("Test Part"))
         XCTAssertTrue(userPrompt.contains("Test Setting"))
         XCTAssertTrue(userPrompt.contains("Point 1"))
         XCTAssertTrue(userPrompt.contains("obs1"))
         XCTAssertTrue(userPrompt.contains("pos1"))
-        XCTAssertTrue(userPrompt.contains("状態: hidden (未判定)"))
+        XCTAssertTrue(userPrompt.contains("Status: hidden (unjudged)"))
         XCTAssertTrue(userPrompt.contains(fullTranscript))
         XCTAssertTrue(userPrompt.contains(newChunk))
+        XCTAssertTrue(userPrompt.contains("Japanese"))
+
+        // English headers
+        XCTAssertTrue(userPrompt.contains("## Current Part Information"))
+        XCTAssertTrue(userPrompt.contains("## Previous Results: Observation Items"))
     }
 
     func testPromptBuilderWithCumulativeState() {
@@ -67,21 +75,22 @@ final class LLMServiceTests: XCTestCase {
         let userPrompt = PromptBuilder.buildUserPrompt(
             fullTranscript: "Full transcript.",
             newChunk: "New chunk.",
-            partInfo: partInfo
+            partInfo: partInfo,
+            localeIdentifier: "ja-JP"
         )
 
-        XCTAssertTrue(userPrompt.contains("これまでの判定結果"))
+        XCTAssertTrue(userPrompt.contains("Previous Results"))
 
         // Robust assertions for cumulative state
         XCTAssertTrue(userPrompt.contains("id: obs1"))
-        XCTAssertTrue(userPrompt.contains("内容: Obs 1"))
-        XCTAssertTrue(userPrompt.contains("状態: candidate"))
-        XCTAssertTrue(userPrompt.contains("根拠: Found evidence for obs1"))
+        XCTAssertTrue(userPrompt.contains("Content: Obs 1"))
+        XCTAssertTrue(userPrompt.contains("Status: candidate"))
+        XCTAssertTrue(userPrompt.contains("Evidence: Found evidence for obs1"))
 
         XCTAssertTrue(userPrompt.contains("id: pos1"))
-        XCTAssertTrue(userPrompt.contains("内容: Pos 1"))
-        XCTAssertTrue(userPrompt.contains("状態: strong"))
-        XCTAssertTrue(userPrompt.contains("根拠: Strong evidence for pos1"))
+        XCTAssertTrue(userPrompt.contains("Content: Pos 1"))
+        XCTAssertTrue(userPrompt.contains("Status: strong"))
+        XCTAssertTrue(userPrompt.contains("Evidence: Strong evidence for pos1"))
     }
 
     func testOneLinerPromptBuilder() {
@@ -100,16 +109,19 @@ final class LLMServiceTests: XCTestCase {
         let fullTranscript = "Full transcript text."
         let positives = [SummarizedItem(id: "pos1", text: "Good point", evidence: "He smiled")]
         let observations = [SummarizedItem(id: "obs1", text: "Observed", evidence: "He sat down")]
+        let locale = "en-US"
 
-        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt()
+        let systemPrompt = PromptBuilder.buildOneLinerSystemPrompt(localeIdentifier: locale)
         let userPrompt = PromptBuilder.buildOneLinerUserPrompt(
             partInfo: partInfo,
             fullTranscript: fullTranscript,
             positives: positives,
-            observations: observations
+            observations: observations,
+            localeIdentifier: locale
         )
 
-        XCTAssertTrue(systemPrompt.contains("箇条書き"))
+        XCTAssertTrue(systemPrompt.contains("bullet points"))
+        XCTAssertTrue(systemPrompt.contains("English"))
         XCTAssertTrue(userPrompt.contains("Test Part"))
         XCTAssertTrue(userPrompt.contains("Point 1"))
         XCTAssertTrue(userPrompt.contains("Good point"))
@@ -117,6 +129,11 @@ final class LLMServiceTests: XCTestCase {
         XCTAssertTrue(userPrompt.contains("Observed"))
         XCTAssertTrue(userPrompt.contains("He sat down"))
         XCTAssertTrue(userPrompt.contains(fullTranscript))
+        XCTAssertTrue(userPrompt.contains("English"))
+
+        // English headers
+        XCTAssertTrue(userPrompt.contains("## Current Part Information"))
+        XCTAssertTrue(userPrompt.contains("## Analyzed Candidates"))
     }
 
     func testAnalysisResultParsing() throws {

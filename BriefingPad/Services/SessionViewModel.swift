@@ -506,7 +506,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             let result = try await llmService.analyzeTranscript(
                 fullTranscript: fullTranscript,
                 newChunk: chunk.text,
-                partInfo: part
+                partInfo: part,
+                localeIdentifier: selectedTranscriptionLocale
             )
 
             // 2. Merge Results into analysisState
@@ -1511,7 +1512,8 @@ class SessionViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     partInfo: part,
                     fullTranscript: fullTranscript,
                     positives: positives,
-                    observations: observations
+                    observations: observations,
+                    localeIdentifier: selectedTranscriptionLocale
                 )
             } catch {
                 print("Failed to generate comment material: \(error)")
