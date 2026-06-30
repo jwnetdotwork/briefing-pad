@@ -1,271 +1,311 @@
 # BriefingPad
 
-BriefingPad は、`生活と奉仕の集会` の実演準備を支援する macOS アプリです。macOS 26 から使える `SpeechTranscriber` を使って録音を文字起こしし、パートごとの観察メモ、良かった点候補、AIメモをまとめます。
+BriefingPad is a Mac app that helps with giving advice on the demonstration portions of the *Christian Life and Ministry* meeting.
+Based on recording transcriptions, it can analyze observation notes and generate comment suggestions for short reviews.
 
-パート情報は Notion から取り込むことも、アプリ内で手動作成することもできます。Notionインポートしたセッションでは、パート終了時に生成した AIメモを Notion に書き戻せます。手動作成したセッションでは、AIメモはアプリ内で完結し、Notion へは同期しません。
+Part information can be imported from Notion or created manually within the app. For Notion-imported sessions, AI memo generated at the end of a part can be written back to Notion. For manually created sessions, AI memo stays within the app and does not sync to Notion.
 
-## 主な用途
+## Main Uses
 
-- Notion に置いた集会用の原稿をアプリへ取り込む
-- アプリ内で新しいセッションとパートを手動作成する
-- パートごとに録音して文字起こしを蓄積する
-- 文字起こしから観察メモと良かった点候補を自動で拾う
-- パート終了後に、短評用の AIメモを生成する
-- Notionインポートしたセッションでは、生成した AIメモを Notion に同期する
+- Import meeting scripts placed in Notion into the app
+- Manually create new sessions and parts within the app
+- Record per part and accumulate transcriptions
+- Automatically pick up observation notes and positive item candidates from transcriptions
+- Generate AI memo for short reviews after a part ends
+- For Notion-imported sessions, sync generated AI memo back to Notion
 
-## パート情報の作り方
+## How to Create Part Information
 
-| ルート | 作り方 | AIメモの扱い |
+| Route | Method | AI Memo handling |
 | --- | --- | --- |
-| Notionインポート | Notion のページを取り込んで、既存のパート情報をセッション化する | 対応する `🤖 AIメモ` ブロックに書き戻せる |
-| 手動作成 | アプリで新規セッションを作り、`パート追加` でパート情報を入力する | アプリ内で保持するのみで、Notion には書き戻せない |
+| Notion import | Import a Notion page and turn existing part info into a session | Can write back to the corresponding `🤖 AI memo` block |
+| Manual creation | Create a new session in the app and enter part info via `Add Part` | Retained only within the app; cannot be written back to Notion |
 
-AIメモの生成自体はどちらのルートでも使えますが、Notion への同期ができるのは Notionインポートしたセッションだけです。
+AI memo generation itself is available for both routes, but Notion sync is possible only for Notion-imported sessions.
 
-## 対応環境
+## System Requirements
 
-- macOS 26 以降
-- 音声認識が利用できる環境
+- macOS 26 Tahoe or later
 - OpenAI API Key
-- Notion インテグレーション・トークン（Notionインポートを使う場合のみ）
+- Notion integration token (only when using Notion import)
 
-## 事前準備
+## Quick Start
 
-### 1. OpenAI API Key を用意する
+You can use BriefingPad without Notion.
 
-アプリの文字起こし分析と AIメモ生成で OpenAI API を使います。
+1. Install the app
+2. Allow the warning on first launch
+3. Enter your OpenAI API Key in Settings
+4. Create a new session
+5. Add a part
+6. Start recording
+7. Press "Finish Part"
+8. Review the AI memo
 
-### 2. Notion インテグレーションを作成する（Notionインポートを使う場合のみ）
+## Preparation
 
-Notion の [開発者ポータル](https://app.notion.com/developers/connections) から新規コネクトを作成し、インテグレーショントークン（アクセストークン）を取得します。
+### 1. Prepare an OpenAI API Key
 
-### 3. Notion で対象ページを共有する（Notionインポートを使う場合のみ）
+An OpenAI API key is required for evaluating observation notes and generating AI memo.
+Create an API key on OpenAI's developer page. Even if you subscribe to ChatGPT Plus, separate API usage setup is required.
+OpenAI API usage incurs pay-as-you-go charges. Check OpenAI's pricing page before use.
+Do not share your API key with others.
 
-設定 → コネクト → 管理 → コネクトとトークンを管理する → すべてのコネクト → 対象のコネクトの「…」→ コネクトを管理 を開きます。  
-ページアクセスを管理で、Notion の対象ページもしくは親ページにチェックを入れてコネクトがアクセスできるようにします。
+### 2. Create a Notion Integration (only when using Notion import)
 
-共有が足りない場合は、インポート時に権限エラーになります。
+This setup is only needed if you import part information from Notion.
+If you create sessions manually, no Notion configuration is required.
+Create a new connection from the Notion [Developer Portal](https://app.notion.com/developers/connections) and obtain an integration token (access token).
 
-## ダウンロードとインストール
-- [リリースページ](https://github.com/jwnetdotwork/briefing-pad/releases)からdmgまたはzipファイルをダウンロードします。
-### dmgの場合
-1. ダウンロードしたdmgをダブルクリックし、「BriefingPad.app」を「Applications」フォルダにドラッグします。
-### zipの場合
-1. ダウンロードしたzipをダブルクリックして展開し、「BriefingPad.app」を「Applications」フォルダにドラッグします。
+### 3. Share the Target Page in Notion (only when using Notion import)
 
-## 起動方法
-1. 「Applications」フォルダから「BriefingPad.app」をダブルクリックして起動します。
-2. 「"BriefingPad.app"は開いていません　Appleは、“BriefingPad.app”にMacに損害を与えたり、プライバシーを侵害する可能性のあるマルウェアが含まれていないことを検証できませんでした。」というメッセージがでるはずです。これは、書名にApple発行証明書を使っていないためです。
-3. 一旦「完了」をクリックしてメッセージを閉じます。
-4. macOSの「システム設定」→「プライバシーとセキュリティ」を開き、「セキュリティ」までスクロールします。
-5. 「お使いのMacを保護するために"BriefingPad.app"がブロックされました」と表示されているので「このまま開く」をクリックします。
-6. ダイアログがでるので「このまま開く」をクリックします。
-7. Macのログインパスワードを入力するか、TouchIDを使って起動を承認します。
-8. キーチェーン内の情報を使用しようとしているというダイアログがでたら、ログインパスワードを入力して「許可」または「常に許可」をクリックします。
+Settings → Connections → Manage → Manage connections and tokens → All connections → "..." on the target connection → Manage connection.
+Under Page Access Management, check the target Notion page or parent page to allow the connection to access it.
 
-## 初期設定
+Insufficient sharing will result in a permission error during import.
 
-1. アプリ右上の `設定` を開く
-2. `OpenAI API Key` を保存する
-3. `Notion インテグレーション・トークン` を保存する（オプション）
-4. 必要に応じて `APIエンドポイント (任意)`、`モデル名 (任意)`、`セッション表示順`、`文字起こし言語` を調整する
-5. `保存` を押す
+## Download and Install
 
-保存した情報は、`OpenAI API Key` と `Notion インテグレーション・トークン` は Keychain、その他の設定は UserDefaults に保存されます。
+- Download a .dmg or .zip file from the [Releases page](https://github.com/jwnetdotwork/briefing-pad/releases).
 
-### 設定画面の項目
+### For DMG
 
-| 項目 | 内容 | 保存先 | 補足 |
+1. Double-click the downloaded .dmg and drag "BriefingPad.app" into the "Applications" folder.
+
+### For ZIP
+
+1. Double-click the downloaded .zip to extract it, then drag "BriefingPad.app" into the "Applications" folder.
+
+## How to Launch
+
+This app is currently not notarized by Apple, so a warning will appear on first launch. After verifying the source of the app, follow the steps below to launch it.
+
+1. Double-click "BriefingPad.app" in the "Applications" folder.
+2. A message will appear: "BriefingPad.app is not open. Apple could not verify that BriefingPad.app is free of malware that may harm your Mac or compromise your privacy." This is because the app does not use an Apple-issued certificate for signing.
+3. Click "Done" to close the message.
+4. Open macOS "System Settings" → "Privacy & Security" and scroll down to "Security".
+5. You will see "BriefingPad.app was blocked to protect your Mac." Click "Open Anyway".
+6. A dialog will appear — click "Open Anyway".
+7. Enter your Mac login password or use Touch ID to authorize the launch.
+8. When a dialog appears about using information in your keychain, enter your login password and click "Allow" or "Always Allow".
+
+## First Recording
+
+On the first recording, macOS will ask for microphone permission.
+Select "Allow".
+If you accidentally denied it, go to System Settings → Privacy & Security → Microphone and enable BriefingPad.
+
+## Initial Settings
+
+1. Open `Settings` from the top-right of the app
+2. Save your `OpenAI API Key`
+3. Save your `Notion Integration Token` (optional)
+4. Adjust `API Endpoint (optional)`, `Model Name (optional)`, `Session sort order`, and `Transcription Language` as needed
+5. Press `Save`
+
+Saved information: `OpenAI API Key` and `Notion Integration Token` are stored in the keychain; other settings are stored in app preferences.
+
+### Settings Items
+
+| Item | Description | Storage | Notes |
 | --- | --- | --- | --- |
-| `OpenAI API Key` | 文字起こし分析と AIメモ生成に使う API Key | Keychain | 空欄だと OpenAI API は使えません |
-| `Notion インテグレーション・トークン` | Notionインポートと Notion への書き戻しに使うトークン | Keychain | Notion を使わないなら未設定でも可 |
-| `APIエンドポイント (任意)` | OpenAI 互換 API の送信先ベース URL | UserDefaults | 空欄なら既定の `https://api.openai.com/v1/chat/completions` を使う。入力した値にはアプリが `/chat/completions` を付ける |
-| `モデル名 (任意)` | AIメモ生成と分析に使うモデル名 | UserDefaults | 空欄なら既定の `gpt-5.4-mini-2026-03-17` を使う |
-| `セッション表示順` | セッション一覧の並び順 | UserDefaults | `名前 (昇順)`、`名前 (降順)`、`更新日時 (古い順)`、`更新日時 (新しい順)`、`作成日時 (古い順)`、`作成日時 (新しい順)` を切り替えられる。既定は `作成日時 (新しい順)` |
-| `文字起こし言語` | 文字起こしに使う言語ロケール | UserDefaults | `SpeechTranscriber` の対応ロケール一覧から選ぶ。未設定時はシステム言語設定に基づき自動決定される。候補がない場合は `ja-JP` か利用可能なロケールにフォールバックする |
+| `OpenAI API Key` | API key used for transcription analysis and AI memo generation | Keychain | If left blank, OpenAI API is unavailable |
+| `Notion Integration Token` | Token used for Notion import and writing back to Notion | Keychain | Can be left unset if not using Notion |
+| `API Endpoint (optional)` | Base URL for sending to OpenAI-compatible APIs | App preferences | For using providers other than OpenAI. `/chat/completions` is appended automatically, so do not include it |
+| `Model Name (optional)` | Model name used for AI memo generation and analysis | App preferences | If blank, defaults to `gpt-5.4-mini-2026-03-17` |
+| `Session sort order` | Sort order for the session list | App preferences | Choose from: `Name (Ascending)`, `Name (Descending)`, `Updated (Oldest)`, `Updated (Newest)`, `Created (Oldest)`, `Created (Newest)`. Default is `Created (Newest)` |
+| `Transcription Language` | Language setting used for transcription | App preferences | Choose from `SpeechTranscriber` supported locales. When not set, automatically determined based on system language. Falls back to `ja-JP` or an available locale if no match is found |
 
-## Notionインポートの手順
+## Notion Import Procedure
 
-1. アプリ右上の `Notionインポート` を開く
-2. Notion ページの URL かページ ID を貼り付ける
-3. `プレビュー確認` を押す
-4. セッション名とパート一覧、未解釈ブロック数を確認する
-5. 問題なければ `インポート確定` を押す
+1. Open `Import from Notion` from the top-right of the app
+2. Paste a Notion page URL or page ID
+3. Press `Preview`
+4. Check the session name, part list, and number of unparsed blocks
+5. If everything looks good, press `Import`
 
-URL は `https://app.notion.com/...` 形式でも、ページ ID 直指定でも使えます。
+URLs in `https://app.notion.com/...` format or direct page IDs can both be used.
 
-## 手動作成の流れ
+## Manual Creation Flow
 
-1. セッション選択から新規セッションを作る
-2. `パート追加` でパートを登録する
-3. パートを選択して録音、文字起こし、AIメモ生成を行う
+1. Create a new session from the session selector
+2. Register parts using `Add Part`
+3. Select a part to record, transcribe, and generate AI memo
 
-手動作成のセッションは、アプリ内で完結します。Notion への書き戻しは行いません。
+Manually created sessions are self-contained within the app. Nothing is written back to Notion.
 
-## 画面の見方
+## Screen Overview
 
-### 上部バー
+### Top Bar
 
-- セッション選択
-- 新規セッション作成
-- パート追加
-- 削除メニュー
-- Notionインポート
-- 設定
+- Select Session
+- New Session
+- Add Part
+- Delete menu
+- Import from Notion
+- Settings
 
-### パート一覧
+### Part List
 
-現在のセッションに含まれるパートを横並びで表示します。
+Displays the parts contained in the current session in a horizontal layout.
 
-左右の矢印で前後のパートに移動できます。
+Use the left and right arrows to move between parts.
 
-### 録音と再生
+### Recording and Playback
 
-- `開始` で録音を始める
-- `停止` で録音を止める
-- `再生` で保存済み音声を再生する
-- `再生停止` で再生を止める
-- `パート終了` でそのパートを確定する
+- `Start` — begin recording
+- `Pause` — pause recording
+- `Play` — play saved audio
+- `Stop Playback` — stop playback
+- `Finish Part` — finalize the current part
 
-### 文字起こし
+### Transcription
 
-録音中の発話がここに表示されます。
+Speech captured during recording is displayed here.
 
-### 観察メモ / 良かった点候補
+### Observation Notes / Positive Candidates
 
-文字起こしの内容に応じて、自動で候補が表示されます。
+Candidates are automatically displayed based on the transcription content.
 
-### 🤖 AIメモ
+### 🤖 AI Memo
 
-ここに、短評用のコメント素材が表示されます。
+Comment material for short reviews is displayed here.
 
-- パート終了時に自動生成される
-- 手動で `再生成` できる
-- Notionインポート済みのパートなら、対応する `🤖 AIメモ` ブロックにも反映される
-- 手動作成のパートでは、表示はアプリ内のみで完結する
+- Automatically generated when a part ends
+- Can be manually `Regenerate`d
+- For Notion-imported parts, reflected in the corresponding `🤖 AI memo` block
+- For manually created parts, display is limited to within the app
 
-## 削除メニュー
+## Delete Menu
 
-上部バーの `削除` から、セッションやパートの削除を行えます。録音中、開始中、最終処理中は削除できません。
+From `Delete` in the top bar, you can delete sessions and parts. Deletion is not possible while recording, during playback, or during final processing.
 
-### セッション削除
+### Delete Session
 
-- 選択中のセッションを丸ごと削除する
-- セッション配下のローカル保存をまとめて消す
-- 対象にはパート、音声、文字起こし、LLM 結果、AI メモ、同期状態が含まれる
-- Notion の元ページは削除しない
+- Deletes the currently selected session entirely
+- Removes all local storage under the session
+- Targets include parts, audio, transcriptions, AI analysis results, AI memo, and sync state
+- Does not delete the original Notion page
 
-### パート削除
+### Delete Part
 
-- 選択中のパートを丸ごと削除する
-- パートのローカル保存を消して、セッションからも外す
-- 対象には音声、文字起こし、LLM 結果、AI メモ、分析状態が含まれる
-- Notion の元ブロックは削除しない
+- Deletes the currently selected part entirely
+- Removes local storage for the part and removes it from the session
+- Targets include audio, transcription, AI analysis results, AI memo, and analysis state
+- Does not delete the original Notion block
 
-### パートデータ削除
+### Delete Part Data
 
-- パート定義は残したまま、データだけ削除する
-- `すべて`、`音声のみ`、`文字起こしのみ`、`LLM結果のみ` を選べる
-- パートを残して録音や分析だけやり直したいときに使う
+- Deletes only data while keeping the part definition
+- Options: `All`, `Audio only`, `Transcription only`, `AI analysis results`
+- Use when you want to keep the part but redo recording or analysis
 
-## Notion ページの構成
+## Notion Page Structure
 
-この節は Notion から取り込む場合のテンプレート向けです。手動作成では必須ではありません。
+This section is for template guidance when importing from Notion. It is not required for manual creation.
 
-取り込みは、Notion ページのブロック構成にかなり依存します。
+Import relies heavily on the block structure of the Notion page.
 
-特に、章見出しとパート見出しは次の形に揃えるのが安定です。
+In particular, chapter headings and part headings should follow this format:
 
 ```md
-神の言葉の宝          <- heading_2
-  3. パート名           <- heading_3
-    （4分）場面や資料
-    📓 学習ポイント
-    ・...
-    👀 観察メモ
-    ・...
-    👍 どこがどのように良かったか
-    ・...
-    🤖 AIメモ
-
-野外奉仕に励む        <- heading_2
-  4. パート名           <- heading_3
-    （5分）
-    ...
+Treasures from God's Word   <- Heading 2
+  3. Part name               <- Heading 3
+    (4 min.) Scene or material
+    📓 Learning points
+     • ...
+    👀 Observation notes
+     • ...
+    👍 Where and how it was good
+     • ...
+    🤖 AI memo
 ```
 
-### 認識される見出し
+### Recognized Headings
 
-- `heading_2` の章見出し
-- `heading_3` のパート見出し
+In Notion, use "Heading 2" for section titles and "Heading 3" for each part title.
 
-### 章見出し
+Example:
 
-次の 2 つの章名をそのまま使ってください。
+- Heading 2: Treasures from God's Word
+- Heading 3: 3. Bible Reading — John Smith
 
-- `神の言葉の宝`
-- `野外奉仕に励む`
+### Section Headings
 
-この 2 章の外にあるブロックは、原則として取り込み対象外です。
+Use the following two chapter names as-is:
 
-### パート見出し
+- `Treasures from God's Word`
+- `Apply Yourself to the Field Ministry`
 
-パート見出しは `1.` `2.` `3.` のように、数字 + `.` で始めてください。
+Blocks outside these two sections are generally excluded from import.
 
-例:
+### Part Headings
 
-- `3. 聖書朗読 山田二郎`
-- `4. 会話を始める 山田花子/山田花枝`
+Part headings must start with a number followed by a period, e.g. `1.` `2.` `3.`.
 
-### 取り込みやすい配置
+Examples:
 
-- パート見出しの直後に、時間と、設定や場面を置く
-- 各セクション見出しは、1 ブロック 1 行にする
-- 各項目は、1 ブロックにつき 1 件にする
-- セクション見出しの文言は毎回同じにする
+- `3. Bible Reading — John Smith`
+- `4. Starting a Conversation — Jane Doe/John Doe`
 
-## 使う絵文字ラベル
+### Layout Tips for Smooth Import
 
-現行の取り込みで安定して使えるラベルは次の通りです。
+- Place time, setting, and scene immediately after the part heading
+- Keep each chapter heading to a single block, single line
+- Keep each item to one block
+- Use the same chapter heading text every time
 
-- `📓 学習ポイント`
-- `👀 観察メモ`
-- `👍 どこがどのように良かったか`
-- `🤖 AIメモ`
+## Emoji Labels to Use
 
-### ラベル運用のコツ
+The following labels work reliably with current import:
 
-- 絵文字と文言は毎回同じにする
-- ラベルは単独ブロックに置く
-- ラベルの下には、箇条書きか短い段落で項目を並べる
-- 1 ブロックに複数のラベルを混ぜない
-- ラベル名を勝手に言い換えない
-- `🤖 AIメモ` はアプリ画面上の表記です
+- `📓 Learning points`
+- `👀 Observation notes`
+- `👍 Where and how it was good`
+- `🤖 AI memo`
 
-### 使わない方がよいラベル
+### Label Usage Tips
 
-次のラベルはコード上に予約がありますが、現時点では自動取り込みの主対象ではありません。
+- Keep the emoji and wording identical each time
+- Place labels in standalone blocks
+- Put bullet points or short paragraphs below each label
+- Do not mix multiple labels in one block
+- Do not paraphrase label names
+- `🤖 AI memo` is how it appears on the app screen
 
-- `☔ 次の一歩`
-- `👪 まとめ`
-- `事前情報`
+### Labels Best Avoided
 
-`事前情報` は補足欄として置いておくのは構いませんが、構造化された項目としては扱われません。
+The following labels are reserved in code but are not primary targets for automatic import at this time:
 
-## 🤖 AIメモの書き込み先
+- `☔ Next step`
+- `👪 Summary`
+- `Prior information`
 
-`🤖 AIメモ` は、アプリ上の表示名です。
+Placing `Prior information` as a supplemental field is fine, but it is not treated as a structured item.
 
-アプリでは、パート終了後または手動の再生成時に AIメモを作成します。
+## AI Memo Write Destination
 
-Notionインポートしたセッションでは、対応する `🤖 AIメモ` ブロックへ同期します。手動作成のセッションには Notion の書き込み先がないため、AIメモはアプリ内でのみ保持されます。
+`🤖 AI memo` is the display name used in the app.
 
-Notion へ書き戻すときは `🤖 コメント素材` として出力されるため、テンプレート側は `🤖 AIメモ` でも `🤖 コメント素材` でも運用できます。表記を統一したい場合は、アプリ画面の `🤖 AIメモ` に合わせるのが分かりやすいです。
+The app generates AI memo when a part ends or on manual regeneration.
 
-## うまく取り込めないとき
+For Notion-imported sessions, it syncs to the corresponding `🤖 AI memo` block. Manually created sessions have no Notion write destination, so AI memo is kept only within the app.
 
-- プレビューの未解釈ブロック数が多い場合は、見出し階層を見直す
-- 章名が完全一致しているか確認する
-- パート見出しが `3.` のように数字 + `.` で始まっているか確認する
-- Notion ページがインテグレーションに共有されているか確認する
-- 設定画面で OpenAI API Key と Notion トークンが保存されているか確認する
+When writing back to Notion, the output is labeled `🤖 AI memo`, so the template can use either `🤖 AI memo` or the equivalent. For consistency, matching the app's `🤖 AI memo` label is clearest.
+
+## When Import Doesn't Work Well
+
+- If the preview shows many unparsed blocks, review the heading hierarchy
+- Check that chapter names match exactly
+- Check that part headings start with a number and period, e.g. `3.`
+- Check that the Notion page is shared with the integration
+- Check that the OpenAI API Key and Notion token are saved in Settings
+
+## Speech Recognition Usage
+
+Requires an internet connection, or may function with on-device macOS speech recognition. See Apple's documentation for supported languages.
+
+## Privacy Notice
+
+When generating AI memo, transcription content and related notes are sent to the OpenAI API.
+Exercise caution if they contain personal information or content you do not wish to disclose.
