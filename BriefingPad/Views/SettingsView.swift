@@ -46,6 +46,9 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                     TextField("settings.placeholder.apiEndpoint", text: $customEndpoint)
                         .textFieldStyle(.roundedBorder)
+                    Text("settings.apiEndpointDescription")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
 
                 VStack(alignment: .leading) {
@@ -99,6 +102,12 @@ struct SettingsView: View {
                 Button("common.save") {
                     guard viewModel.isBootstrapped else { return }
                     do {
+                        // Validate custom endpoint before saving anything
+                        let trimmedEndpoint = customEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmedEndpoint.isEmpty {
+                            _ = try EndpointValidator.validate(urlString: trimmedEndpoint)
+                        }
+
                         try keychainService.save(key: KeychainKeys.openaiApiKey, value: apiKey)
                         try keychainService.save(key: KeychainKeys.notionIntegrationToken, value: notionToken)
                         UserDefaults.standard.set(customEndpoint, forKey: "customApiEndpoint")

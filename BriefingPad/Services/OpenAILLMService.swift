@@ -9,7 +9,12 @@ class OpenAILLMService: LLMServiceProtocol {
         let base = UserDefaults.standard.string(forKey: "customApiEndpoint")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let defaultUrl = URL(string: "https://api.openai.com/v1/chat/completions")!
         if base.isEmpty { return defaultUrl }
-        return URL(string: base + "/chat/completions") ?? defaultUrl
+        do {
+            let validated = try EndpointValidator.validate(urlString: base)
+            return validated.appendingPathComponent("chat/completions")
+        } catch {
+            return defaultUrl
+        }
     }
 
     private var model: String {
@@ -37,6 +42,7 @@ class OpenAILLMService: LLMServiceProtocol {
         partInfo: PartDefinition,
         localeIdentifier: String
     ) async throws -> AnalysisResult {
+        try validateEndpoint()
         guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
@@ -111,6 +117,7 @@ class OpenAILLMService: LLMServiceProtocol {
         observations: [SummarizedItem],
         localeIdentifier: String
     ) async throws -> String {
+        try validateEndpoint()
         guard let apiKey = keychainService.load(key: KeychainKeys.openaiApiKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !apiKey.isEmpty else {
             throw LLMError.missingApiKey
         }
@@ -177,6 +184,16 @@ class OpenAILLMService: LLMServiceProtocol {
             return result
         }
     }
+
+    private func validateEndpoint() throws {
+        let base = UserDefaults.standard.string(forKey: "customApiEndpoint")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if base.isEmpty { return }
+        do {
+            _ = try EndpointValidator.validate(urlString: base)
+        } catch {
+            throw LLMError.invalidEndpoint(error.localizedDescription)
+        }
+    }
 }
 
 enum LLMError: Error, LocalizedError {
@@ -185,6 +202,7 @@ enum LLMError: Error, LocalizedError {
     case invalidResponse
     case parseError(String)
     case timeout
+    case invalidEndpoint(String)
 
     var errorDescription: String? {
         switch self {
@@ -198,6 +216,8 @@ enum LLMError: Error, LocalizedError {
             return String(format: NSLocalizedString("llm.error.parseErrorFormat", comment: "Parse error with message"), message)
         case .timeout:
             return NSLocalizedString("llm.error.timeout", comment: "Request timed out")
+        case .invalidEndpoint(let message):
+            return String(format: NSLocalizedString("llm.error.invalidEndpointFormat", comment: "Invalid endpoint with message"), message)
         }
     }
 }

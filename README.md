@@ -111,7 +111,7 @@ Saved information: `OpenAI API Key` and `Notion Integration Token` are stored in
 | --- | --- | --- | --- |
 | `OpenAI API Key` | API key used for transcription analysis and AI memo generation | Keychain | If left blank, OpenAI API is unavailable |
 | `Notion Integration Token` | Token used for Notion import and writing back to Notion | Keychain | Can be left unset if not using Notion |
-| `API Endpoint (optional)` | Base URL for sending to OpenAI-compatible APIs | App preferences | For using providers other than OpenAI. `/chat/completions` is appended automatically, so do not include it |
+| `API Endpoint (optional)` | Base URL for sending to OpenAI-compatible APIs | App preferences | For using providers other than OpenAI. `/chat/completions` is appended automatically, so do not include it. For security, `https` is allowed for any host, but `http` is restricted to local/private addresses (`localhost`, `*.local`, `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`, or `[::1]`) |
 | `Model Name (optional)` | Model name used for AI memo generation and analysis | App preferences | If blank, defaults to `gpt-5.4-mini-2026-03-17` |
 | `Session sort order` | Sort order for the session list | App preferences | Choose from: `Name (Ascending)`, `Name (Descending)`, `Updated (Oldest)`, `Updated (Newest)`, `Created (Oldest)`, `Created (Newest)`. Default is `Created (Newest)` |
 | `Transcription Language` | Language setting used for transcription | App preferences | Choose from `SpeechTranscriber` supported locales. When not set, automatically determined based on system language. Falls back to `ja-JP` or an available locale if no match is found |
